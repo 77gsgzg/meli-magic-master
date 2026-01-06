@@ -1,1 +1,10 @@
 project_id = "xiwcdhmjekwcousinmce"
+
+[functions.ml-oauth]
+verify_jwt = false
+
+[functions.ml-api]
+verify_jwt = false
+
+[functions.ai-optimize]
+verify_jwt = false

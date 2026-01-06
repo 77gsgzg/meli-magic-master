@@ -1,10 +1,16 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Store, ArrowRight, Shield, Zap, Sparkles, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { z } from "zod";
+
+const emailSchema = z.string().email("Email inválido");
+const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,15 +18,90 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, loading, signIn, signUp } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/");
+    }
+  }, [user, loading, navigate]);
+
+  // Handle ML OAuth callback
+  useEffect(() => {
+    const mlCode = searchParams.get("code");
+    if (mlCode) {
+      // Will be handled after login
+      sessionStorage.setItem("ml_auth_code", mlCode);
+    }
+  }, [searchParams]);
+
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+
+    try {
+      emailSchema.parse(email);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        newErrors.email = e.errors[0].message;
+      }
+    }
+
+    try {
+      passwordSchema.parse(password);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        newErrors.password = e.errors[0].message;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setIsLoading(false);
-    navigate("/");
+
+    try {
+      if (isLogin) {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        toast.success("Login realizado com sucesso!");
+      } else {
+        const { error } = await signUp(email, password, fullName);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        toast.success("Conta criada com sucesso!");
+      }
+      navigate("/");
+    } catch (error) {
+      toast.error("Ocorreu um erro. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -119,7 +200,8 @@ export default function Auth() {
                     id="name"
                     variant="glass"
                     placeholder="Seu nome"
-                    required={!isLogin}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                   />
                 </div>
               )}
@@ -132,9 +214,16 @@ export default function Auth() {
                   variant="glass"
                   placeholder="seu@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors({ ...errors, email: undefined });
+                  }}
+                  className={errors.email ? "border-destructive" : ""}
                   required
                 />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email}</p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -146,7 +235,11 @@ export default function Auth() {
                     variant="glass"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors({ ...errors, password: undefined });
+                    }}
+                    className={errors.password ? "border-destructive" : ""}
                     required
                   />
                   <Button
@@ -163,6 +256,9 @@ export default function Auth() {
                     )}
                   </Button>
                 </div>
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                )}
               </div>
 
               <Button className="w-full" size="lg" disabled={isLoading}>
@@ -185,31 +281,16 @@ export default function Auth() {
                 {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}
                 <button
                   type="button"
-                  onClick={() => setIsLogin(!isLogin)}
+                  onClick={() => {
+                    setIsLogin(!isLogin);
+                    setErrors({});
+                  }}
                   className="text-primary hover:underline font-medium"
                 >
                   {isLogin ? "Criar conta" : "Entrar"}
                 </button>
               </p>
             </div>
-
-            {isLogin && (
-              <div className="mt-6">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">ou</span>
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full mt-4">
-                  <Store className="h-5 w-5 text-[#FFE600]" />
-                  Conectar com Mercado Livre
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
