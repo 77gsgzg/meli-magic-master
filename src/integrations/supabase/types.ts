@@ -14,16 +14,313 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ml_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          ml_user_id: string | null
+          nickname: string | null
+          refresh_token: string
+          seller_id: string | null
+          token_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          ml_user_id?: string | null
+          nickname?: string | null
+          refresh_token: string
+          seller_id?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ml_user_id?: string | null
+          nickname?: string | null
+          refresh_token?: string
+          seller_id?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      operation_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          duration_ms: number | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          operation_type: Database["public"]["Enums"]["operation_type"]
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          operation_type: Database["public"]["Enums"]["operation_type"]
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          operation_type?: Database["public"]["Enums"]["operation_type"]
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          ai_optimized: boolean | null
+          attributes: Json | null
+          available_quantity: number | null
+          category_id: string | null
+          category_name: string | null
+          condition: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          error_message: string | null
+          id: string
+          images: Json | null
+          listing_type: string | null
+          ml_item_id: string | null
+          ml_permalink: string | null
+          original_description: string | null
+          original_price: number | null
+          original_title: string | null
+          price: number | null
+          published_at: string | null
+          sales: number | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["product_status"] | null
+          title: string
+          updated_at: string
+          user_id: string
+          views: number | null
+        }
+        Insert: {
+          ai_optimized?: boolean | null
+          attributes?: Json | null
+          available_quantity?: number | null
+          category_id?: string | null
+          category_name?: string | null
+          condition?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          images?: Json | null
+          listing_type?: string | null
+          ml_item_id?: string | null
+          ml_permalink?: string | null
+          original_description?: string | null
+          original_price?: number | null
+          original_title?: string | null
+          price?: number | null
+          published_at?: string | null
+          sales?: number | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["product_status"] | null
+          title: string
+          updated_at?: string
+          user_id: string
+          views?: number | null
+        }
+        Update: {
+          ai_optimized?: boolean | null
+          attributes?: Json | null
+          available_quantity?: number | null
+          category_id?: string | null
+          category_name?: string | null
+          condition?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          images?: Json | null
+          listing_type?: string | null
+          ml_item_id?: string | null
+          ml_permalink?: string | null
+          original_description?: string | null
+          original_price?: number | null
+          original_title?: string | null
+          price?: number | null
+          published_at?: string | null
+          sales?: number | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["product_status"] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          views?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      publication_history: {
+        Row: {
+          action: string
+          created_at: string
+          error_details: string | null
+          id: string
+          ml_response: Json | null
+          product_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_details?: string | null
+          id?: string
+          ml_response?: Json | null
+          product_id: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_details?: string | null
+          id?: string
+          ml_response?: Json | null
+          product_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publication_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_limit_tracking: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          request_count: number | null
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          request_count?: number | null
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          request_count?: number | null
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      operation_type:
+        | "import"
+        | "publish"
+        | "update"
+        | "delete"
+        | "token_refresh"
+        | "ai_optimization"
+      product_status: "draft" | "pending" | "published" | "error" | "paused"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +447,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      operation_type: [
+        "import",
+        "publish",
+        "update",
+        "delete",
+        "token_refresh",
+        "ai_optimization",
+      ],
+      product_status: ["draft", "pending", "published", "error", "paused"],
+    },
   },
 } as const
