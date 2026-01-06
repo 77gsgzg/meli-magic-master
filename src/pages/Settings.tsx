@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   Store,
-  Key,
   Bell,
   Sparkles,
   Shield,
@@ -15,9 +16,66 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Loader2,
+  Link2Off,
 } from "lucide-react";
+import { useRequireAuth } from "@/hooks/useAuth";
+import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { toast } from "sonner";
 
 export default function Settings() {
+  const { user, loading: authLoading } = useRequireAuth();
+  const { connection, loading: mlLoading, getAuthUrl, handleCallback, checkConnection } = useMercadoLivre();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Handle ML OAuth callback
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code && user) {
+      const redirectUri = `${window.location.origin}/settings`;
+      handleCallback(code, redirectUri).then((success) => {
+        // Clear the code from URL
+        setSearchParams({});
+      });
+    }
+  }, [searchParams, user]);
+
+  const handleConnectML = async () => {
+    setIsConnecting(true);
+    try {
+      const redirectUri = `${window.location.origin}/settings`;
+      const authUrl = await getAuthUrl(redirectUri);
+      if (authUrl) {
+        window.location.href = authUrl;
+      }
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleRefreshToken = async () => {
+    setIsRefreshing(true);
+    try {
+      // Token refresh happens automatically in the API calls
+      await checkConnection();
+      toast.success("Token renovado com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao renovar token");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <DashboardLayout
       title="Configurações"
@@ -36,80 +94,91 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg bg-success/10 border border-success/20 p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-                <div>
-                  <p className="font-medium text-foreground">Conta conectada</p>
-                  <p className="text-sm text-muted-foreground">Seller ID: 123456789</p>
-                </div>
+            {mlLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
-              <Badge variant="success">Ativo</Badge>
-            </div>
+            ) : connection.connected ? (
+              <>
+                <div className="flex items-center justify-between rounded-lg bg-success/10 border border-success/20 p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                    <div>
+                      <p className="font-medium text-foreground">Conta conectada</p>
+                      <p className="text-sm text-muted-foreground">
+                        {connection.nickname} • Seller ID: {connection.seller_id}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={connection.is_expired ? "destructive" : "success"}>
+                    {connection.is_expired ? "Expirado" : "Ativo"}
+                  </Badge>
+                </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Access Token</Label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Access Token</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        variant="glass"
+                        value="••••••••••••••••••••"
+                        readOnly
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Status</Label>
+                    <div className="flex items-center gap-2 h-11 px-4 rounded-lg glass">
+                      {connection.is_expired ? (
+                        <>
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                          <span className="text-sm text-destructive">Token expirado</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                          <span className="text-sm">Token válido</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
-                  <Input
-                    variant="glass"
-                    value="••••••••••••••••••••"
-                    readOnly
-                    className="font-mono"
-                  />
+                  <Button variant="outline" onClick={handleRefreshToken} disabled={isRefreshing}>
+                    {isRefreshing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    Renovar Token
+                  </Button>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Expira em</Label>
-                <div className="flex items-center gap-2 h-11 px-4 rounded-lg glass">
-                  <RefreshCw className="h-4 w-4 text-primary" />
-                  <span className="text-sm">5 horas 23 minutos</span>
+              </>
+            ) : (
+              <div className="text-center py-8 space-y-4">
+                <div className="flex justify-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                    <Link2Off className="h-8 w-8 text-muted-foreground" />
+                  </div>
                 </div>
+                <div>
+                  <p className="font-medium">Mercado Livre não conectado</p>
+                  <p className="text-sm text-muted-foreground">
+                    Conecte sua conta para começar a publicar produtos
+                  </p>
+                </div>
+                <Button onClick={handleConnectML} disabled={isConnecting}>
+                  {isConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Store className="h-4 w-4" />
+                  )}
+                  Conectar Mercado Livre
+                </Button>
               </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline">
-                <RefreshCw className="h-4 w-4" />
-                Renovar Token
-              </Button>
-              <Button variant="outline" className="text-destructive hover:text-destructive">
-                Desconectar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* API Keys */}
-        <Card variant="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5 text-primary" />
-              Chaves de API
-            </CardTitle>
-            <CardDescription>
-              Configure suas credenciais do aplicativo Mercado Livre
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Client ID</Label>
-              <Input variant="glass" placeholder="Seu Client ID" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Client Secret</Label>
-              <Input variant="glass" type="password" placeholder="Seu Client Secret" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Redirect URI</Label>
-              <Input
-                variant="glass"
-                value="https://seusite.com/callback"
-                readOnly
-                className="text-muted-foreground"
-              />
-            </div>
-            <Button>Salvar Credenciais</Button>
+            )}
           </CardContent>
         </Card>
 
@@ -139,7 +208,7 @@ export default function Settings() {
               <div className="space-y-0.5">
                 <Label className="text-base">Enriquecimento de descrições</Label>
                 <p className="text-sm text-muted-foreground">
-                  Adicionar emojis, formatação e CTAs nas descrições
+                  Adicionar formatação e CTAs nas descrições
                 </p>
               </div>
               <Switch defaultChecked />
@@ -228,16 +297,16 @@ export default function Settings() {
               <div className="space-y-1">
                 <p className="font-medium text-foreground">Tokens criptografados</p>
                 <p className="text-sm text-muted-foreground">
-                  Todos os tokens OAuth são armazenados com criptografia AES-256. 
+                  Todos os tokens OAuth são armazenados de forma segura. 
                   As comunicações com a API do Mercado Livre são feitas exclusivamente via HTTPS.
                 </p>
               </div>
             </div>
 
-            <Button variant="outline">
-              <ExternalLink className="h-4 w-4" />
-              Ver logs de segurança
-            </Button>
+            <div className="text-sm text-muted-foreground">
+              <p>Email: {user?.email}</p>
+              <p>ID: {user?.id}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
