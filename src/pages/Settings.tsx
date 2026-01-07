@@ -25,10 +25,11 @@ import { toast } from "sonner";
 
 export default function Settings() {
   const { user, loading: authLoading } = useRequireAuth();
-  const { connection, loading: mlLoading, getAuthUrl, handleCallback, checkConnection } = useMercadoLivre();
+  const { connection, loading: mlLoading, getAuthUrl, handleCallback, disconnect, refreshToken } = useMercadoLivre();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // Handle ML OAuth callback
   useEffect(() => {
@@ -58,13 +59,22 @@ export default function Settings() {
   const handleRefreshToken = async () => {
     setIsRefreshing(true);
     try {
-      // Token refresh happens automatically in the API calls
-      await checkConnection();
-      toast.success("Token renovado com sucesso!");
-    } catch (error) {
-      toast.error("Erro ao renovar token");
+      await refreshToken();
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Tem certeza que deseja desconectar sua conta do Mercado Livre?')) {
+      return;
+    }
+    
+    setIsDisconnecting(true);
+    try {
+      await disconnect();
+    } finally {
+      setIsDisconnecting(false);
     }
   };
 
@@ -153,6 +163,18 @@ export default function Settings() {
                       <RefreshCw className="h-4 w-4" />
                     )}
                     Renovar Token
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleDisconnect} 
+                    disabled={isDisconnecting}
+                  >
+                    {isDisconnecting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2Off className="h-4 w-4" />
+                    )}
+                    Desconectar
                   </Button>
                 </div>
               </>
