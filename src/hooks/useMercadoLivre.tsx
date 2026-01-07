@@ -120,6 +120,70 @@ export function useMercadoLivre() {
     }
   };
 
+  const disconnect = async (): Promise<boolean> => {
+    if (!session?.access_token) return false;
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=disconnect`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setConnection({ connected: false });
+        toast.success('Mercado Livre desconectado com sucesso!');
+        return true;
+      }
+
+      toast.error(result.error || 'Erro ao desconectar');
+      return false;
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Erro ao desconectar Mercado Livre');
+      return false;
+    }
+  };
+
+  const refreshToken = async (): Promise<boolean> => {
+    if (!session?.access_token) return false;
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=refresh`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        await checkConnection();
+        toast.success('Token renovado com sucesso!');
+        return true;
+      }
+
+      toast.error(result.error || 'Erro ao renovar token');
+      return false;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      toast.error('Erro ao renovar token');
+      return false;
+    }
+  };
+
   const callMLApi = async (action: string, data?: Record<string, unknown>) => {
     if (!session?.access_token) {
       throw new Error('Not authenticated');
@@ -152,6 +216,8 @@ export function useMercadoLivre() {
     checkConnection,
     getAuthUrl,
     handleCallback,
+    disconnect,
+    refreshToken,
     callMLApi,
   };
 }

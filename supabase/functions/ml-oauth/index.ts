@@ -308,6 +308,62 @@ serve(async (req) => {
       );
     }
 
+    // Disconnect ML account
+    if (action === 'disconnect') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      
+      if (claimsError || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const userId = claimsData.claims.sub;
+
+      console.log('Disconnecting ML account for user:', userId);
+
+      // Delete tokens from database
+      const { error: deleteError } = await supabase
+        .from('ml_tokens')
+        .delete()
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        console.error('Error deleting tokens:', deleteError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to disconnect' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Log operation
+      await supabase.from('operation_logs').insert({
+        user_id: userId,
+        operation_type: 'delete',
+        entity_type: 'ml_tokens',
+        details: { action: 'disconnect' },
+        status: 'success',
+      });
+
+      console.log('ML account disconnected successfully');
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
