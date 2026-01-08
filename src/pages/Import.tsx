@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useRequireAuth } from "@/hooks/useAuth";
+import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Link2,
   Sparkles,
@@ -17,84 +22,277 @@ import {
   DollarSign,
   RefreshCw,
   Send,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 
-type ImportStep = "input" | "extracting" | "optimizing" | "review" | "publishing" | "done";
+type ImportStep = "input" | "extracting" | "optimizing" | "review" | "publishing" | "done" | "error";
+
+interface ProductData {
+  title: string;
+  description: string;
+  price: number | null;
+  currency: string;
+  category: string;
+  images: string[];
+  attributes: { name: string; value: string }[];
+  source_url: string;
+}
 
 export default function Import() {
+  const { session } = useRequireAuth();
+  const { connection, loading: mlLoading } = useMercadoLivre();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [url, setUrl] = useState("");
   const [step, setStep] = useState<ImportStep>("input");
-  const [productData, setProductData] = useState({
+  const [error, setError] = useState<string | null>(null);
+  const [publishedItemId, setPublishedItemId] = useState<string | null>(null);
+  const [productData, setProductData] = useState<ProductData>({
     title: "",
     description: "",
-    price: "",
+    price: null,
+    currency: "BRL",
     category: "",
-    images: [] as string[],
+    images: [],
+    attributes: [],
+    source_url: "",
   });
 
-  const simulateExtraction = async () => {
+  // Check for URL in query params (from QuickImport)
+  useEffect(() => {
+    const urlParam = searchParams.get("url");
+    if (urlParam) {
+      setUrl(urlParam);
+    }
+  }, [searchParams]);
+
+  const extractProduct = async () => {
+    if (!session?.access_token) {
+      toast.error("Você precisa estar logado");
+      return;
+    }
+
     setStep("extracting");
-    await new Promise((r) => setTimeout(r, 2000));
-    
-    setProductData({
-      title: "Fone de Ouvido Bluetooth Premium com Cancelamento de Ruído Ativo",
-      description: "Fone de ouvido wireless com tecnologia de cancelamento de ruído ativo, bateria de longa duração e conforto excepcional para uso prolongado.",
-      price: "R$ 459,90",
-      category: "Eletrônicos > Áudio > Fones de Ouvido",
-      images: [
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400&h=400&fit=crop",
-      ],
-    });
-    
-    setStep("optimizing");
-    await new Promise((r) => setTimeout(r, 2500));
-    
-    setProductData((prev) => ({
-      ...prev,
-      title: "Fone Bluetooth Premium ANC | Cancelamento de Ruído | 40h Bateria | Conforto Superior",
-      description: `🎧 FONE DE OUVIDO BLUETOOTH PREMIUM COM CANCELAMENTO DE RUÍDO ATIVO
+    setError(null);
 
-✅ CARACTERÍSTICAS PRINCIPAIS:
-• Cancelamento de Ruído Ativo (ANC) - Isole-se do mundo
-• Bateria de 40 horas - Use o dia todo sem preocupação
-• Bluetooth 5.3 - Conexão estável e alcance de 15m
-• Drivers de 40mm - Som Hi-Fi cristalino
-• Design ergonômico - Conforto para uso prolongado
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-product`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url }),
+        }
+      );
 
-📦 O QUE ESTÁ INCLUÍDO:
-• 1x Fone de Ouvido Bluetooth
-• 1x Cabo USB-C para carregamento
-• 1x Cabo auxiliar 3.5mm
-• 1x Case de transporte premium
-• 1x Manual de instruções
+      const result = await response.json();
 
-🛡️ GARANTIA: 12 meses direto com o vendedor
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao extrair produto");
+      }
 
-💬 Dúvidas? Pergunte antes de comprar!`,
-    }));
-    
-    setStep("review");
+      setProductData({
+        title: result.title || "",
+        description: result.description || "",
+        price: result.price,
+        currency: result.currency || "BRL",
+        category: result.category || "",
+        images: result.images || [],
+        attributes: result.attributes || [],
+        source_url: url,
+      });
+
+      // Optimize with AI
+      setStep("optimizing");
+      await optimizeWithAI(result);
+    } catch (err) {
+      console.error("Extraction error:", err);
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      setStep("error");
+    }
+  };
+
+  const optimizeWithAI = async (extractedData: Partial<ProductData>) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-optimize`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: extractedData.title,
+            description: extractedData.description,
+            category: extractedData.category,
+            attributes: extractedData.attributes,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.optimized_title) {
+        setProductData((prev) => ({
+          ...prev,
+          title: result.optimized_title,
+          description: result.optimized_description || prev.description,
+        }));
+      }
+
+      setStep("review");
+    } catch (err) {
+      console.error("AI optimization error:", err);
+      // Continue to review even if AI fails
+      setStep("review");
+    }
   };
 
   const handlePublish = async () => {
+    if (!connection.connected) {
+      toast.error("Conecte sua conta do Mercado Livre primeiro");
+      navigate("/mercado-livre");
+      return;
+    }
+
     setStep("publishing");
-    await new Promise((r) => setTimeout(r, 2000));
-    setStep("done");
+
+    try {
+      // First save to database
+      const { data: savedProduct, error: saveError } = await supabase
+        .from("products")
+        .insert({
+          user_id: session?.user?.id,
+          title: productData.title,
+          description: productData.description,
+          price: productData.price,
+          currency: productData.currency,
+          category_name: productData.category,
+          images: productData.images,
+          attributes: productData.attributes,
+          source_url: productData.source_url,
+          original_title: productData.title,
+          original_description: productData.description,
+          original_price: productData.price,
+          ai_optimized: true,
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (saveError) {
+        throw new Error("Erro ao salvar produto");
+      }
+
+      // Publish to Mercado Livre
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-api`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "publish_item",
+            data: {
+              title: productData.title,
+              description: productData.description,
+              price: productData.price,
+              currency_id: productData.currency,
+              category_id: productData.category || "MLB1000", // Default category
+              pictures: productData.images.map((url) => ({ source: url })),
+              condition: "new",
+              listing_type_id: "gold_special",
+              available_quantity: 1,
+            },
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Update product status to error
+        await supabase
+          .from("products")
+          .update({
+            status: "error",
+            error_message: result.error,
+          })
+          .eq("id", savedProduct.id);
+
+        throw new Error(result.error || "Erro ao publicar no Mercado Livre");
+      }
+
+      // Update product with ML info
+      await supabase
+        .from("products")
+        .update({
+          status: "published",
+          ml_item_id: result.id,
+          ml_permalink: result.permalink,
+          published_at: new Date().toISOString(),
+        })
+        .eq("id", savedProduct.id);
+
+      setPublishedItemId(result.id);
+      setStep("done");
+      toast.success("Produto publicado com sucesso!");
+    } catch (err) {
+      console.error("Publish error:", err);
+      setError(err instanceof Error ? err.message : "Erro ao publicar");
+      setStep("error");
+    }
   };
 
   const resetImport = () => {
     setUrl("");
     setStep("input");
+    setError(null);
+    setPublishedItemId(null);
     setProductData({
       title: "",
       description: "",
-      price: "",
+      price: null,
+      currency: "BRL",
       category: "",
       images: [],
+      attributes: [],
+      source_url: "",
     });
   };
+
+  // Check ML connection
+  if (!mlLoading && !connection.connected && step === "input") {
+    return (
+      <DashboardLayout
+        title="Importar Produto"
+        subtitle="Importe e otimize produtos automaticamente com IA"
+      >
+        <div className="max-w-2xl mx-auto">
+          <Card variant="glass">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertCircle className="h-12 w-12 text-warning mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Mercado Livre não conectado</h3>
+              <p className="text-muted-foreground text-center mb-6">
+                Você precisa conectar sua conta do Mercado Livre antes de importar produtos.
+              </p>
+              <Button onClick={() => navigate("/mercado-livre")}>
+                Conectar Mercado Livre
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -110,36 +308,36 @@ export default function Import() {
             { id: "optimizing", label: "Otimização" },
             { id: "review", label: "Revisão" },
             { id: "publishing", label: "Publicação" },
-          ].map((s, i, arr) => (
-            <div key={s.id} className="flex items-center">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
-                  step === s.id
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : ["extracting", "optimizing", "review", "publishing", "done"].indexOf(step) >
-                      ["input", "extracting", "optimizing", "review", "publishing"].indexOf(s.id)
-                    ? "border-primary bg-primary/20 text-primary"
-                    : "border-muted bg-muted/50 text-muted-foreground"
-                }`}
-              >
-                {["extracting", "optimizing", "review", "publishing", "done"].indexOf(step) >
-                ["input", "extracting", "optimizing", "review", "publishing"].indexOf(s.id) ? (
-                  <CheckCircle2 className="h-5 w-5" />
-                ) : (
-                  i + 1
+          ].map((s, i, arr) => {
+            const stepOrder = ["input", "extracting", "optimizing", "review", "publishing", "done"];
+            const currentIndex = stepOrder.indexOf(step);
+            const itemIndex = stepOrder.indexOf(s.id);
+            const isComplete = currentIndex > itemIndex;
+            const isCurrent = step === s.id;
+
+            return (
+              <div key={s.id} className="flex items-center">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
+                    isCurrent
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : isComplete
+                      ? "border-primary bg-primary/20 text-primary"
+                      : "border-muted bg-muted/50 text-muted-foreground"
+                  }`}
+                >
+                  {isComplete ? <CheckCircle2 className="h-5 w-5" /> : i + 1}
+                </div>
+                {i < arr.length - 1 && (
+                  <div
+                    className={`h-0.5 w-16 mx-2 transition-all ${
+                      isComplete ? "bg-primary" : "bg-muted"
+                    }`}
+                  />
                 )}
               </div>
-              {i < arr.length - 1 && (
-                <div
-                  className={`h-0.5 w-16 mx-2 transition-all ${
-                    ["extracting", "optimizing", "review", "publishing", "done"].indexOf(step) > i
-                      ? "bg-primary"
-                      : "bg-muted"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Input Step */}
@@ -165,7 +363,7 @@ export default function Import() {
               <Button
                 className="w-full"
                 size="xl"
-                onClick={simulateExtraction}
+                onClick={extractProduct}
                 disabled={!url}
               >
                 <Sparkles className="h-5 w-5" />
@@ -217,30 +415,56 @@ export default function Import() {
           </Card>
         )}
 
+        {/* Error Step */}
+        {step === "error" && (
+          <Card variant="glass" className="border-destructive/50 animate-fade-in">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
+              <h3 className="mt-4 text-xl font-semibold text-destructive">
+                Erro na Importação
+              </h3>
+              <p className="mt-2 text-muted-foreground text-center max-w-md">
+                {error || "Ocorreu um erro ao processar o produto"}
+              </p>
+              <Button className="mt-6" onClick={resetImport}>
+                <RefreshCw className="h-4 w-4" />
+                Tentar Novamente
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Review Step */}
         {(step === "review" || step === "publishing" || step === "done") && (
           <div className="space-y-6 animate-fade-in">
             {/* Images */}
-            <Card variant="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Image className="h-5 w-5 text-primary" />
-                  Imagens do Produto
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {productData.images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt={`Imagem ${i + 1}`}
-                      className="h-32 w-32 rounded-lg object-cover border border-border"
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {productData.images.length > 0 && (
+              <Card variant="glass">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Image className="h-5 w-5 text-primary" />
+                    Imagens do Produto ({productData.images.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {productData.images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        alt={`Imagem ${i + 1}`}
+                        className="h-32 w-32 rounded-lg object-cover border border-border flex-shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Title */}
             <Card variant="glass">
@@ -248,14 +472,18 @@ export default function Import() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FileText className="h-5 w-5 text-primary" />
                   Título Otimizado
-                  <Badge variant="success" className="ml-auto">IA</Badge>
+                  <Badge variant="success" className="ml-auto">
+                    IA
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Input
                   variant="glass"
                   value={productData.title}
-                  onChange={(e) => setProductData({ ...productData, title: e.target.value })}
+                  onChange={(e) =>
+                    setProductData({ ...productData, title: e.target.value })
+                  }
                   disabled={step !== "review"}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
@@ -270,14 +498,18 @@ export default function Import() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FileText className="h-5 w-5 text-primary" />
                   Descrição Otimizada
-                  <Badge variant="success" className="ml-auto">IA</Badge>
+                  <Badge variant="success" className="ml-auto">
+                    IA
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
-                  className="min-h-[300px] glass border-border/50 focus:border-primary/50"
+                  className="min-h-[200px] glass border-border/50 focus:border-primary/50"
                   value={productData.description}
-                  onChange={(e) => setProductData({ ...productData, description: e.target.value })}
+                  onChange={(e) =>
+                    setProductData({ ...productData, description: e.target.value })
+                  }
                   disabled={step !== "review"}
                 />
               </CardContent>
@@ -295,9 +527,17 @@ export default function Import() {
                 <CardContent>
                   <Input
                     variant="glass"
-                    value={productData.price}
-                    onChange={(e) => setProductData({ ...productData, price: e.target.value })}
+                    type="number"
+                    step="0.01"
+                    value={productData.price || ""}
+                    onChange={(e) =>
+                      setProductData({
+                        ...productData,
+                        price: parseFloat(e.target.value) || null,
+                      })
+                    }
                     disabled={step !== "review"}
+                    placeholder="0.00"
                   />
                 </CardContent>
               </Card>
@@ -313,8 +553,11 @@ export default function Import() {
                   <Input
                     variant="glass"
                     value={productData.category}
-                    onChange={(e) => setProductData({ ...productData, category: e.target.value })}
+                    onChange={(e) =>
+                      setProductData({ ...productData, category: e.target.value })
+                    }
                     disabled={step !== "review"}
+                    placeholder="Categoria do produto"
                   />
                 </CardContent>
               </Card>
@@ -327,7 +570,12 @@ export default function Import() {
                   <RefreshCw className="h-5 w-5" />
                   Começar Novamente
                 </Button>
-                <Button className="flex-1" size="lg" onClick={handlePublish}>
+                <Button
+                  className="flex-1"
+                  size="lg"
+                  onClick={handlePublish}
+                  disabled={!productData.title || !productData.price}
+                >
                   <Send className="h-5 w-5" />
                   Publicar no Mercado Livre
                 </Button>
@@ -355,6 +603,16 @@ export default function Import() {
                   <p className="mt-2 text-muted-foreground">
                     O produto já está disponível na sua loja do Mercado Livre
                   </p>
+                  {publishedItemId && (
+                    <a
+                      href={`https://www.mercadolivre.com.br/p/${publishedItemId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 flex items-center gap-2 text-primary hover:underline"
+                    >
+                      Ver anúncio <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
                   <Button className="mt-6" onClick={resetImport}>
                     Importar Outro Produto
                   </Button>

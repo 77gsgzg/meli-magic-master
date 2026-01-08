@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.ai-optimize]
 verify_jwt = false
+
+[functions.extract-product]
+verify_jwt = false
