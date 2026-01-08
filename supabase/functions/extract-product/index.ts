@@ -1,0 +1,330 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    const { url } = await req.json();
+
+    if (!url) {
+      return new Response(
+        JSON.stringify({ error: 'URL is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Extracting product from URL:', url);
+
+    // Fetch the page content
+    let pageContent = '';
+    try {
+      const pageResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+      });
+      
+      if (!pageResponse.ok) {
+        throw new Error(`Failed to fetch page: ${pageResponse.status}`);
+      }
+      
+      pageContent = await pageResponse.text();
+    } catch (fetchError) {
+      console.error('Error fetching URL:', fetchError);
+      return new Response(
+        JSON.stringify({ error: 'Não foi possível acessar a URL fornecida' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Extract basic data from HTML
+    const extractedData = extractProductData(pageContent, url);
+
+    // If no AI key, return basic extraction
+    if (!LOVABLE_API_KEY) {
+      console.log('No AI key, returning basic extraction');
+      return new Response(
+        JSON.stringify({
+          ...extractedData,
+          ai_enhanced: false,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use AI to enhance extraction
+    const systemPrompt = `Você é um especialista em extrair e analisar dados de produtos de páginas web.
+Analise o conteúdo HTML fornecido e extraia as seguintes informações do produto:
+
+1. Título do produto (limpo e descritivo)
+2. Descrição completa
+3. Preço (valor numérico)
+4. Moeda (BRL, USD, etc)
+5. Imagens (URLs)
+6. Categoria sugerida
+7. Características/Atributos principais
+
+Se alguma informação não estiver disponível, retorne null para esse campo.
+
+Responda APENAS em JSON válido com esta estrutura:
+{
+  "title": "título do produto",
+  "description": "descrição completa",
+  "price": 199.90,
+  "currency": "BRL",
+  "images": ["url1", "url2"],
+  "category": "categoria sugerida",
+  "attributes": [
+    {"name": "Cor", "value": "Preto"},
+    {"name": "Material", "value": "Alumínio"}
+  ]
+}`;
+
+    const userPrompt = `URL do produto: ${url}
+
+Dados extraídos automaticamente:
+- Título: ${extractedData.title || 'não encontrado'}
+- Preço: ${extractedData.price || 'não encontrado'}
+- Imagens encontradas: ${extractedData.images?.length || 0}
+
+Conteúdo HTML relevante (primeiros 15000 caracteres):
+${pageContent.substring(0, 15000)}
+
+Extraia e organize os dados do produto. Retorne apenas JSON válido.`;
+
+    try {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('AI API error:', response.status);
+        return new Response(
+          JSON.stringify({
+            ...extractedData,
+            ai_enhanced: false,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const aiResponse = await response.json();
+      const content = aiResponse.choices?.[0]?.message?.content;
+
+      if (content) {
+        try {
+          const cleanedContent = content
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
+          const aiData = JSON.parse(cleanedContent);
+
+          // Merge AI data with extracted data
+          const finalData = {
+            title: aiData.title || extractedData.title,
+            description: aiData.description || extractedData.description,
+            price: aiData.price || extractedData.price,
+            currency: aiData.currency || 'BRL',
+            images: aiData.images?.length ? aiData.images : extractedData.images,
+            category: aiData.category || extractedData.category,
+            attributes: aiData.attributes || [],
+            source_url: url,
+            ai_enhanced: true,
+          };
+
+          const duration = Date.now() - startTime;
+          console.log('Extraction completed in', duration, 'ms');
+
+          // Log operation
+          await supabase.from('operation_logs').insert({
+            user_id: userId,
+            operation_type: 'import',
+            entity_type: 'product',
+            details: { url, title: finalData.title },
+            status: 'success',
+            duration_ms: duration,
+          });
+
+          return new Response(
+            JSON.stringify(finalData),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (parseError) {
+          console.error('Failed to parse AI response:', parseError);
+        }
+      }
+    } catch (aiError) {
+      console.error('AI processing error:', aiError);
+    }
+
+    // Fallback to basic extraction
+    return new Response(
+      JSON.stringify({
+        ...extractedData,
+        ai_enhanced: false,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Extract product error:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+
+function extractProductData(html: string, url: string) {
+  const data: {
+    title: string | null;
+    description: string | null;
+    price: number | null;
+    currency: string;
+    images: string[];
+    category: string | null;
+    source_url: string;
+  } = {
+    title: null,
+    description: null,
+    price: null,
+    currency: 'BRL',
+    images: [],
+    category: null,
+    source_url: url,
+  };
+
+  // Extract title
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (titleMatch) {
+    data.title = titleMatch[1].trim().split('|')[0].split('-')[0].trim();
+  }
+
+  // Try og:title
+  const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+  if (ogTitleMatch) {
+    data.title = ogTitleMatch[1].trim();
+  }
+
+  // Extract description
+  const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+  if (descMatch) {
+    data.description = descMatch[1].trim();
+  }
+
+  // Try og:description
+  const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+  if (ogDescMatch) {
+    data.description = ogDescMatch[1].trim();
+  }
+
+  // Extract price patterns
+  const pricePatterns = [
+    /R\$\s*([\d.,]+)/gi,
+    /"price":\s*"?([\d.,]+)"?/gi,
+    /data-price=["']?([\d.,]+)["']?/gi,
+    /class=["'][^"']*price[^"']*["'][^>]*>R?\$?\s*([\d.,]+)/gi,
+  ];
+
+  for (const pattern of pricePatterns) {
+    const match = pattern.exec(html);
+    if (match) {
+      const priceStr = match[1].replace(/\./g, '').replace(',', '.');
+      const price = parseFloat(priceStr);
+      if (!isNaN(price) && price > 0 && price < 1000000) {
+        data.price = price;
+        break;
+      }
+    }
+  }
+
+  // Extract images
+  const imagePatterns = [
+    /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi,
+    /<img[^>]*src=["']([^"']+)["'][^>]*>/gi,
+    /"image":\s*"([^"]+)"/gi,
+  ];
+
+  const foundImages = new Set<string>();
+  for (const pattern of imagePatterns) {
+    let match;
+    while ((match = pattern.exec(html)) !== null && foundImages.size < 10) {
+      let imgUrl = match[1];
+      if (imgUrl.startsWith('//')) {
+        imgUrl = 'https:' + imgUrl;
+      } else if (imgUrl.startsWith('/')) {
+        try {
+          const urlObj = new URL(url);
+          imgUrl = urlObj.origin + imgUrl;
+        } catch {}
+      }
+      
+      // Filter out small images, icons, etc
+      if (
+        imgUrl.startsWith('http') &&
+        !imgUrl.includes('icon') &&
+        !imgUrl.includes('logo') &&
+        !imgUrl.includes('sprite') &&
+        !imgUrl.includes('.svg') &&
+        !imgUrl.includes('pixel') &&
+        !imgUrl.includes('tracking')
+      ) {
+        foundImages.add(imgUrl);
+      }
+    }
+  }
+
+  data.images = Array.from(foundImages).slice(0, 6);
+
+  return data;
+}

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: Store, label: "Mercado Livre", path: "/mercado-livre" },
   { icon: PlusCircle, label: "Importar Produto", path: "/import" },
   { icon: Package, label: "Produtos", path: "/products" },
   { icon: History, label: "Histórico", path: "/history" },

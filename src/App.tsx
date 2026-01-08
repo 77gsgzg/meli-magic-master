@@ -11,6 +11,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import MercadoLivreConnect from "./pages/MercadoLivreConnect";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
             <Route path="/import" element={<Import />} />
             <Route path="/products" element={<Products />} />
             <Route path="/history" element={<History />} />
