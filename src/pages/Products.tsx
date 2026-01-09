@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search,
-  Filter,
   MoreVertical,
   ExternalLink,
   Edit,
@@ -14,6 +15,7 @@ import {
   RefreshCw,
   Eye,
   Package,
+  ShoppingCart,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -21,89 +23,93 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useProducts } from "@/hooks/useProducts";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { Tables } from "@/integrations/supabase/types";
 
-const products = [
-  {
-    id: "MLB123456789",
-    title: "iPhone 15 Pro Max 256GB - Titânio Natural",
-    status: "published",
-    price: "R$ 8.999,00",
-    stock: 15,
-    views: 1234,
-    sales: 8,
-    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=120&h=120&fit=crop",
-    updatedAt: "há 2 horas",
-  },
-  {
-    id: "MLB123456790",
-    title: "MacBook Air M3 15\" 512GB - Meia-noite",
-    status: "processing",
-    price: "R$ 12.499,00",
-    stock: 5,
-    views: 0,
-    sales: 0,
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=120&h=120&fit=crop",
-    updatedAt: "há 10 minutos",
-  },
-  {
-    id: "MLB123456791",
-    title: "AirPods Pro 2ª Geração com Case MagSafe",
-    status: "published",
-    price: "R$ 1.899,00",
-    stock: 32,
-    views: 856,
-    sales: 23,
-    image: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=120&h=120&fit=crop",
-    updatedAt: "há 1 dia",
-  },
-  {
-    id: "MLB123456792",
-    title: "Apple Watch Series 9 GPS 45mm - Alumínio Meia-noite",
-    status: "error",
-    price: "R$ 4.299,00",
-    stock: 8,
-    views: 0,
-    sales: 0,
-    image: "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=120&h=120&fit=crop",
-    updatedAt: "há 20 minutos",
-  },
-  {
-    id: "MLB123456793",
-    title: "iPad Pro 12.9\" M2 256GB WiFi - Cinza Espacial",
-    status: "published",
-    price: "R$ 10.999,00",
-    stock: 3,
-    views: 542,
-    sales: 4,
-    image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=120&h=120&fit=crop",
-    updatedAt: "há 3 dias",
-  },
-  {
-    id: "MLB123456794",
-    title: "Fone Bluetooth Premium ANC | Cancelamento de Ruído",
-    status: "pending",
-    price: "R$ 459,90",
-    stock: 50,
-    views: 0,
-    sales: 0,
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120&h=120&fit=crop",
-    updatedAt: "agora",
-  },
-];
+type Product = Tables<'products'>;
+type ProductStatus = 'all' | 'draft' | 'pending' | 'published' | 'error' | 'paused';
 
-const statusMap = {
-  published: { label: "Publicado", variant: "success" as const },
-  processing: { label: "Processando", variant: "warning" as const },
-  error: { label: "Erro", variant: "destructive" as const },
-  pending: { label: "Pendente", variant: "pending" as const },
+const statusMap: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "pending" | "default" }> = {
+  published: { label: "Publicado", variant: "success" },
+  pending: { label: "Pendente", variant: "pending" },
+  draft: { label: "Rascunho", variant: "default" },
+  error: { label: "Erro", variant: "destructive" },
+  paused: { label: "Pausado", variant: "warning" },
 };
 
 export default function Products() {
+  const { products, loading, deleteProduct, fetchProducts } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ProductStatus>("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const filteredProducts = products.filter((p) =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const getFirstImage = (images: unknown): string | null => {
+    if (Array.isArray(images) && images.length > 0) {
+      const first = images[0];
+      if (typeof first === 'string') return first;
+      if (typeof first === 'object' && first && 'url' in first) return (first as { url: string }).url;
+    }
+    return null;
+  };
+
+  const formatPrice = (price: number | null, currency: string | null) => {
+    if (!price) return "—";
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: currency || 'BRL'
+    }).format(price);
+  };
+
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`Tem certeza que deseja excluir "${product.title}"?`)) return;
+    
+    setDeletingId(product.id);
+    const success = await deleteProduct(product.id);
+    setDeletingId(null);
+    
+    if (success) {
+      toast.success('Produto excluído com sucesso');
+    }
+  };
+
+  const statusCounts = {
+    all: products.length,
+    draft: products.filter(p => p.status === 'draft').length,
+    pending: products.filter(p => p.status === 'pending').length,
+    published: products.filter(p => p.status === 'published').length,
+    error: products.filter(p => p.status === 'error').length,
+    paused: products.filter(p => p.status === 'paused').length,
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout
+        title="Produtos"
+        subtitle="Gerencie todos os seus produtos publicados"
+      >
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-full max-w-md" />
+          <Skeleton className="h-12 w-full" />
+          <Card variant="glass">
+            <CardContent className="p-6">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full mb-4" />
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -123,136 +129,201 @@ export default function Products() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </Button>
-            <Button variant="outline">
-              <RefreshCw className="h-4 w-4" />
-              Sincronizar
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => fetchProducts()}>
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
         </div>
 
+        {/* Status Tabs */}
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as ProductStatus)}>
+          <TabsList className="bg-secondary/50">
+            <TabsTrigger value="all">
+              Todos ({statusCounts.all})
+            </TabsTrigger>
+            <TabsTrigger value="published">
+              Publicados ({statusCounts.published})
+            </TabsTrigger>
+            <TabsTrigger value="pending">
+              Pendentes ({statusCounts.pending})
+            </TabsTrigger>
+            <TabsTrigger value="draft">
+              Rascunhos ({statusCounts.draft})
+            </TabsTrigger>
+            <TabsTrigger value="error">
+              Erros ({statusCounts.error})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Products Table */}
-        <Card variant="glass">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                      Produto
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                      Preço
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                      Estoque
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                      Métricas
-                    </th>
-                    <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProducts.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="border-b border-border/30 hover:bg-secondary/30 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={product.image}
-                            alt={product.title}
-                            className="h-16 w-16 rounded-lg object-cover"
-                          />
-                          <div>
-                            <p className="font-medium text-foreground line-clamp-1 max-w-xs">
-                              {product.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                              {product.id} • {product.updatedAt}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant={statusMap[product.status].variant}>
-                          {statusMap[product.status].label}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-foreground">{product.price}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span
-                            className={
-                              product.stock <= 5
-                                ? "text-warning"
-                                : "text-foreground"
-                            }
-                          >
-                            {product.stock} un.
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Eye className="h-4 w-4" />
-                            {product.views}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Package className="h-4 w-4" />
-                            {product.sales} vendas
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="glass">
-                            <DropdownMenuItem>
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Ver no ML
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Re-otimizar com IA
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
+        {filteredProducts.length === 0 ? (
+          <Card variant="glass">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center justify-center text-center">
+                <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {products.length === 0 ? "Nenhum produto ainda" : "Nenhum produto encontrado"}
+                </h3>
+                <p className="text-muted-foreground">
+                  {products.length === 0 
+                    ? "Importe seu primeiro produto para começar"
+                    : "Tente ajustar os filtros de busca"
+                  }
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card variant="glass">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Produto
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Preço
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Estoque
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Métricas
+                      </th>
+                      <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                        Ações
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.map((product) => {
+                      const imageUrl = getFirstImage(product.images);
+                      const status = statusMap[product.status || 'draft'] || statusMap.draft;
+                      
+                      return (
+                        <tr
+                          key={product.id}
+                          className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${
+                            deletingId === product.id ? 'opacity-50' : ''
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={product.title}
+                                  className="h-16 w-16 rounded-lg object-cover"
+                                />
+                              ) : (
+                                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
+                                  <Package className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-foreground line-clamp-1 max-w-xs">
+                                  {product.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-0.5">
+                                  {product.ml_item_id || product.id.slice(0, 8)} • {
+                                    formatDistanceToNow(new Date(product.updated_at), {
+                                      addSuffix: true,
+                                      locale: ptBR
+                                    })
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge variant={status.variant}>
+                              {status.label}
+                            </Badge>
+                            {product.error_message && (
+                              <p className="text-xs text-destructive mt-1 max-w-32 truncate" title={product.error_message}>
+                                {product.error_message}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-medium text-foreground">
+                              {formatPrice(product.price, product.currency)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                              <span
+                                className={
+                                  (product.available_quantity || 0) <= 5
+                                    ? "text-warning"
+                                    : "text-foreground"
+                                }
+                              >
+                                {product.available_quantity || 0} un.
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Eye className="h-4 w-4" />
+                                {product.views || 0}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ShoppingCart className="h-4 w-4" />
+                                {product.sales || 0}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="glass">
+                                {product.ml_permalink && (
+                                  <DropdownMenuItem onClick={() => window.open(product.ml_permalink!, '_blank')}>
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Ver no ML
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Re-otimizar com IA
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => handleDelete(product)}
+                                  disabled={deletingId === product.id}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

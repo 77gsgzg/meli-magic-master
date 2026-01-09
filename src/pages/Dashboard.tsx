@@ -3,9 +3,46 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentProducts } from "@/components/dashboard/RecentProducts";
 import { QuickImport } from "@/components/dashboard/QuickImport";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { Package, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
+import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
+import { useProducts } from "@/hooks/useProducts";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
+  const { products, loading, getProductStats } = useProducts();
+  const stats = getProductStats();
+
+  // Calculate success rate
+  const successRate = stats.total > 0 
+    ? Math.round((stats.published / stats.total) * 100) 
+    : 0;
+
+  // Calculate total sales
+  const totalSales = products.reduce((acc, p) => acc + (p.sales || 0), 0);
+
+  if (loading) {
+    return (
+      <DashboardLayout
+        title="Dashboard"
+        subtitle="Gerencie seus produtos do Mercado Livre"
+      >
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-48 rounded-xl" />
+              <Skeleton className="h-64 rounded-xl" />
+            </div>
+            <Skeleton className="h-80 rounded-xl" />
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       title="Dashboard"
@@ -13,33 +50,34 @@ export default function Dashboard() {
     >
       <div className="space-y-6">
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <StatCard
             title="Total de Produtos"
-            value={127}
-            change={12}
-            trend="up"
+            value={stats.total}
             icon={<Package className="h-6 w-6" />}
           />
           <StatCard
             title="Publicados"
-            value={98}
-            change={8}
+            value={stats.published}
             trend="up"
             icon={<CheckCircle className="h-6 w-6" />}
           />
           <StatCard
             title="Taxa de Sucesso"
-            value="94%"
-            change={3}
-            trend="up"
+            value={`${successRate}%`}
+            trend={successRate >= 80 ? "up" : "down"}
             icon={<TrendingUp className="h-6 w-6" />}
           />
           <StatCard
-            title="Erros Pendentes"
-            value={5}
-            change={-2}
-            trend="down"
+            title="Vendas Totais"
+            value={totalSales}
+            trend="up"
+            icon={<ShoppingCart className="h-6 w-6" />}
+          />
+          <StatCard
+            title="Erros"
+            value={stats.errors}
+            trend={stats.errors > 0 ? "down" : "up"}
             icon={<AlertCircle className="h-6 w-6" />}
           />
         </div>
@@ -48,7 +86,7 @@ export default function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
             <QuickImport />
-            <RecentProducts />
+            <RecentProducts products={products.slice(0, 5)} />
           </div>
           <div>
             <ActivityFeed />
