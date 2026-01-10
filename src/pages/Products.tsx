@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,10 @@ import {
   Eye,
   Package,
   ShoppingCart,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProducts } from "@/hooks/useProducts";
+import { useAIOptimize } from "@/hooks/useAIOptimize";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -31,6 +36,8 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<'products'>;
 type ProductStatus = 'all' | 'draft' | 'pending' | 'published' | 'error' | 'paused';
+
+const ITEMS_PER_PAGE = 10;
 
 const statusMap: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "pending" | "default" }> = {
   published: { label: "Publicado", variant: "success" },
@@ -41,16 +48,39 @@ const statusMap: Record<string, { label: string; variant: "success" | "warning" 
 };
 
 export default function Products() {
-  const { products, loading, deleteProduct, fetchProducts } = useProducts();
+  const { products, loading, deleteProduct, updateProduct, fetchProducts } = useProducts();
+  const { optimizeProduct, loading: optimizing } = useAIOptimize();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProductStatus>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [optimizingId, setOptimizingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [products, searchQuery, statusFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  // Reset page when filters change
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value as ProductStatus);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   const getFirstImage = (images: unknown): string | null => {
     if (Array.isArray(images) && images.length > 0) {
@@ -69,6 +99,35 @@ export default function Products() {
     }).format(price);
   };
 
+  const handleReOptimize = async (product: Product) => {
+    setOptimizingId(product.id);
+    
+    try {
+      const result = await optimizeProduct(
+        product.original_title || product.title,
+        product.original_description || product.description || undefined,
+        product.category_name || undefined,
+        (product.attributes as Record<string, unknown>[]) || undefined
+      );
+
+      if (result) {
+        await updateProduct(product.id, {
+          title: result.optimized_title,
+          description: result.optimized_description,
+          ai_optimized: true,
+        });
+
+        toast.success('Produto re-otimizado com sucesso!');
+        await fetchProducts();
+      }
+    } catch (error) {
+      console.error('Re-optimization error:', error);
+      toast.error('Erro ao re-otimizar produto');
+    } finally {
+      setOptimizingId(null);
+    }
+  };
+
   const handleDelete = async (product: Product) => {
     if (!confirm(`Tem certeza que deseja excluir "${product.title}"?`)) return;
     
@@ -77,7 +136,11 @@ export default function Products() {
     setDeletingId(null);
     
     if (success) {
-      toast.success('Produto excluído com sucesso');
+      // Adjust page if needed
+      const newTotal = Math.ceil((filteredProducts.length - 1) / ITEMS_PER_PAGE);
+      if (currentPage > newTotal && newTotal > 0) {
+        setCurrentPage(newTotal);
+      }
     }
   };
 
@@ -126,7 +189,7 @@ export default function Products() {
               placeholder="Buscar produtos..."
               className="pl-10"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
           <Button variant="outline" onClick={() => fetchProducts()}>
@@ -136,7 +199,7 @@ export default function Products() {
         </div>
 
         {/* Status Tabs */}
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as ProductStatus)}>
+        <Tabs value={statusFilter} onValueChange={handleStatusChange}>
           <TabsList className="bg-secondary/50">
             <TabsTrigger value="all">
               Todos ({statusCounts.all})
@@ -202,15 +265,17 @@ export default function Products() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProducts.map((product) => {
+                    {paginatedProducts.map((product) => {
                       const imageUrl = getFirstImage(product.images);
                       const status = statusMap[product.status || 'draft'] || statusMap.draft;
+                      const isOptimizing = optimizingId === product.id;
+                      const isDeleting = deletingId === product.id;
                       
                       return (
                         <tr
                           key={product.id}
                           className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${
-                            deletingId === product.id ? 'opacity-50' : ''
+                            isDeleting || isOptimizing ? 'opacity-50' : ''
                           }`}
                         >
                           <td className="px-6 py-4">
@@ -227,9 +292,17 @@ export default function Products() {
                                 </div>
                               )}
                               <div>
-                                <p className="font-medium text-foreground line-clamp-1 max-w-xs">
-                                  {product.title}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-foreground line-clamp-1 max-w-xs">
+                                    {product.title}
+                                  </p>
+                                  {product.ai_optimized && (
+                                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
+                                      <Sparkles className="h-3 w-3 mr-1" />
+                                      IA
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-sm text-muted-foreground mt-0.5">
                                   {product.ml_item_id || product.id.slice(0, 8)} • {
                                     formatDistanceToNow(new Date(product.updated_at), {
@@ -300,14 +373,21 @@ export default function Products() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Re-otimizar com IA
+                                <DropdownMenuItem 
+                                  onClick={() => handleReOptimize(product)}
+                                  disabled={isOptimizing || optimizing}
+                                >
+                                  {isOptimizing ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                  )}
+                                  {isOptimizing ? 'Otimizando...' : 'Re-otimizar com IA'}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   className="text-destructive"
                                   onClick={() => handleDelete(product)}
-                                  disabled={deletingId === product.id}
+                                  disabled={isDeleting}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir
@@ -321,6 +401,62 @@ export default function Products() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-border/50">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} de{' '}
+                    {filteredProducts.length} produtos
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let page: number;
+                        if (totalPages <= 5) {
+                          page = i + 1;
+                        } else if (currentPage <= 3) {
+                          page = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          page = totalPages - 4 + i;
+                        } else {
+                          page = currentPage - 2 + i;
+                        }
+                        return (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Próximo
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
