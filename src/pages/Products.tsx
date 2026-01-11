@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,15 +20,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProducts } from "@/hooks/useProducts";
+import { useProductRealtime } from "@/hooks/useProductRealtime";
 import { useAIOptimize } from "@/hooks/useAIOptimize";
+import { EditProductModal } from "@/components/products/EditProductModal";
+import { exportToCSV, exportToExcel } from "@/utils/exportProducts";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -55,6 +61,27 @@ export default function Products() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [optimizingId, setOptimizingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Real-time updates
+  const handleProductUpdated = useCallback((updatedProduct: Product) => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleProductInserted = useCallback(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleProductDeleted = useCallback(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  useProductRealtime({
+    onProductUpdated: handleProductUpdated,
+    onProductInserted: handleProductInserted,
+    onProductDeleted: handleProductDeleted,
+  });
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -97,6 +124,19 @@ export default function Products() {
       style: 'currency',
       currency: currency || 'BRL'
     }).format(price);
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (id: string, updates: Parameters<typeof updateProduct>[1]) => {
+    const result = await updateProduct(id, updates);
+    if (result) {
+      toast.success('Produto atualizado com sucesso!');
+    }
+    return result;
   };
 
   const handleReOptimize = async (product: Product) => {
@@ -142,6 +182,24 @@ export default function Products() {
         setCurrentPage(newTotal);
       }
     }
+  };
+
+  const handleExportCSV = () => {
+    if (filteredProducts.length === 0) {
+      toast.error('Nenhum produto para exportar');
+      return;
+    }
+    exportToCSV(filteredProducts);
+    toast.success(`${filteredProducts.length} produtos exportados para CSV`);
+  };
+
+  const handleExportExcel = () => {
+    if (filteredProducts.length === 0) {
+      toast.error('Nenhum produto para exportar');
+      return;
+    }
+    exportToExcel(filteredProducts);
+    toast.success(`${filteredProducts.length} produtos exportados para Excel`);
   };
 
   const statusCounts = {
@@ -192,10 +250,30 @@ export default function Products() {
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-          <Button variant="outline" onClick={() => fetchProducts()}>
-            <RefreshCw className="h-4 w-4" />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="glass">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" onClick={() => fetchProducts()}>
+              <RefreshCw className="h-4 w-4" />
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         {/* Status Tabs */}
@@ -369,7 +447,7 @@ export default function Products() {
                                     Ver no ML
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(product)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar
                                 </DropdownMenuItem>
@@ -384,6 +462,7 @@ export default function Products() {
                                   )}
                                   {isOptimizing ? 'Otimizando...' : 'Re-otimizar com IA'}
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className="text-destructive"
                                   onClick={() => handleDelete(product)}
@@ -461,6 +540,14 @@ export default function Products() {
           </Card>
         )}
       </div>
+
+      {/* Edit Modal */}
+      <EditProductModal
+        product={editingProduct}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSave={handleSaveEdit}
+      />
     </DashboardLayout>
   );
 }
