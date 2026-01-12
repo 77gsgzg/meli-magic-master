@@ -227,16 +227,26 @@ const SecurityLogsPage = () => {
     setPage(1);
   };
 
-  const handleSelectTimelinePoint = (params: { timestamp: string; type: "publication_error" | "integration_error"; label: string; operationType?: string | null }) => {
+  const handleSelectTimelinePoint = (params: {
+    timestamp: string;
+    type: "publication_error" | "integration_error";
+    label: string;
+    operationType?: string | null;
+  }) => {
     const day = params.timestamp.slice(0, 10);
     setStartDate(day);
     setEndDate(day);
     setStatusFilter("error");
-    if (params.type === "integration_error" && params.operationType) {
+
+    if (params.operationType) {
+      // Para erros de integração, o operation_type já representa ações como publish, token_refresh etc.
+      // Para erros de publicação, usamos o campo action de publication_history (mapeado em operationType)
       setOperationFilter(params.operationType);
     }
+
     setPage(1);
   };
+
   return (
     <DashboardLayout
       title="Logs de Segurança"
