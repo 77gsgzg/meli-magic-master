@@ -381,15 +381,28 @@ const SecurityLogsPage = () => {
 
         {/* Mapeamento de ações de publicação para tipos de operação */}
         <Card className="p-4 space-y-4">
-          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-            <p className="text-xs font-medium text-muted-foreground">
-              Mapeamento de ações de publicação → tipos de operação em logs
-            </p>
-            <p className="text-[11px] text-muted-foreground max-w-xl">
-              Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
-              <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
-              . Isso é usado no drill-down da linha do tempo e nos filtros.
-            </p>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Mapeamento de ações de publicação → tipos de operação em logs
+              </p>
+              <p className="text-[11px] text-muted-foreground max-w-xl">
+                Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
+                <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
+                . Isso é usado no drill-down da linha do tempo e nos filtros.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-muted-foreground">
+                {actionMappings.filter((m) => m.operation_type).length} de {distinctPublicationActions.length} ações mapeadas
+              </span>
+              {distinctPublicationActions.length > 0 &&
+                actionMappings.filter((m) => m.operation_type).length < distinctPublicationActions.length && (
+                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-500/10 dark:text-amber-300">
+                    Configuração incompleta
+                  </span>
+                )}
+            </div>
           </div>
 
           {distinctPublicationActions.length === 0 ? (
@@ -588,7 +601,7 @@ const SecurityLogsPage = () => {
                 <option value="">Todas</option>
                 {uniqueOperationTypes.map((type) => (
                   <option key={type} value={type}>
-                    {type}
+                    {getOperationLabel(type) || type}
                   </option>
                 ))}
               </select>
@@ -655,7 +668,9 @@ const SecurityLogsPage = () => {
                       {log.entity_type && (
                         <span className="text-xs text-muted-foreground">{log.entity_type}</span>
                       )}
-                      <span className="text-xs text-muted-foreground">{log.operation_type}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getOperationLabel(log.operation_type) || log.operation_type}
+                      </span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {new Date(log.created_at).toLocaleString()}
