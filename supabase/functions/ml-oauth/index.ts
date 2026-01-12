@@ -20,6 +20,19 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+    const isAllowedRedirectUri = (uri: string): boolean => {
+      try {
+        const parsed = new URL(uri);
+        const protocolAllowed = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        const host = parsed.hostname.toLowerCase();
+        const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+        const isLovableHosted = host.endsWith('.lovable.app');
+        return protocolAllowed && (isLocalhost || isLovableHosted);
+      } catch {
+        return false;
+      }
+    };
+
     if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
       console.error('ML credentials not configured');
       return new Response(
@@ -31,9 +44,9 @@ serve(async (req) => {
     // Generate OAuth URL for authorization
     if (action === 'authorize') {
       const redirectUri = url.searchParams.get('redirect_uri');
-      if (!redirectUri) {
+      if (!redirectUri || !isAllowedRedirectUri(redirectUri)) {
         return new Response(
-          JSON.stringify({ error: 'redirect_uri is required' }),
+          JSON.stringify({ error: 'Invalid redirect_uri' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -72,9 +85,9 @@ serve(async (req) => {
       const userId = claimsData.claims.sub;
       const { code, redirect_uri } = await req.json();
 
-      if (!code || !redirect_uri) {
+      if (!code || !redirect_uri || !isAllowedRedirectUri(redirect_uri)) {
         return new Response(
-          JSON.stringify({ error: 'code and redirect_uri are required' }),
+          JSON.stringify({ error: 'Invalid parameters' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
