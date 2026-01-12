@@ -205,6 +205,14 @@ const SecurityLogsPage = () => {
     [publication],
   );
 
+  const getOperationLabel = (type: string | null) => {
+    if (!type) return "";
+    const mappingWithDescription = actionMappings.find(
+      (m) => m.operation_type === type && m.description && m.description.length > 0,
+    );
+    return mappingWithDescription ? `${type} — ${mappingWithDescription.description}` : type;
+  };
+
   const now = new Date();
   const cutoff = new Date(now.getTime() - alertWindowMinutes * 60 * 1000);
   const recentErrors = logs.filter(
@@ -367,6 +375,7 @@ const SecurityLogsPage = () => {
         <IncidentTimeline
           publication={publication}
           logs={mlLogs}
+          mappings={actionMappings}
           onSelectPoint={handleSelectTimelinePoint}
         />
 
@@ -379,7 +388,7 @@ const SecurityLogsPage = () => {
             <p className="text-[11px] text-muted-foreground max-w-xl">
               Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
               <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
-              . Isso é usado no drill-down da linha do tempo.
+              . Isso é usado no drill-down da linha do tempo e nos filtros.
             </p>
           </div>
 
@@ -388,12 +397,13 @@ const SecurityLogsPage = () => {
               Nenhuma ação de publicação encontrada nos últimos registros.
             </p>
           ) : (
-            <div className="space-y-2 max-h-60 overflow-auto pr-1">
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
               {distinctPublicationActions.map((action) => {
                 const currentMapping = actionMappings.find((m) => m.action === action);
                 const value = currentMapping?.operation_type ?? "";
+                const descriptionValue = currentMapping?.description ?? "";
 
-                const handleChange = async (newValue: string) => {
+                const handleOperationChange = async (newValue: string) => {
                   if (!userId || !newValue) return;
 
                   setActionMappings((prev) => {
@@ -410,6 +420,7 @@ const SecurityLogsPage = () => {
                         user_id: userId,
                         action,
                         operation_type: newValue,
+                        description: "",
                         created_at: nowIso,
                         updated_at: nowIso,
                       } as PublicationActionMapping,
@@ -423,30 +434,72 @@ const SecurityLogsPage = () => {
                   });
                 };
 
+                const handleDescriptionBlur = async (newDescription: string) => {
+                  if (!userId || !value) return;
+
+                  setActionMappings((prev) => {
+                    const existing = prev.find((m) => m.action === action);
+                    if (existing) {
+                      return prev.map((m) =>
+                        m.action === action ? { ...m, description: newDescription } : m,
+                      );
+                    }
+                    const nowIso = new Date().toISOString();
+                    return [
+                      ...prev,
+                      {
+                        user_id: userId,
+                        action,
+                        operation_type: value,
+                        description: newDescription,
+                        created_at: nowIso,
+                        updated_at: nowIso,
+                      } as PublicationActionMapping,
+                    ];
+                  });
+
+                  await supabase.from("publication_action_mappings").upsert({
+                    user_id: userId,
+                    action,
+                    operation_type: value,
+                    description: newDescription || null,
+                  });
+                };
+
                 return (
                   <div
                     key={action}
-                    className="flex flex-col gap-1 border border-border rounded-md p-2 md:flex-row md:items-center md:justify-between bg-background"
+                    className="flex flex-col gap-2 border border-border rounded-md p-2 bg-background md:flex-row md:items-center md:justify-between"
                   >
                     <div className="text-[11px] text-muted-foreground break-all mr-3">
                       <span className="font-mono text-[11px]">{action}</span>
                     </div>
-                    <div className="mt-1 md:mt-0">
-                      <label className="sr-only">Tipo de operação para {action}</label>
-                      <select
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-                        value={value}
-                        onChange={(e) => handleChange(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Selecione o tipo de operação correspondente
-                        </option>
-                        {OPERATION_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
+                    <div className="flex flex-col gap-1 w-full md:w-auto md:flex-row md:items-center md:justify-end">
+                      <div className="flex-1 md:flex-none">
+                        <label className="sr-only">Tipo de operação para {action}</label>
+                        <select
+                          className="h-8 w-full md:w-44 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                          value={value}
+                          onChange={(e) => handleOperationChange(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Tipo de operação correspondente
                           </option>
-                        ))}
-                      </select>
+                          {OPERATION_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {getOperationLabel(type)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1 md:flex-none">
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="Descrição legível (ex: Publicar anúncio)"
+                          defaultValue={descriptionValue}
+                          onBlur={(e) => handleDescriptionBlur(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
