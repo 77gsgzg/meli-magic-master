@@ -21,9 +21,16 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const ML_TOKEN_ENC_KEY = Deno.env.get('ML_TOKEN_ENC_KEY');
 
-    const getCryptoKey = async (): Promise<CryptoKey | null> => {
-      if (!ML_TOKEN_ENC_KEY) return null;
-      const raw = Uint8Array.from(atob(ML_TOKEN_ENC_KEY), c => c.charCodeAt(0));
+    if (!ML_TOKEN_ENC_KEY) {
+      console.error('ML_TOKEN_ENC_KEY not configured - refusing to handle ML tokens without encryption');
+      return new Response(
+        JSON.stringify({ error: 'Mercado Livre token encryption is not configured. Please contact o administrador do sistema.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const getCryptoKey = async (): Promise<CryptoKey> => {
+      const raw = Uint8Array.from(atob(ML_TOKEN_ENC_KEY), (c) => c.charCodeAt(0));
       return crypto.subtle.importKey(
         'raw',
         raw,
