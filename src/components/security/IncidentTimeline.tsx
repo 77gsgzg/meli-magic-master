@@ -13,21 +13,29 @@ import {
 
  type PublicationHistory = Tables<'publication_history'>;
  type OperationLog = Tables<'operation_logs'>;
+ type PublicationActionMapping = Tables<'publication_action_mappings'>;
 
 interface IncidentTimelinePoint {
   timestamp: string;
   type: "publication_error" | "integration_error";
   label: string;
   operationType?: string | null;
+  hasMapping?: boolean;
 }
 
 interface IncidentTimelineProps {
   publication: PublicationHistory[];
   logs: OperationLog[];
-  onSelectPoint?: (params: { timestamp: string; type: "publication_error" | "integration_error"; label: string; operationType?: string | null }) => void;
+  mappings?: PublicationActionMapping[];
+  onSelectPoint?: (params: {
+    timestamp: string;
+    type: "publication_error" | "integration_error";
+    label: string;
+    operationType?: string | null;
+  }) => void;
 }
 
-export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentTimelineProps) {
+export function IncidentTimeline({ publication, logs, mappings, onSelectPoint }: IncidentTimelineProps) {
   const [data, setData] = useState<IncidentTimelinePoint[]>([]);
 
   useEffect(() => {
@@ -36,11 +44,13 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
     publication
       .filter((p) => p.status === "error")
       .forEach((p) => {
+        const mapping = mappings?.find((m) => m.action === p.action);
         points.push({
           timestamp: p.created_at,
           type: "publication_error",
-          label: p.error_details || "Erro de publicação",
+          label: mapping?.description || p.error_details || "Erro de publicação",
           operationType: p.action ?? null,
+          hasMapping: !!mapping,
         });
       });
 
@@ -52,12 +62,13 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
           type: "integration_error",
           label: l.error_message || l.operation_type || "Erro de integração",
           operationType: l.operation_type ?? null,
+          hasMapping: false,
         });
       });
 
     points.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
     setData(points);
-  }, [publication, logs]);
+  }, [publication, logs, mappings]);
 
   if (data.length === 0) return null;
 
@@ -68,6 +79,7 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
     type: p.type,
     label: p.label,
     operationType: p.operationType,
+    hasMapping: p.hasMapping,
     _timestamp: p.timestamp,
   }));
 
@@ -115,7 +127,9 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
               contentStyle={{ fontSize: 11 }}
               formatter={(_, __, props) => {
                 const p = props?.payload as any;
-                return [p.label, p.type === "publication_error" ? "Erro de publicação" : "Erro de integração"];
+                const typeLabel = p.type === "publication_error" ? "Erro de publicação" : "Erro de integração";
+                const suffix = p.hasMapping ? " (mapeado)" : "";
+                return [p.label + suffix, typeLabel];
               }}
             />
             <Line
@@ -123,8 +137,14 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
               dataKey="y"
               stroke="hsl(var(--destructive))"
               strokeWidth={1}
-              dot={{ r: 3 }}
-              activeDot={{ r: 4 }}
+              dot={(props: any) => {
+                const { cx, cy, payload } = props;
+                const isMapped = payload?.hasMapping;
+                const color = isMapped ? "hsl(var(--primary))" : "hsl(var(--destructive))";
+                const radius = isMapped ? 4 : 3;
+                return <circle cx={cx} cy={cy} r={radius} fill={color} stroke={color} />;
+              }}
+              activeDot={{ r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>

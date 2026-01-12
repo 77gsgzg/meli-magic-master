@@ -216,6 +216,7 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          description: string | null
           operation_type: string
           updated_at: string
           user_id: string
@@ -223,6 +224,7 @@ export type Database = {
         Insert: {
           action: string
           created_at?: string
+          description?: string | null
           operation_type: string
           updated_at?: string
           user_id: string
@@ -230,6 +232,7 @@ export type Database = {
         Update: {
           action?: string
           created_at?: string
+          description?: string | null
           operation_type?: string
           updated_at?: string
           user_id?: string
