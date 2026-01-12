@@ -849,9 +849,10 @@ const SecurityLogsPage = () => {
         </div>
       </div>
     </Card>
+  </div>
 
-      {/* Incidentes agregados com base nos filtros atuais */}
-      <AggregatedIncidents logs={logs} onSelectIncident={handleSelectIncident} />
+  {/* Incidentes agregados com base nos filtros atuais */}
+  <AggregatedIncidents logs={logs} onSelectIncident={handleSelectIncident} />
 
         {/* Lista de logs + paginação */}
         <Card className="p-4 space-y-3">
