@@ -21,6 +21,7 @@ import { AggregatedIncidents } from "@/components/security/AggregatedIncidents";
 import { MercadoLivrePanel } from "@/components/security/MercadoLivrePanel";
 import { IncidentTimeline } from "@/components/security/IncidentTimeline";
 import { Tables } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
 
  type OperationLog = Tables<'operation_logs'>;
  type PublicationHistory = Tables<'publication_history'>;
@@ -39,6 +40,7 @@ const OPERATION_TYPES: Tables<'operation_logs'>['operation_type'][] = [
 
 const SecurityLogsPage = () => {
   const location = useLocation();
+  const { toast } = useToast();
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [mlLogs, setMlLogs] = useState<OperationLog[]>([]);
   const [publication, setPublication] = useState<PublicationHistory[]>([]);
@@ -427,8 +429,25 @@ const SecurityLogsPage = () => {
                     "Tem certeza que deseja remover todos os mapeamentos de ações de publicação?",
                   );
                   if (!confirmed) return;
-                  await supabase.from("publication_action_mappings").delete().eq("user_id", userId);
+                  const { error } = await supabase
+                    .from("publication_action_mappings")
+                    .delete()
+                    .eq("user_id", userId);
+
+                  if (error) {
+                    toast({
+                      title: "Erro ao restaurar padrão",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
                   setActionMappings([]);
+                  toast({
+                    title: "Mapeamentos restaurados",
+                    description: "Todos os mapeamentos de ações de publicação foram removidos.",
+                  });
                 }}
               >
                 Restaurar padrão
@@ -471,11 +490,24 @@ const SecurityLogsPage = () => {
                     ];
                   });
 
-                  await supabase.from("publication_action_mappings").upsert({
+                  const { error } = await supabase.from("publication_action_mappings").upsert({
                     user_id: userId,
                     action,
                     operation_type: newValue,
                   });
+
+                  if (error) {
+                    toast({
+                      title: "Erro ao salvar mapeamento",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Mapeamento salvo",
+                      description: `A ação "${action}" foi associada a "${newValue}".`,
+                    });
+                  }
                 };
 
                 const handleDescriptionBlur = async (newDescription: string) => {
@@ -502,12 +534,25 @@ const SecurityLogsPage = () => {
                     ];
                   });
 
-                  await supabase.from("publication_action_mappings").upsert({
+                  const { error } = await supabase.from("publication_action_mappings").upsert({
                     user_id: userId,
                     action,
                     operation_type: value,
                     description: newDescription || null,
                   });
+
+                  if (error) {
+                    toast({
+                      title: "Erro ao salvar descrição",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Descrição atualizada",
+                      description: `Descrição da ação "${action}" atualizada com sucesso.`,
+                    });
+                  }
                 };
 
                 return (
