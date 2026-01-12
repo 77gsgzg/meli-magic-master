@@ -18,12 +18,13 @@ interface IncidentTimelinePoint {
   timestamp: string;
   type: "publication_error" | "integration_error";
   label: string;
+  operationType?: string | null;
 }
 
 interface IncidentTimelineProps {
   publication: PublicationHistory[];
   logs: OperationLog[];
-  onSelectPoint?: (params: { timestamp: string; type: "publication_error" | "integration_error"; label: string }) => void;
+  onSelectPoint?: (params: { timestamp: string; type: "publication_error" | "integration_error"; label: string; operationType?: string | null }) => void;
 }
 
 export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentTimelineProps) {
@@ -39,6 +40,7 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
           timestamp: p.created_at,
           type: "publication_error",
           label: p.error_details || "Erro de publicação",
+          operationType: p.action ?? null,
         });
       });
 
@@ -49,6 +51,7 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
           timestamp: l.created_at,
           type: "integration_error",
           label: l.error_message || l.operation_type || "Erro de integração",
+          operationType: l.operation_type ?? null,
         });
       });
 
@@ -64,6 +67,7 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
     y: p.type === "publication_error" ? 1 : 2,
     type: p.type,
     label: p.label,
+    operationType: p.operationType,
     _timestamp: p.timestamp,
   }));
 
@@ -84,6 +88,7 @@ export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentT
                 timestamp: payload._timestamp as string,
                 type: payload.type as "publication_error" | "integration_error",
                 label: payload.label as string,
+                operationType: (payload.operationType as string | null) ?? null,
               });
             }}
           >
