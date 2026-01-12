@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/pagination";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
 import { SecurityLogsCharts } from "@/components/security/SecurityLogsCharts";
+import { AggregatedIncidents } from "@/components/security/AggregatedIncidents";
+import { MercadoLivrePanel } from "@/components/security/MercadoLivrePanel";
 import { Tables } from "@/integrations/supabase/types";
 
  type OperationLog = Tables<'operation_logs'>;
@@ -40,7 +42,6 @@ const SecurityLogsPage = () => {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  // Drill-down: aplica filtros vindos da URL (ex: ?status=error)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const status = params.get("status");
@@ -50,12 +51,12 @@ const SecurityLogsPage = () => {
     }
   }, [location.search]);
 
-  // Carrega configurações de alerta salvas
   useEffect(() => {
     const loadAlertSettings = async () => {
-      const {
-        data,
-      } = await supabase.from("security_alert_settings").select("error_threshold, window_minutes").maybeSingle();
+      const { data } = await supabase
+        .from("security_alert_settings")
+        .select("error_threshold, window_minutes")
+        .maybeSingle();
       if (data) {
         setAlertThreshold(data.error_threshold ?? 10);
         setAlertWindowMinutes(data.window_minutes ?? 15);
@@ -64,11 +65,13 @@ const SecurityLogsPage = () => {
     loadAlertSettings();
   }, []);
 
-  // Salva configurações de alerta quando mudarem
   useEffect(() => {
     const save = async () => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id;
+      if (!userId) return;
       await supabase.from("security_alert_settings").upsert({
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: userId,
         error_threshold: alertThreshold,
         window_minutes: alertWindowMinutes,
       });
@@ -76,7 +79,6 @@ const SecurityLogsPage = () => {
     save();
   }, [alertThreshold, alertWindowMinutes]);
 
-  // Carregamento dos logs com filtros e paginação
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
@@ -262,6 +264,10 @@ const SecurityLogsPage = () => {
           <SecurityLogsCharts logs={logs} mode={chartMode} period={chartPeriod} />
         </div>
 
+        {/* Painel dedicado da integração Mercado Livre */}
+        <MercadoLivrePanel />
+
+        {/* Configurações de alerta e filtros */}
         <Card className="p-4 space-y-4">
           {/* Alertas configuráveis */}
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -383,6 +389,9 @@ const SecurityLogsPage = () => {
             </div>
           </div>
         </Card>
+
+        {/* Incidentes agregados com base nos filtros atuais */}
+        <AggregatedIncidents logs={logs} />
 
         {/* Lista de logs + paginação */}
         <Card className="p-4 space-y-3">
