@@ -841,17 +841,17 @@ const SecurityLogsPage = () => {
                   setPage(1);
                 }}
               />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={resetFilters}>
-                Limpar filtros
-              </Button>
-            </div>
-          </div>
-        </Card>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={resetFilters}>
+            Limpar filtros
+          </Button>
+        </div>
+      </div>
+    </Card>
 
-        {/* Incidentes agregados com base nos filtros atuais */}
-        <AggregatedIncidents logs={logs} onSelectIncident={handleSelectIncident} />
+      {/* Incidentes agregados com base nos filtros atuais */}
+      <AggregatedIncidents logs={logs} onSelectIncident={handleSelectIncident} />
 
         {/* Lista de logs + paginação */}
         <Card className="p-4 space-y-3">
