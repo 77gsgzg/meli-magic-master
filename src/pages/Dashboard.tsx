@@ -3,6 +3,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentProducts } from "@/components/dashboard/RecentProducts";
 import { QuickImport } from "@/components/dashboard/QuickImport";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -88,11 +89,14 @@ export default function Dashboard() {
             <QuickImport />
             <RecentProducts products={products.slice(0, 5)} />
           </div>
-          <div>
+          <div className="space-y-4">
             <ActivityFeed />
+            {/* Indicadores em tempo real da integração Mercado Livre */}
+            <MercadoLivreStatusIndicators />
           </div>
         </div>
       </div>
     </DashboardLayout>
   );
 }
+
