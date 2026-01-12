@@ -78,6 +78,15 @@ serve(async (req) => {
 
     const validation = validateUrl(url);
     if (!validation.valid) {
+      console.warn('Blocked URL in extract-product:', { url, reason: validation.error });
+      await supabase.from('operation_logs').insert({
+        user_id: userId,
+        operation_type: 'import',
+        entity_type: 'extract-product',
+        status: 'error',
+        error_message: 'Blocked URL in extract-product',
+        details: { url, reason: validation.error },
+      });
       return new Response(
         JSON.stringify({ error: validation.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
