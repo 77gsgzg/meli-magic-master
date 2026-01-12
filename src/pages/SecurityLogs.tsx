@@ -420,6 +420,9 @@ const SecurityLogsPage = () => {
                             Ainda existem ações de publicação sem um tipo de operação mapeado. O drill-down da
                             linha do tempo e o filtro "Tipo de operação" funcionam melhor quando todas as ações
                             relevantes estão mapeadas.
+                            <br />
+                            <br />
+                            Exemplo de formato JSON: objeto com os campos action, operation_type e description opcionais.
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
