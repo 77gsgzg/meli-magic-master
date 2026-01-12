@@ -23,9 +23,10 @@ interface IncidentTimelinePoint {
 interface IncidentTimelineProps {
   publication: PublicationHistory[];
   logs: OperationLog[];
+  onSelectPoint?: (params: { timestamp: string; type: "publication_error" | "integration_error"; label: string }) => void;
 }
 
-export function IncidentTimeline({ publication, logs }: IncidentTimelineProps) {
+export function IncidentTimeline({ publication, logs, onSelectPoint }: IncidentTimelineProps) {
   const [data, setData] = useState<IncidentTimelinePoint[]>([]);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export function IncidentTimeline({ publication, logs }: IncidentTimelineProps) {
     y: p.type === "publication_error" ? 1 : 2,
     type: p.type,
     label: p.label,
+    _timestamp: p.timestamp,
   }));
 
   return (
@@ -72,7 +74,19 @@ export function IncidentTimeline({ publication, logs }: IncidentTimelineProps) {
       </CardHeader>
       <CardContent className="h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ left: 8, right: 8, top: 8, bottom: 16 }}>
+          <LineChart
+            data={chartData}
+            margin={{ left: 8, right: 8, top: 8, bottom: 16 }}
+            onClick={(state: any) => {
+              const payload = state?.activePayload?.[0]?.payload as any;
+              if (!payload || !onSelectPoint) return;
+              onSelectPoint({
+                timestamp: payload._timestamp as string,
+                type: payload.type as "publication_error" | "integration_error",
+                label: payload.label as string,
+              });
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey="time"
