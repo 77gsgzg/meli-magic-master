@@ -212,6 +212,30 @@ export type Database = {
         }
         Relationships: []
       }
+      publication_action_mappings: {
+        Row: {
+          action: string
+          created_at: string
+          operation_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          operation_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          operation_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       publication_history: {
         Row: {
           action: string
