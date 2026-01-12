@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -41,6 +41,7 @@ const OPERATION_TYPES: Tables<'operation_logs'>['operation_type'][] = [
 const SecurityLogsPage = () => {
   const location = useLocation();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [mlLogs, setMlLogs] = useState<OperationLog[]>([]);
   const [publication, setPublication] = useState<PublicationHistory[]>([]);
@@ -382,84 +383,210 @@ const SecurityLogsPage = () => {
           onSelectPoint={handleSelectTimelinePoint}
         />
 
-        {/* Mapeamento de ações de publicação para tipos de operação */}
-        <Card className="p-4 space-y-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">
-                Mapeamento de ações de publicação → tipos de operação em logs
-              </p>
-              <p className="text-[11px] text-muted-foreground max-w-xl">
-                Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
-                <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
-                . Isso é usado no drill-down da linha do tempo e nos filtros.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[11px]">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">
-                  {actionMappings.filter((m) => m.operation_type).length} de {distinctPublicationActions.length} ações mapeadas
-                </span>
-                {distinctPublicationActions.length > 0 &&
-                  actionMappings.filter((m) => m.operation_type).length < distinctPublicationActions.length && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-500/10 dark:text-amber-300 cursor-help">
-                            Configuração incompleta
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-[11px]">
-                          Ainda existem ações de publicação sem um tipo de operação mapeado. O drill-down da
-                          linha do tempo e o filtro "Tipo de operação" funcionam melhor quando todas as ações
-                          relevantes estão mapeadas.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+        {/* Seção de configuração avançada */}
+        <div className="space-y-3">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Configuração avançada
+          </p>
+
+          {/* Mapeamento de ações de publicação para tipos de operação */}
+          <Card className="p-4 space-y-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Mapeamento de ações de publicação → tipos de operação em logs
+                </p>
+                <p className="text-[11px] text-muted-foreground max-w-xl">
+                  Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
+                  <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
+                  . Isso é usado no drill-down da linha do tempo e nos filtros.
+                </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                disabled={!userId || actionMappings.length === 0}
-                onClick={async () => {
-                  if (!userId || actionMappings.length === 0) return;
-                  const confirmed = window.confirm(
-                    "Tem certeza que deseja remover todos os mapeamentos de ações de publicação?",
-                  );
-                  if (!confirmed) return;
-                  const { error } = await supabase
-                    .from("publication_action_mappings")
-                    .delete()
-                    .eq("user_id", userId);
+              <div className="flex flex-wrap items-center gap-2 text-[11px] justify-end">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {actionMappings.filter((m) => m.operation_type).length} de {distinctPublicationActions.length} ações mapeadas
+                  </span>
+                  {distinctPublicationActions.length > 0 &&
+                    actionMappings.filter((m) => m.operation_type).length < distinctPublicationActions.length && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-500/10 dark:text-amber-300 cursor-help">
+                              Configuração incompleta
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-[11px]">
+                            Ainda existem ações de publicação sem um tipo de operação mapeado. O drill-down da
+                            linha do tempo e o filtro "Tipo de operação" funcionam melhor quando todas as ações
+                            relevantes estão mapeadas.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={actionMappings.length === 0}
+                    onClick={() => {
+                      if (actionMappings.length === 0) {
+                        toast({
+                          title: "Nenhum mapeamento para exportar",
+                          description: "Crie ao menos um mapeamento antes de exportar.",
+                        });
+                        return;
+                      }
 
-                  if (error) {
-                    toast({
-                      title: "Erro ao restaurar padrão",
-                      description: error.message,
-                      variant: "destructive",
-                    });
-                    return;
-                  }
+                      const exportData = actionMappings.map((m) => ({
+                        action: m.action,
+                        operation_type: m.operation_type,
+                        description: m.description ?? null,
+                      }));
 
-                  setActionMappings([]);
-                  toast({
-                    title: "Mapeamentos restaurados",
-                    description: "Todos os mapeamentos de ações de publicação foram removidos.",
-                  });
-                }}
-              >
-                Restaurar padrão
-              </Button>
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                        type: "application/json;charset=utf-8;",
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = "publication-action-mappings.json";
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+
+                      toast({
+                        title: "JSON exportado",
+                        description: "Os mapeamentos foram exportados para um arquivo .json.",
+                      });
+                    }}
+                  >
+                    Exportar JSON
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={!userId}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Importar JSON
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      if (!userId) {
+                        toast({
+                          title: "Usuário não identificado",
+                          description: "Faça login novamente antes de importar mapeamentos.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      try {
+                        const text = await file.text();
+                        const parsed = JSON.parse(text) as Array<{
+                          action: string;
+                          operation_type: string;
+                          description?: string | null;
+                        }>;
+
+                        if (!Array.isArray(parsed)) {
+                          throw new Error("Formato inválido de JSON. Esperado um array.");
+                        }
+
+                        const rows = parsed.map((item) => ({
+                          user_id: userId,
+                          action: item.action,
+                          operation_type: item.operation_type,
+                          description: item.description ?? null,
+                        }));
+
+                        const { error } = await supabase
+                          .from("publication_action_mappings")
+                          .upsert(rows);
+
+                        if (error) {
+                          throw error;
+                        }
+
+                        const { data: refreshed } = await supabase
+                          .from("publication_action_mappings")
+                          .select("*")
+                          .eq("user_id", userId);
+
+                        if (refreshed) {
+                          setActionMappings(refreshed as PublicationActionMapping[]);
+                        }
+
+                        toast({
+                          title: "JSON importado",
+                          description: "Os mapeamentos foram importados e atualizados com sucesso.",
+                        });
+                      } catch (err: any) {
+                        console.error(err);
+                        toast({
+                          title: "Erro ao importar JSON",
+                          description: err?.message ?? "Verifique o arquivo e tente novamente.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={!userId || actionMappings.length === 0}
+                    onClick={async () => {
+                      if (!userId || actionMappings.length === 0) return;
+                      const confirmed = window.confirm(
+                        "Tem certeza que deseja remover todos os mapeamentos de ações de publicação?",
+                      );
+                      if (!confirmed) return;
+                      const { error } = await supabase
+                        .from("publication_action_mappings")
+                        .delete()
+                        .eq("user_id", userId);
+
+                      if (error) {
+                        toast({
+                          title: "Erro ao restaurar padrão",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      setActionMappings([]);
+                      toast({
+                        title: "Mapeamentos restaurados",
+                        description: "Todos os mapeamentos de ações de publicação foram removidos.",
+                      });
+                    }}
+                  >
+                    Restaurar padrão
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {distinctPublicationActions.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Nenhuma ação de publicação encontrada nos últimos registros.
-            </p>
-          ) : (
+            {distinctPublicationActions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma ação de publicação encontrada nos últimos registros.
+              </p>
+            ) : (
             <div className="space-y-2 max-h-72 overflow-auto pr-1">
               {distinctPublicationActions.map((action) => {
                 const currentMapping = actionMappings.find((m) => m.action === action);
