@@ -318,7 +318,11 @@ const SecurityLogsPage = () => {
         <MercadoLivrePanel />
 
         {/* Linha do tempo de incidentes críticos Mercado Livre */}
-        <IncidentTimeline publication={publication} logs={mlLogs} />
+        <IncidentTimeline
+          publication={publication}
+          logs={mlLogs}
+          onSelectPoint={handleSelectTimelinePoint}
+        />
 
         {/* Configurações de alerta e filtros */}
         <Card className="p-4 space-y-4">
