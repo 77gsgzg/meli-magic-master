@@ -14,6 +14,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
 import { SecurityLogsCharts } from "@/components/security/SecurityLogsCharts";
 import { AggregatedIncidents } from "@/components/security/AggregatedIncidents";
@@ -392,16 +393,46 @@ const SecurityLogsPage = () => {
                 . Isso é usado no drill-down da linha do tempo e nos filtros.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="text-muted-foreground">
-                {actionMappings.filter((m) => m.operation_type).length} de {distinctPublicationActions.length} ações mapeadas
-              </span>
-              {distinctPublicationActions.length > 0 &&
-                actionMappings.filter((m) => m.operation_type).length < distinctPublicationActions.length && (
-                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-500/10 dark:text-amber-300">
-                    Configuração incompleta
-                  </span>
-                )}
+            <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">
+                  {actionMappings.filter((m) => m.operation_type).length} de {distinctPublicationActions.length} ações mapeadas
+                </span>
+                {distinctPublicationActions.length > 0 &&
+                  actionMappings.filter((m) => m.operation_type).length < distinctPublicationActions.length && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-500/10 dark:text-amber-300 cursor-help">
+                            Configuração incompleta
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-[11px]">
+                          Ainda existem ações de publicação sem um tipo de operação mapeado. O drill-down da
+                          linha do tempo e o filtro "Tipo de operação" funcionam melhor quando todas as ações
+                          relevantes estão mapeadas.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                disabled={!userId || actionMappings.length === 0}
+                onClick={async () => {
+                  if (!userId || actionMappings.length === 0) return;
+                  const confirmed = window.confirm(
+                    "Tem certeza que deseja remover todos os mapeamentos de ações de publicação?",
+                  );
+                  if (!confirmed) return;
+                  await supabase.from("publication_action_mappings").delete().eq("user_id", userId);
+                  setActionMappings([]);
+                }}
+              >
+                Restaurar padrão
+              </Button>
             </div>
           </div>
 
