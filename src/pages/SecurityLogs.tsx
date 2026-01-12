@@ -18,15 +18,19 @@ import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivr
 import { SecurityLogsCharts } from "@/components/security/SecurityLogsCharts";
 import { AggregatedIncidents } from "@/components/security/AggregatedIncidents";
 import { MercadoLivrePanel } from "@/components/security/MercadoLivrePanel";
+import { IncidentTimeline } from "@/components/security/IncidentTimeline";
 import { Tables } from "@/integrations/supabase/types";
 
  type OperationLog = Tables<'operation_logs'>;
+ type PublicationHistory = Tables<'publication_history'>;
 
 const PAGE_SIZE = 20;
 
 const SecurityLogsPage = () => {
   const location = useLocation();
   const [logs, setLogs] = useState<OperationLog[]>([]);
+  const [mlLogs, setMlLogs] = useState<OperationLog[]>([]);
+  const [publication, setPublication] = useState<PublicationHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -113,12 +117,31 @@ const SecurityLogsPage = () => {
         );
       }
 
-      const { data, error, count } = await query;
+      const [logsRes, mlLogsRes, pubRes] = await Promise.all([
+        query,
+        supabase
+          .from("operation_logs")
+          .select("*")
+          .eq("entity_type", "mercado_livre")
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("publication_history")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(500),
+      ]);
 
-      if (!error && data) {
-        setLogs(data as OperationLog[]);
-        setTotalCount(count ?? 0);
+      if (!logsRes.error && logsRes.data) {
+        setLogs(logsRes.data as OperationLog[]);
+        setTotalCount(logsRes.count ?? 0);
       }
+      if (!mlLogsRes.error && mlLogsRes.data) {
+        setMlLogs(mlLogsRes.data as OperationLog[]);
+      }
+      if (!pubRes.error && pubRes.data) {
+        setPublication(pubRes.data as PublicationHistory[]);
+      }
+
       setLoading(false);
     };
 
@@ -197,6 +220,13 @@ const SecurityLogsPage = () => {
     setPage(1);
   };
 
+  const handleSelectIncident = (params: { entityId: string; start: string; end: string }) => {
+    setSearch(params.entityId);
+    setStartDate(params.start.slice(0, 10));
+    setEndDate(params.end.slice(0, 10));
+    setPage(1);
+  };
+
   return (
     <DashboardLayout
       title="Logs de Segurança"
@@ -266,6 +296,9 @@ const SecurityLogsPage = () => {
 
         {/* Painel dedicado da integração Mercado Livre */}
         <MercadoLivrePanel />
+
+        {/* Linha do tempo de incidentes críticos Mercado Livre */}
+        <IncidentTimeline publication={publication} logs={mlLogs} />
 
         {/* Configurações de alerta e filtros */}
         <Card className="p-4 space-y-4">
@@ -391,7 +424,7 @@ const SecurityLogsPage = () => {
         </Card>
 
         {/* Incidentes agregados com base nos filtros atuais */}
-        <AggregatedIncidents logs={logs} />
+        <AggregatedIncidents logs={logs} onSelectIncident={handleSelectIncident} />
 
         {/* Lista de logs + paginação */}
         <Card className="p-4 space-y-3">

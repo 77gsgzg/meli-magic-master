@@ -7,6 +7,7 @@ import type { Tables } from "@/integrations/supabase/types";
 
 interface AggregatedIncidentsProps {
   logs: OperationLog[];
+  onSelectIncident?: (params: { entityId: string; start: string; end: string }) => void;
 }
 
 interface IncidentGroup {
@@ -19,7 +20,7 @@ interface IncidentGroup {
   operations: Set<string>;
 }
 
-export function AggregatedIncidents({ logs }: AggregatedIncidentsProps) {
+export function AggregatedIncidents({ logs, onSelectIncident }: AggregatedIncidentsProps) {
   const incidents = useMemo<IncidentGroup[]>(() => {
     const map = new Map<string, IncidentGroup>();
 
@@ -60,10 +61,20 @@ export function AggregatedIncidents({ logs }: AggregatedIncidentsProps) {
         {incidents.map((incident) => {
           const hasErrors = incident.statuses.has("error");
           const hasSuccess = incident.statuses.has("success");
+          const clickable = incident.entityId !== "sem-entidade" && !!onSelectIncident;
           return (
-            <div
+            <button
               key={incident.id}
-              className="flex flex-col gap-1 rounded-md border border-border p-3 text-xs bg-background"
+              type="button"
+              onClick={() => {
+                if (!clickable || !onSelectIncident) return;
+                onSelectIncident({
+                  entityId: incident.entityId,
+                  start: incident.firstAt,
+                  end: incident.lastAt,
+                });
+              }}
+              className={"flex flex-col gap-1 rounded-md border border-border p-3 text-xs text-left bg-background transition-colors " + (clickable ? "hover:bg-muted/70 cursor-pointer" : "cursor-default")}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -73,9 +84,7 @@ export function AggregatedIncidents({ logs }: AggregatedIncidentsProps) {
                   <span className="font-medium text-foreground">
                     Entidade: {incident.entityId === "sem-entidade" ? "(sem entidade)" : incident.entityId}
                   </span>
-                  <span className="text-muted-foreground">
-                    {incident.count} eventos
-                  </span>
+                  <span className="text-muted-foreground">{incident.count} eventos</span>
                 </div>
                 <span className="text-muted-foreground">
                   Último: {new Date(incident.lastAt).toLocaleString()}
@@ -83,27 +92,18 @@ export function AggregatedIncidents({ logs }: AggregatedIncidentsProps) {
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
                 <span>
-                  Janela:
-                  {" "}
-                  {new Date(incident.firstAt).toLocaleString()} - {new Date(incident.lastAt).toLocaleString()}
+                  Janela: {new Date(incident.firstAt).toLocaleString()} - {" "}
+                  {new Date(incident.lastAt).toLocaleString()}
                 </span>
-                <span>
-                  Status:
-                  {" "}
-                  {Array.from(incident.statuses).join(", ")}
-                </span>
-                <span>
-                  Operações:
-                  {" "}
-                  {Array.from(incident.operations).join(", ")}
-                </span>
+                <span> Status: {Array.from(incident.statuses).join(", ")}</span>
+                <span> Operações: {Array.from(incident.operations).join(", ")}</span>
                 {hasSuccess && hasErrors && (
                   <span className="text-destructive font-medium">
                     Erros após tentativas bem-sucedidas
                   </span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </CardContent>
