@@ -19,6 +19,45 @@ serve(async (req) => {
     const ML_CLIENT_SECRET = Deno.env.get('ML_CLIENT_SECRET');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const ML_TOKEN_ENC_KEY = Deno.env.get('ML_TOKEN_ENC_KEY');
+
+    const getCryptoKey = async (): Promise<CryptoKey | null> => {
+      if (!ML_TOKEN_ENC_KEY) return null;
+      const raw = Uint8Array.from(atob(ML_TOKEN_ENC_KEY), c => c.charCodeAt(0));
+      return crypto.subtle.importKey(
+        'raw',
+        raw,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    };
+
+    const encryptToken = async (plain: string): Promise<string> => {
+      const key = await getCryptoKey();
+      if (!key) return plain;
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encoded = new TextEncoder().encode(plain);
+      const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded));
+      const combined = new Uint8Array(iv.length + cipher.length);
+      combined.set(iv, 0);
+      combined.set(cipher, iv.length);
+      const b64 = btoa(String.fromCharCode(...combined));
+      return `enc:${b64}`;
+    };
+
+    const decryptToken = async (value: string): Promise<string> => {
+      if (!value.startsWith('enc:')) return value;
+      const key = await getCryptoKey();
+      if (!key) return value;
+      const b64 = value.slice(4);
+      const binary = atob(b64);
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      const iv = bytes.slice(0, 12);
+      const cipher = bytes.slice(12);
+      const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
+      return new TextDecoder().decode(plainBuffer);
+    };
 
     const isAllowedRedirectUri = (uri: string): boolean => {
       try {
@@ -136,13 +175,16 @@ serve(async (req) => {
 
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-      // Upsert tokens in database
+      // Upsert tokens in database (encrypted)
+      const encryptedAccess = await encryptToken(tokenData.access_token);
+      const encryptedRefresh = await encryptToken(tokenData.refresh_token);
+
       const { error: upsertError } = await supabase
         .from('ml_tokens')
         .upsert({
           user_id: userId,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
+          access_token: encryptedAccess,
+          refresh_token: encryptedRefresh,
           token_type: tokenData.token_type,
           expires_at: expiresAt.toISOString(),
           ml_user_id: userData.id?.toString(),
@@ -245,12 +287,15 @@ serve(async (req) => {
 
       const expiresAt = new Date(Date.now() + refreshData.expires_in * 1000);
 
+      const newEncryptedAccess = await encryptToken(refreshData.access_token);
+      const newEncryptedRefresh = await encryptToken(refreshData.refresh_token);
+
       // Update tokens
       await supabase
         .from('ml_tokens')
         .update({
-          access_token: refreshData.access_token,
-          refresh_token: refreshData.refresh_token,
+          access_token: newEncryptedAccess,
+          refresh_token: newEncryptedRefresh,
           expires_at: expiresAt.toISOString(),
         })
         .eq('user_id', userId);
