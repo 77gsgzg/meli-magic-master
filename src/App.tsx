@@ -12,6 +12,7 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import MercadoLivreConnect from "./pages/MercadoLivreConnect";
+import MercadoLivreDiagnostics from "./pages/MercadoLivreDiagnostics";
 import SecurityLogs from "./pages/SecurityLogs";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
+            <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
             <Route path="/import" element={<Import />} />
             <Route path="/products" element={<Products />} />
             <Route path="/history" element={<History />} />

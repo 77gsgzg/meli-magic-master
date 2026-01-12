@@ -15,6 +15,33 @@ export function useMercadoLivre() {
   const [connection, setConnection] = useState<MLConnection>({ connected: false });
   const [loading, setLoading] = useState(true);
 
+  const mapMlError = (message: string | undefined): string => {
+    if (!message) return 'Erro ao comunicar com o Mercado Livre. Tente novamente.';
+    const msg = message.toLowerCase();
+
+    if (msg.includes('invalid redirect') || msg.includes('redirect_uri')) {
+      return 'URL de retorno inválida. Atualize a página e tente novamente.';
+    }
+
+    if (msg.includes('invalid_grant') || msg.includes('authorization code')) {
+      return 'Sessão de autorização expirada ou já utilizada. Recomece o fluxo de conexão.';
+    }
+
+    if (msg.includes('invalid_client')) {
+      return 'Credenciais da aplicação inválidas. Entre em contato com o suporte.';
+    }
+
+    if (msg.includes('temporarily_unavailable')) {
+      return 'Serviço do Mercado Livre temporariamente indisponível. Tente novamente em alguns minutos.';
+    }
+
+    if (msg.includes('rate') && msg.includes('limit')) {
+      return 'Limite de chamadas à API do Mercado Livre atingido. Aguarde um pouco antes de tentar de novo.';
+    }
+
+    return message;
+  };
+
   const checkConnection = async () => {
     if (!session?.access_token) {
       setLoading(false);
@@ -22,13 +49,13 @@ export function useMercadoLivre() {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('ml-oauth', {
+      // Legacy invoke mantido apenas para compatibilidade, pode ser removido futuramente
+      await supabase.functions.invoke('ml-oauth', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {},
         method: 'GET',
       });
 
-      // Use query params approach
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=status`,
         {
@@ -74,7 +101,7 @@ export function useMercadoLivre() {
         return result.auth_url;
       }
 
-      toast.error(result.error || 'Erro ao gerar URL de autorização');
+      toast.error(mapMlError(result.error));
       return null;
     } catch (error) {
       console.error('Error getting auth URL:', error);
@@ -111,7 +138,7 @@ export function useMercadoLivre() {
         return true;
       }
 
-      toast.error(result.error || 'Erro ao conectar Mercado Livre');
+      toast.error(mapMlError(result.error));
       return false;
     } catch (error) {
       console.error('Error handling callback:', error);
@@ -143,7 +170,7 @@ export function useMercadoLivre() {
         return true;
       }
 
-      toast.error(result.error || 'Erro ao desconectar');
+      toast.error(mapMlError(result.error));
       return false;
     } catch (error) {
       console.error('Error disconnecting:', error);
@@ -175,7 +202,7 @@ export function useMercadoLivre() {
         return true;
       }
 
-      toast.error(result.error || 'Erro ao renovar token');
+      toast.error(mapMlError(result.error));
       return false;
     } catch (error) {
       console.error('Error refreshing token:', error);
@@ -204,7 +231,30 @@ export function useMercadoLivre() {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.error || 'API error');
+      throw new Error(mapMlError(result.error));
+    }
+
+    return result;
+  };
+
+  const getDiagnostics = async () => {
+    if (!session?.access_token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=diagnostics`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(mapMlError(result.error));
     }
 
     return result;
@@ -219,5 +269,6 @@ export function useMercadoLivre() {
     disconnect,
     refreshToken,
     callMLApi,
+    getDiagnostics,
   };
 }

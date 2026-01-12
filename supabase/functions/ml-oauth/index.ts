@@ -374,6 +374,69 @@ serve(async (req) => {
       );
     }
 
+    // Detailed diagnostics for internal support
+    if (action === 'diagnostics') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      
+      if (claimsError || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const userId = claimsData.claims.sub;
+
+      const { data: tokenRecord } = await supabase
+        .from('ml_tokens')
+        .select('nickname, seller_id, expires_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const { data: logs } = await supabase
+        .from('operation_logs')
+        .select('created_at, operation_type, status, details')
+        .eq('user_id', userId)
+        .eq('entity_type', 'ml_tokens')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      let lastRefresh: string | null = null;
+      if (logs && logs.length > 0) {
+        const refreshLog = logs.find((l) => l.operation_type === 'token_refresh');
+        if (refreshLog) {
+          lastRefresh = refreshLog.created_at;
+        }
+      }
+
+      const connected = !!tokenRecord;
+      const expiresAt = tokenRecord?.expires_at ?? null;
+      const isExpired = expiresAt ? new Date(expiresAt) < new Date() : null;
+
+      return new Response(
+        JSON.stringify({
+          connected,
+          nickname: tokenRecord?.nickname ?? null,
+          seller_id: tokenRecord?.seller_id ?? null,
+          expires_at: expiresAt,
+          is_expired: isExpired,
+          last_refresh: lastRefresh,
+          logs: logs ?? [],
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Disconnect ML account
     if (action === 'disconnect') {
       const authHeader = req.headers.get('Authorization');
