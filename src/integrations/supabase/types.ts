@@ -280,6 +280,30 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alert_settings: {
+        Row: {
+          created_at: string
+          error_threshold: number
+          updated_at: string
+          user_id: string
+          window_minutes: number
+        }
+        Insert: {
+          created_at?: string
+          error_threshold?: number
+          updated_at?: string
+          user_id: string
+          window_minutes?: number
+        }
+        Update: {
+          created_at?: string
+          error_threshold?: number
+          updated_at?: string
+          user_id?: string
+          window_minutes?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
