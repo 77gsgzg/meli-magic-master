@@ -139,7 +139,7 @@ export default function MercadoLivreConnect() {
             </div>
           </div>
 
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-6">
             {connection.connected ? (
               <div className="space-y-6">
                 {/* Connected Status */}
@@ -284,6 +284,21 @@ export default function MercadoLivreConnect() {
                 </div>
               </div>
             )}
+
+            {/* Diagnóstico interno */}
+            <div className="border border-dashed border-muted rounded-lg p-4 bg-muted/40">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Diagnóstico rápido (somente você vê isso)
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-1 mb-3 list-disc list-inside">
+                <li>Se a página de login do Mercado Livre não abrir, tente uma guia anônima.</li>
+                <li>Se após logar você voltar para a home sem explicação, saia da sua conta ML em outra aba e tente novamente.</li>
+                <li>Problemas persistentes geralmente estão ligados a cookies/sessão do seu navegador.</li>
+              </ul>
+              <pre className="text-[10px] leading-snug font-mono bg-background/60 rounded-md p-2 overflow-x-auto">
+                {JSON.stringify(connection, null, 2)}
+              </pre>
+            </div>
           </CardContent>
         </Card>
 
