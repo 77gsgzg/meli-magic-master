@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -35,6 +35,8 @@ const SecurityLogsPage = () => {
   const [endDate, setEndDate] = useState<string>("");
   const [alertThreshold, setAlertThreshold] = useState<number>(10);
   const [alertWindowMinutes, setAlertWindowMinutes] = useState<number>(15);
+  const [chartMode, setChartMode] = useState<"errors" | "all">("errors");
+  const [chartPeriod, setChartPeriod] = useState<"7d" | "30d" | "custom">("7d");
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -47,6 +49,32 @@ const SecurityLogsPage = () => {
       setPage(1);
     }
   }, [location.search]);
+
+  // Carrega configurações de alerta salvas
+  useEffect(() => {
+    const loadAlertSettings = async () => {
+      const {
+        data,
+      } = await supabase.from("security_alert_settings").select("error_threshold, window_minutes").maybeSingle();
+      if (data) {
+        setAlertThreshold(data.error_threshold ?? 10);
+        setAlertWindowMinutes(data.window_minutes ?? 15);
+      }
+    };
+    loadAlertSettings();
+  }, []);
+
+  // Salva configurações de alerta quando mudarem
+  useEffect(() => {
+    const save = async () => {
+      await supabase.from("security_alert_settings").upsert({
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        error_threshold: alertThreshold,
+        window_minutes: alertWindowMinutes,
+      });
+    };
+    save();
+  }, [alertThreshold, alertWindowMinutes]);
 
   // Carregamento dos logs com filtros e paginação
   useEffect(() => {
@@ -104,7 +132,10 @@ const SecurityLogsPage = () => {
     setPage(1);
   };
 
-  const uniqueOperationTypes = Array.from(new Set(logs.map((log) => log.operation_type)));
+  const uniqueOperationTypes = useMemo(
+    () => Array.from(new Set(logs.map((log) => log.operation_type))),
+    [logs],
+  );
 
   const now = new Date();
   const cutoff = new Date(now.getTime() - alertWindowMinutes * 60 * 1000);
@@ -153,6 +184,17 @@ const SecurityLogsPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const applyPeriodPreset = (preset: "7d" | "30d" | "custom") => {
+    setChartPeriod(preset);
+    if (preset === "custom") return;
+    const days = preset === "7d" ? 7 : 30;
+    const now = new Date();
+    const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    setStartDate(start.toISOString().slice(0, 10));
+    setEndDate(now.toISOString().slice(0, 10));
+    setPage(1);
+  };
+
   return (
     <DashboardLayout
       title="Logs de Segurança"
@@ -162,15 +204,70 @@ const SecurityLogsPage = () => {
         {/* Indicadores em tempo real da integração com o Mercado Livre */}
         <MercadoLivreStatusIndicators />
 
-        {/* Gráficos de tendência com base nos logs atuais */}
-        <SecurityLogsCharts logs={logs} />
+        {/* Controles de modo/período dos gráficos + gráficos de tendência */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Modo dos gráficos:</span>
+              <Button
+                type="button"
+                size="sm"
+                variant={chartMode === "errors" ? "default" : "outline"}
+                className="h-7 px-2"
+                onClick={() => setChartMode("errors")}
+              >
+                Somente erros
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={chartMode === "all" ? "default" : "outline"}
+                className="h-7 px-2"
+                onClick={() => setChartMode("all")}
+              >
+                Todas as operações
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Período rápido:</span>
+              <Button
+                type="button"
+                size="sm"
+                variant={chartPeriod === "7d" ? "default" : "outline"}
+                className="h-7 px-2"
+                onClick={() => applyPeriodPreset("7d")}
+              >
+                Últimos 7 dias
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={chartPeriod === "30d" ? "default" : "outline"}
+                className="h-7 px-2"
+                onClick={() => applyPeriodPreset("30d")}
+              >
+                Últimos 30 dias
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={chartPeriod === "custom" ? "default" : "outline"}
+                className="h-7 px-2"
+                onClick={() => setChartPeriod("custom")}
+              >
+                Personalizado
+              </Button>
+            </div>
+          </div>
+          <SecurityLogsCharts logs={logs} mode={chartMode} period={chartPeriod} />
+        </div>
 
         <Card className="p-4 space-y-4">
           {/* Alertas configuráveis */}
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">
-                Alertas de degradação (somente client-side)
+                Alertas de degradação (preferências salvas por usuário)
               </p>
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -287,6 +384,7 @@ const SecurityLogsPage = () => {
           </div>
         </Card>
 
+        {/* Lista de logs + paginação */}
         <Card className="p-4 space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
