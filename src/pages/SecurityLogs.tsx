@@ -23,14 +23,26 @@ import { Tables } from "@/integrations/supabase/types";
 
  type OperationLog = Tables<'operation_logs'>;
  type PublicationHistory = Tables<'publication_history'>;
+ type PublicationActionMapping = Tables<'publication_action_mappings'>;
 
 const PAGE_SIZE = 20;
+
+const OPERATION_TYPES: Tables<'operation_logs'>['operation_type'][] = [
+  'import',
+  'publish',
+  'update',
+  'delete',
+  'token_refresh',
+  'ai_optimization',
+];
 
 const SecurityLogsPage = () => {
   const location = useLocation();
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [mlLogs, setMlLogs] = useState<OperationLog[]>([]);
   const [publication, setPublication] = useState<PublicationHistory[]>([]);
+  const [actionMappings, setActionMappings] = useState<PublicationActionMapping[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -66,22 +78,41 @@ const SecurityLogsPage = () => {
         setAlertWindowMinutes(data.window_minutes ?? 15);
       }
     };
+
+    const loadUserAndMappings = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUserId = authData.user?.id ?? null;
+      setUserId(currentUserId);
+
+      if (!currentUserId) return;
+
+      const { data: mappings } = await supabase
+        .from("publication_action_mappings")
+        .select("*")
+        .eq("user_id", currentUserId);
+
+      if (mappings) {
+        setActionMappings(mappings as PublicationActionMapping[]);
+      }
+    };
+
     loadAlertSettings();
+    loadUserAndMappings();
   }, []);
 
   useEffect(() => {
+    if (!userId) return;
+
     const save = async () => {
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (!userId) return;
       await supabase.from("security_alert_settings").upsert({
         user_id: userId,
         error_threshold: alertThreshold,
         window_minutes: alertWindowMinutes,
       });
     };
+
     save();
-  }, [alertThreshold, alertWindowMinutes]);
+  }, [alertThreshold, alertWindowMinutes, userId]);
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -162,6 +193,18 @@ const SecurityLogsPage = () => {
     [logs],
   );
 
+  const distinctPublicationActions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          publication
+            .map((p) => p.action)
+            .filter((action): action is string => typeof action === "string" && action.length > 0),
+        ),
+      ),
+    [publication],
+  );
+
   const now = new Date();
   const cutoff = new Date(now.getTime() - alertWindowMinutes * 60 * 1000);
   const recentErrors = logs.filter(
@@ -238,10 +281,13 @@ const SecurityLogsPage = () => {
     setEndDate(day);
     setStatusFilter("error");
 
-    if (params.operationType) {
-      // Para erros de integração, o operation_type já representa ações como publish, token_refresh etc.
-      // Para erros de publicação, usamos o campo action de publication_history (mapeado em operationType)
+    if (params.type === "publication_error") {
+      const mapped = actionMappings.find((m) => m.action === params.operationType);
+      setOperationFilter(mapped?.operation_type ?? "");
+    } else if (params.operationType) {
       setOperationFilter(params.operationType);
+    } else {
+      setOperationFilter("");
     }
 
     setPage(1);
@@ -323,6 +369,91 @@ const SecurityLogsPage = () => {
           logs={mlLogs}
           onSelectPoint={handleSelectTimelinePoint}
         />
+
+        {/* Mapeamento de ações de publicação para tipos de operação */}
+        <Card className="p-4 space-y-4">
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Mapeamento de ações de publicação → tipos de operação em logs
+            </p>
+            <p className="text-[11px] text-muted-foreground max-w-xl">
+              Use este mapeamento para dizer qual tipo de operação nos logs corresponde a cada
+              <code className="px-1 rounded bg-muted text-[10px] ml-1 mr-1">publication_history.action</code>
+              . Isso é usado no drill-down da linha do tempo.
+            </p>
+          </div>
+
+          {distinctPublicationActions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma ação de publicação encontrada nos últimos registros.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-auto pr-1">
+              {distinctPublicationActions.map((action) => {
+                const currentMapping = actionMappings.find((m) => m.action === action);
+                const value = currentMapping?.operation_type ?? "";
+
+                const handleChange = async (newValue: string) => {
+                  if (!userId || !newValue) return;
+
+                  setActionMappings((prev) => {
+                    const existing = prev.find((m) => m.action === action);
+                    if (existing) {
+                      return prev.map((m) =>
+                        m.action === action ? { ...m, operation_type: newValue } : m,
+                      );
+                    }
+                    const nowIso = new Date().toISOString();
+                    return [
+                      ...prev,
+                      {
+                        user_id: userId,
+                        action,
+                        operation_type: newValue,
+                        created_at: nowIso,
+                        updated_at: nowIso,
+                      } as PublicationActionMapping,
+                    ];
+                  });
+
+                  await supabase.from("publication_action_mappings").upsert({
+                    user_id: userId,
+                    action,
+                    operation_type: newValue,
+                  });
+                };
+
+                return (
+                  <div
+                    key={action}
+                    className="flex flex-col gap-1 border border-border rounded-md p-2 md:flex-row md:items-center md:justify-between bg-background"
+                  >
+                    <div className="text-[11px] text-muted-foreground break-all mr-3">
+                      <span className="font-mono text-[11px]">{action}</span>
+                    </div>
+                    <div className="mt-1 md:mt-0">
+                      <label className="sr-only">Tipo de operação para {action}</label>
+                      <select
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                        value={value}
+                        onChange={(e) => handleChange(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          Selecione o tipo de operação correspondente
+                        </option>
+                        {OPERATION_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
         {/* Configurações de alerta e filtros */}
         <Card className="p-4 space-y-4">
