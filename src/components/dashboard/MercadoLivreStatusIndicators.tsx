@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2, RefreshCw, Activity } from "lucide-react";
@@ -14,6 +15,7 @@ const PUBLICATION_WINDOW_HOURS = 1;
 
 export function MercadoLivreStatusIndicators() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [pubFailures, setPubFailures] = useState(0);
   const [integrationFailures, setIntegrationFailures] = useState(0);
@@ -41,7 +43,7 @@ export function MercadoLivreStatusIndicators() {
           .gte('created_at', errCutoff),
         supabase
           .from('publication_history')
-          .select<'created_at'>('created_at')
+          .select('created_at')
           .eq('status', 'success')
           .order('created_at', { ascending: false })
           .limit(1),
@@ -54,7 +56,7 @@ export function MercadoLivreStatusIndicators() {
         setIntegrationFailures(opErrorRes.count ?? 0);
       }
       if (!lastSuccessRes.error && lastSuccessRes.data && lastSuccessRes.data.length > 0) {
-        setLastSuccessAt(lastSuccessRes.data[0].created_at as string);
+        setLastSuccessAt((lastSuccessRes.data[0] as any).created_at as string);
       }
       setLoading(false);
     };
@@ -105,6 +107,10 @@ export function MercadoLivreStatusIndicators() {
 
   const hasIncidents = pubFailures > 0 || integrationFailures > 0;
 
+  const goToErrorLogs = () => {
+    navigate("/security-logs?status=error");
+  };
+
   return (
     <Card className="border border-border/60 bg-muted/40">
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
@@ -117,20 +123,28 @@ export function MercadoLivreStatusIndicators() {
         </Badge>
       </CardHeader>
       <CardContent className="space-y-3 text-xs">
-        <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={goToErrorLogs}
+          className="flex w-full items-center justify-between hover:bg-muted/60 rounded-md px-1 py-1 transition-colors text-left"
+        >
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-destructive" />
             <span className="text-muted-foreground">Falhas de publicação (última hora)</span>
           </div>
           <span className="font-medium text-foreground">{pubFailures}</span>
-        </div>
-        <div className="flex items-center justify-between">
+        </button>
+        <button
+          type="button"
+          onClick={goToErrorLogs}
+          className="flex w-full items-center justify-between hover:bg-muted/60 rounded-md px-1 py-1 transition-colors text-left"
+        >
           <div className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4 text-warning" />
             <span className="text-muted-foreground">Erros de integração (últimos {ERROR_WINDOW_MINUTES} min)</span>
           </div>
           <span className="font-medium text-foreground">{integrationFailures}</span>
-        </div>
+        </button>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
