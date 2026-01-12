@@ -72,8 +72,9 @@ serve(async (req) => {
         const protocolAllowed = parsed.protocol === 'http:' || parsed.protocol === 'https:';
         const host = parsed.hostname.toLowerCase();
         const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-        const isLovableHosted = host.endsWith('.lovable.app');
-        return protocolAllowed && (isLocalhost || isLovableHosted);
+        const isLovableApp = host.endsWith('.lovable.app');
+        const isLovablePreview = host.endsWith('.lovableproject.com');
+        return protocolAllowed && (isLocalhost || isLovableApp || isLovablePreview);
       } catch {
         return false;
       }
