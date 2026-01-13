@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from "recharts";
-import { TrendingUp, PieChart as PieChartIcon, BarChart3 } from "lucide-react";
+import { TrendingUp, PieChart as PieChartIcon, BarChart3, Image, Loader2 } from "lucide-react";
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import html2canvas from "html2canvas";
+import { toast } from "sonner";
 
 interface PublicationLog {
   id: string;
@@ -28,6 +31,34 @@ const COLORS = {
 };
 
 export function PublicationStatsCharts({ logs }: PublicationStatsChartsProps) {
+  const chartsRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+
+  // Export charts as PNG
+  const exportAsImage = async () => {
+    if (!chartsRef.current) return;
+
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(chartsRef.current, {
+        backgroundColor: "#1a1a2e",
+        scale: 2,
+      });
+
+      const link = document.createElement("a");
+      link.download = `publicacoes-stats-${format(new Date(), "yyyy-MM-dd-HHmm")}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+
+      toast.success("Imagem exportada com sucesso!");
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Erro ao exportar imagem");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Calculate stats
   const stats = useMemo(() => {
     const total = logs.length;
@@ -96,9 +127,22 @@ export function PublicationStatsCharts({ logs }: PublicationStatsChartsProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {/* Summary Stats */}
-      <Card variant="glass">
+    <div className="space-y-4">
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={exportAsImage} disabled={exporting}>
+          {exporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Image className="h-4 w-4 mr-2" />
+          )}
+          Exportar Gráficos
+        </Button>
+      </div>
+
+      <div ref={chartsRef} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Summary Stats */}
+        <Card variant="glass">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -271,6 +315,7 @@ export function PublicationStatsCharts({ logs }: PublicationStatsChartsProps) {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
