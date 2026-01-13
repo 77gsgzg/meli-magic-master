@@ -8,11 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Activity, AlertCircle, ShoppingBag, Search, Filter, CalendarIcon, X, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Activity, AlertCircle, ShoppingBag, Search, Filter, CalendarIcon, X, Download, ChevronLeft, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { PublicationStatsCharts } from "@/components/diagnostics/PublicationStatsCharts";
+import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { toast } from "sonner";
 
 interface PublicationLog {
   id: string;
@@ -26,6 +30,15 @@ interface PublicationLog {
 interface ProductSummary {
   id: string;
   title: string;
+  category_id: string | null;
+  price: number | null;
+  description: string | null;
+  images: unknown;
+  available_quantity: number | null;
+  condition: string | null;
+  listing_type: string | null;
+  currency: string | null;
+  attributes: unknown;
 }
 
 type DateRange = {
@@ -37,11 +50,14 @@ const ITEMS_PER_PAGE = 20;
 
 export default function PublicationDiagnostics() {
   const { user, loading: authLoading } = useRequireAuth();
+  const { session } = useAuth();
+  const { callMLApi, connection } = useMercadoLivre();
   const [logs, setLogs] = useState<PublicationLog[]>([]);
   const [products, setProducts] = useState<Record<string, ProductSummary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,7 +87,7 @@ export default function PublicationDiagnostics() {
         if (productIds.length) {
           const { data: productData } = await supabase
             .from("products")
-            .select("id, title")
+            .select("id, title, category_id, price, description, images, available_quantity, condition, listing_type, currency, attributes")
             .in("id", productIds);
 
           const map: Record<string, ProductSummary> = {};
@@ -177,6 +193,71 @@ export default function PublicationDiagnostics() {
     URL.revokeObjectURL(link.href);
   };
 
+  // Retry publication for a failed product
+  const retryPublication = async (productId: string) => {
+    const product = products[productId];
+    if (!product) {
+      toast.error("Produto não encontrado");
+      return;
+    }
+
+    if (!connection.connected) {
+      toast.error("Mercado Livre não conectado. Vá até a página de conexão primeiro.");
+      return;
+    }
+
+    setRetryingIds((prev) => new Set(prev).add(productId));
+
+    try {
+      const images = Array.isArray(product.images) 
+        ? (product.images as string[])
+        : [];
+      
+      const attributes = Array.isArray(product.attributes)
+        ? product.attributes
+        : [];
+
+      const result = await callMLApi("publish_item", {
+        product_id: productId,
+        title: product.title,
+        category_id: product.category_id,
+        price: product.price,
+        description: product.description,
+        images,
+        available_quantity: product.available_quantity || 1,
+        condition: product.condition || "new",
+        listing_type: product.listing_type || "gold_special",
+        currency: product.currency || "BRL",
+        attributes,
+      });
+
+      if (result.id) {
+        toast.success("Produto republicado com sucesso!");
+        // Reload logs
+        const { data: logData } = await supabase
+          .from("publication_history")
+          .select("id, created_at, action, status, error_details, product_id")
+          .eq("user_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (logData) {
+          setLogs(logData);
+        }
+      } else {
+        toast.error(result.message || "Erro ao republicar produto");
+      }
+    } catch (err) {
+      console.error("Retry error:", err);
+      toast.error(err instanceof Error ? err.message : "Erro ao republicar produto");
+    } finally {
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <DashboardLayout
@@ -196,6 +277,9 @@ export default function PublicationDiagnostics() {
       subtitle="Use esta página para entender por que anúncios falharam ou ficaram em erro"
     >
       <div className="max-w-5xl mx-auto space-y-6">
+        {/* Stats Charts Section */}
+        <PublicationStatsCharts logs={logs} />
+
         {/* Filters Section */}
         <Card variant="glass">
           <CardHeader className="pb-3">
@@ -357,6 +441,25 @@ export default function PublicationDiagnostics() {
                             <Badge variant={isError ? "destructive" : "success"}>
                               {log.status}
                             </Badge>
+                            {isError && log.action === "publish" && product && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-[10px] px-2"
+                                onClick={() => retryPublication(log.product_id)}
+                                disabled={retryingIds.has(log.product_id) || !connection.connected}
+                                title={!connection.connected ? "Conecte ao Mercado Livre primeiro" : "Re-tentar publicação"}
+                              >
+                                {retryingIds.has(log.product_id) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <RotateCcw className="h-3 w-3 mr-1" />
+                                    Retry
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </div>
 
