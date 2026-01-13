@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import MercadoLivreConnect from "./pages/MercadoLivreConnect";
 import MercadoLivreDiagnostics from "./pages/MercadoLivreDiagnostics";
 import PublicationDiagnostics from "./pages/PublicationDiagnostics";
+import MetricsDashboard from "./pages/MetricsDashboard";
 import SecurityLogs from "./pages/SecurityLogs";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
             <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
             <Route path="/publications/diagnostics" element={<PublicationDiagnostics />} />
+            <Route path="/metrics" element={<MetricsDashboard />} />
             <Route path="/import" element={<Import />} />
             <Route path="/products" element={<Products />} />
             <Route path="/history" element={<History />} />

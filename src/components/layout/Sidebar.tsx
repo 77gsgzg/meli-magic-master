@@ -13,11 +13,13 @@ import {
   Store,
   Stethoscope,
   FileWarning,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: BarChart3, label: "Métricas", path: "/metrics" },
   { icon: Store, label: "Mercado Livre", path: "/mercado-livre" },
   { icon: PlusCircle, label: "Importar Produto", path: "/import" },
   { icon: Package, label: "Produtos", path: "/products" },
