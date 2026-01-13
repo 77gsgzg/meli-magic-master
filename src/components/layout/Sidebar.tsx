@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   Sparkles,
   Store,
+  Stethoscope,
+  FileWarning,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +22,8 @@ const menuItems = [
   { icon: PlusCircle, label: "Importar Produto", path: "/import" },
   { icon: Package, label: "Produtos", path: "/products" },
   { icon: History, label: "Histórico", path: "/history" },
+  { icon: Stethoscope, label: "Diag. Conexão", path: "/mercado-livre/diagnostics" },
+  { icon: FileWarning, label: "Diag. Publicações", path: "/publications/diagnostics" },
   { icon: Settings, label: "Configurações", path: "/settings" },
 ];
 

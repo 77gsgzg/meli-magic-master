@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Activity, AlertCircle, ShoppingBag, Search, Filter, CalendarIcon, X } from "lucide-react";
+import { Loader2, Activity, AlertCircle, ShoppingBag, Search, Filter, CalendarIcon, X, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -33,12 +33,15 @@ type DateRange = {
   to: Date | undefined;
 };
 
+const ITEMS_PER_PAGE = 20;
+
 export default function PublicationDiagnostics() {
   const { user, loading: authLoading } = useRequireAuth();
   const [logs, setLogs] = useState<PublicationLog[]>([]);
   const [products, setProducts] = useState<Record<string, ProductSummary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,7 +58,7 @@ export default function PublicationDiagnostics() {
           .select("id, created_at, action, status, error_details, product_id")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(500);
 
         if (logError) {
           setError("Erro ao carregar logs de publicação");
@@ -125,6 +128,18 @@ export default function PublicationDiagnostics() {
     });
   }, [logs, products, searchTerm, statusFilter, actionFilter, dateRange]);
 
+  // Pagination
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredLogs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredLogs, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, actionFilter, dateRange]);
+
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
@@ -134,6 +149,33 @@ export default function PublicationDiagnostics() {
 
   const hasActiveFilters =
     searchTerm !== "" || statusFilter !== "all" || actionFilter !== "all" || dateRange.from || dateRange.to;
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ["Data/Hora", "Produto", "Ação", "Status", "Erro"];
+    const rows = filteredLogs.map((log) => {
+      const product = products[log.product_id];
+      return [
+        new Date(log.created_at).toLocaleString("pt-BR"),
+        product?.title || log.product_id,
+        log.action,
+        log.status,
+        log.error_details || "",
+      ];
+    });
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";")),
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `diagnostico-publicacoes-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   if (authLoading || loading) {
     return (
@@ -157,10 +199,22 @@ export default function PublicationDiagnostics() {
         {/* Filters Section */}
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Filter className="h-4 w-4 text-primary" />
-              Filtros
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Filter className="h-4 w-4 text-primary" />
+                Filtros
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                disabled={filteredLogs.length === 0}
+                className="h-8"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -283,44 +337,77 @@ export default function PublicationDiagnostics() {
                   : "Nenhum registro encontrado com os filtros aplicados."}
               </p>
             ) : (
-              <div className="space-y-2 text-xs font-mono">
-                {filteredLogs.map((log) => {
-                  const product = products[log.product_id];
-                  const isError = log.status !== "success";
+              <>
+                <div className="space-y-2 text-xs font-mono">
+                  {paginatedLogs.map((log) => {
+                    const product = products[log.product_id];
+                    const isError = log.status !== "success";
 
-                  return (
-                    <div
-                      key={log.id}
-                      className="rounded-md border border-border/60 bg-muted/40 p-2"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                        <span className="text-[11px] text-muted-foreground">
-                          {new Date(log.created_at).toLocaleString("pt-BR")}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{log.action}</Badge>
-                          <Badge variant={isError ? "destructive" : "success"}>
-                            {log.status}
-                          </Badge>
+                    return (
+                      <div
+                        key={log.id}
+                        className="rounded-md border border-border/60 bg-muted/40 p-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                          <span className="text-[11px] text-muted-foreground">
+                            {new Date(log.created_at).toLocaleString("pt-BR")}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{log.action}</Badge>
+                            <Badge variant={isError ? "destructive" : "success"}>
+                              {log.status}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex flex-wrap items-center gap-2 mb-1 text-[11px] text-muted-foreground">
-                        <ShoppingBag className="h-3 w-3" />
-                        <span className="truncate max-w-xs">
-                          {product?.title || `Produto ${log.product_id}`}
-                        </span>
-                      </div>
+                        <div className="flex flex-wrap items-center gap-2 mb-1 text-[11px] text-muted-foreground">
+                          <ShoppingBag className="h-3 w-3" />
+                          <span className="truncate max-w-xs">
+                            {product?.title || `Produto ${log.product_id}`}
+                          </span>
+                        </div>
 
-                      {log.error_details && (
-                        <pre className="mt-1 text-[10px] leading-snug overflow-x-auto whitespace-pre-wrap break-all text-destructive/80">
-                          {log.error_details}
-                        </pre>
-                      )}
+                        {log.error_details && (
+                          <pre className="mt-1 text-[10px] leading-snug overflow-x-auto whitespace-pre-wrap break-all text-destructive/80">
+                            {log.error_details}
+                          </pre>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
+                    <span className="text-xs text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="h-8"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="h-8"
+                      >
+                        Próxima
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
