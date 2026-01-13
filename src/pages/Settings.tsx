@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Store,
   Bell,
@@ -18,14 +19,20 @@ import {
   ExternalLink,
   Loader2,
   Link2Off,
+  Palette,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { useTheme } from "@/hooks/useTheme";
 import { toast } from "sonner";
 
 export default function Settings() {
   const { user, loading: authLoading } = useRequireAuth();
   const { connection, loading: mlLoading, getAuthUrl, handleCallback, disconnect, refreshToken } = useMercadoLivre();
+  const { theme, setTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -201,6 +208,69 @@ export default function Settings() {
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Appearance Settings */}
+        <Card variant="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-primary" />
+              Aparência
+            </CardTitle>
+            <CardDescription>
+              Personalize a aparência do sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label className="text-base">Tema</Label>
+              <RadioGroup
+                value={theme}
+                onValueChange={(value) => setTheme(value as "light" | "dark" | "system")}
+                className="grid grid-cols-3 gap-4"
+              >
+                <Label
+                  htmlFor="theme-light"
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    theme === "light"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <RadioGroupItem value="light" id="theme-light" className="sr-only" />
+                  <Sun className="h-6 w-6 mb-2" />
+                  <span className="text-sm font-medium">Claro</span>
+                </Label>
+                <Label
+                  htmlFor="theme-dark"
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    theme === "dark"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <RadioGroupItem value="dark" id="theme-dark" className="sr-only" />
+                  <Moon className="h-6 w-6 mb-2" />
+                  <span className="text-sm font-medium">Escuro</span>
+                </Label>
+                <Label
+                  htmlFor="theme-system"
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    theme === "system"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <RadioGroupItem value="system" id="theme-system" className="sr-only" />
+                  <Monitor className="h-6 w-6 mb-2" />
+                  <span className="text-sm font-medium">Sistema</span>
+                </Label>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                Escolha entre tema claro, escuro ou siga as preferências do sistema.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

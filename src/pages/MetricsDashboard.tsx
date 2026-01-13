@@ -163,6 +163,63 @@ export default function MetricsDashboard() {
     };
   }, [filteredLogs]);
 
+  // Period comparison (current vs previous)
+  const periodComparison = useMemo(() => {
+    const days = period === "7d" ? 7 : period === "30d" ? 30 : 14;
+    const today = new Date();
+    
+    // Current period
+    const currentStart = subDays(today, days);
+    const currentLogs = logs.filter((l) => {
+      const date = new Date(l.created_at);
+      return date >= currentStart && date <= today;
+    });
+    
+    // Previous period
+    const previousStart = subDays(currentStart, days);
+    const previousLogs = logs.filter((l) => {
+      const date = new Date(l.created_at);
+      return date >= previousStart && date < currentStart;
+    });
+    
+    const currentTotal = currentLogs.length;
+    const previousTotal = previousLogs.length;
+    const currentSuccess = currentLogs.filter((l) => l.status === "success").length;
+    const previousSuccess = previousLogs.filter((l) => l.status === "success").length;
+    const currentErrors = currentLogs.filter((l) => l.status === "error").length;
+    const previousErrors = previousLogs.filter((l) => l.status === "error").length;
+    
+    const currentSuccessRate = currentTotal > 0 ? (currentSuccess / currentTotal) * 100 : 0;
+    const previousSuccessRate = previousTotal > 0 ? (previousSuccess / previousTotal) * 100 : 0;
+    
+    const calcChange = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+    
+    return {
+      current: {
+        total: currentTotal,
+        success: currentSuccess,
+        errors: currentErrors,
+        successRate: currentSuccessRate.toFixed(1),
+      },
+      previous: {
+        total: previousTotal,
+        success: previousSuccess,
+        errors: previousErrors,
+        successRate: previousSuccessRate.toFixed(1),
+      },
+      changes: {
+        total: calcChange(currentTotal, previousTotal),
+        success: calcChange(currentSuccess, previousSuccess),
+        errors: calcChange(currentErrors, previousErrors),
+        successRate: currentSuccessRate - previousSuccessRate,
+      },
+      periodLabel: period === "7d" ? "7 dias" : period === "30d" ? "30 dias" : "14 dias",
+    };
+  }, [logs, period]);
+
   // Daily trend data
   const dailyTrend = useMemo(() => {
     const days = period === "7d" ? 7 : period === "30d" ? 30 : 30;
@@ -394,6 +451,94 @@ export default function MetricsDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Period Comparison */}
+          <Card variant="glass">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Comparativo de Períodos
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {periodComparison.periodLabel} atuais vs {periodComparison.periodLabel} anteriores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="text-center p-4 rounded-lg bg-muted/40">
+                  <p className="text-xs text-muted-foreground mb-1">Total Operações</p>
+                  <p className="text-2xl font-bold">{periodComparison.current.total}</p>
+                  <p className="text-xs text-muted-foreground">
+                    vs {periodComparison.previous.total} anterior
+                  </p>
+                  <div className={`flex items-center justify-center gap-1 mt-1 text-xs ${
+                    periodComparison.changes.total >= 0 ? "text-green-500" : "text-red-500"
+                  }`}>
+                    {periodComparison.changes.total >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {Math.abs(periodComparison.changes.total).toFixed(1)}%
+                  </div>
+                </div>
+
+                <div className="text-center p-4 rounded-lg bg-green-500/10">
+                  <p className="text-xs text-muted-foreground mb-1">Sucessos</p>
+                  <p className="text-2xl font-bold text-green-500">{periodComparison.current.success}</p>
+                  <p className="text-xs text-muted-foreground">
+                    vs {periodComparison.previous.success} anterior
+                  </p>
+                  <div className={`flex items-center justify-center gap-1 mt-1 text-xs ${
+                    periodComparison.changes.success >= 0 ? "text-green-500" : "text-red-500"
+                  }`}>
+                    {periodComparison.changes.success >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {Math.abs(periodComparison.changes.success).toFixed(1)}%
+                  </div>
+                </div>
+
+                <div className="text-center p-4 rounded-lg bg-red-500/10">
+                  <p className="text-xs text-muted-foreground mb-1">Erros</p>
+                  <p className="text-2xl font-bold text-red-500">{periodComparison.current.errors}</p>
+                  <p className="text-xs text-muted-foreground">
+                    vs {periodComparison.previous.errors} anterior
+                  </p>
+                  <div className={`flex items-center justify-center gap-1 mt-1 text-xs ${
+                    periodComparison.changes.errors <= 0 ? "text-green-500" : "text-red-500"
+                  }`}>
+                    {periodComparison.changes.errors <= 0 ? (
+                      <TrendingDown className="h-3 w-3" />
+                    ) : (
+                      <TrendingUp className="h-3 w-3" />
+                    )}
+                    {Math.abs(periodComparison.changes.errors).toFixed(1)}%
+                  </div>
+                </div>
+
+                <div className="text-center p-4 rounded-lg bg-primary/10">
+                  <p className="text-xs text-muted-foreground mb-1">Taxa de Sucesso</p>
+                  <p className="text-2xl font-bold">{periodComparison.current.successRate}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    vs {periodComparison.previous.successRate}% anterior
+                  </p>
+                  <div className={`flex items-center justify-center gap-1 mt-1 text-xs ${
+                    periodComparison.changes.successRate >= 0 ? "text-green-500" : "text-red-500"
+                  }`}>
+                    {periodComparison.changes.successRate >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {Math.abs(periodComparison.changes.successRate).toFixed(1)}pp
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Charts Section */}
           <Tabs defaultValue="overview" className="space-y-4">
