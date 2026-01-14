@@ -40,6 +40,7 @@ import {
   XCircle,
   History,
   Globe,
+  Send,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -76,6 +77,7 @@ export default function Webhooks() {
     secret: "",
     events: [],
   });
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
 
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ["webhooks", user?.id],
@@ -184,6 +186,36 @@ export default function Webhooks() {
   const resetForm = () => {
     setForm({ name: "", url: "", secret: "", events: [] });
     setEditingWebhook(null);
+  };
+
+  const testWebhook = async (webhookId: string) => {
+    setTestingWebhookId(webhookId);
+    try {
+      const { data, error } = await supabase.functions.invoke("trigger-webhook", {
+        body: { webhook_id: webhookId, test: true },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success("Teste enviado!", {
+          description: `Status: ${data.status} - ${data.message}`,
+        });
+      } else {
+        toast.error("Teste falhou", {
+          description: data.message || "Erro ao enviar teste",
+        });
+      }
+
+      // Refresh logs
+      queryClient.invalidateQueries({ queryKey: ["webhook-logs"] });
+    } catch (error: any) {
+      toast.error(t("common.error"), {
+        description: error.message || "Erro ao testar webhook",
+      });
+    } finally {
+      setTestingWebhookId(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -397,6 +429,19 @@ export default function Webhooks() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => testWebhook(webhook.id)}
+                            disabled={testingWebhookId === webhook.id}
+                            title="Testar webhook"
+                          >
+                            {testingWebhookId === webhook.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4 text-primary" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
