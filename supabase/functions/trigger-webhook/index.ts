@@ -18,6 +18,20 @@ interface TestWebhookPayload {
   test: boolean;
 }
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000; // 1 second
+
+// Calculate exponential backoff delay
+function getRetryDelay(attempt: number): number {
+  return BASE_DELAY_MS * Math.pow(2, attempt); // 1s, 2s, 4s
+}
+
+// Sleep utility
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -80,9 +94,9 @@ Deno.serve(async (req) => {
       data: data || {},
     };
 
-    // Trigger all webhooks in parallel
+    // Trigger all webhooks in parallel with retry
     const results = await Promise.allSettled(
-      webhooks.map((webhook) => triggerWebhook(supabase, webhook, payload))
+      webhooks.map((webhook) => triggerWebhookWithRetry(supabase, webhook, payload))
     );
 
     const successCount = results.filter((r) => r.status === "fulfilled" && r.value.success).length;
@@ -137,7 +151,8 @@ async function handleTestWebhook(supabase: any, body: TestWebhookPayload) {
     },
   };
 
-  const result = await triggerWebhook(supabase, webhook, testPayload, true);
+  // For test, no retry - just single attempt
+  const result = await triggerWebhook(supabase, webhook, testPayload, true, 0);
 
   return new Response(
     JSON.stringify({
@@ -155,17 +170,56 @@ async function handleTestWebhook(supabase: any, body: TestWebhookPayload) {
   );
 }
 
+// Wrapper with exponential backoff retry
+async function triggerWebhookWithRetry(
+  supabase: any,
+  webhook: any,
+  payload: any
+): Promise<{ success: boolean; status?: number; response?: string; error?: string; attempts: number }> {
+  let lastResult: { success: boolean; status?: number; response?: string; error?: string } = {
+    success: false,
+    error: "No attempts made",
+  };
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = getRetryDelay(attempt - 1);
+      console.log(`Webhook ${webhook.id}: Retry attempt ${attempt}/${MAX_RETRIES} after ${delay}ms delay`);
+      await sleep(delay);
+    }
+
+    lastResult = await triggerWebhook(supabase, webhook, payload, false, attempt);
+
+    if (lastResult.success) {
+      console.log(`Webhook ${webhook.id}: Success on attempt ${attempt + 1}`);
+      return { ...lastResult, attempts: attempt + 1 };
+    }
+
+    // Check if we should retry based on status code
+    // Don't retry on 4xx errors (client errors) except 429 (rate limit)
+    if (lastResult.status && lastResult.status >= 400 && lastResult.status < 500 && lastResult.status !== 429) {
+      console.log(`Webhook ${webhook.id}: Not retrying due to client error ${lastResult.status}`);
+      break;
+    }
+  }
+
+  console.log(`Webhook ${webhook.id}: Failed after ${MAX_RETRIES + 1} attempts`);
+  return { ...lastResult, attempts: MAX_RETRIES + 1 };
+}
+
 async function triggerWebhook(
   supabase: any,
   webhook: any,
   payload: any,
-  isTest = false
+  isTest = false,
+  attempt = 0
 ): Promise<{ success: boolean; status?: number; response?: string; error?: string }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "User-Agent": "MLSyncHub-Webhook/1.0",
     "X-Webhook-Event": payload.event,
     "X-Webhook-Timestamp": payload.timestamp,
+    "X-Webhook-Attempt": String(attempt + 1),
   };
 
   // Add HMAC signature if secret is configured
@@ -192,7 +246,7 @@ async function triggerWebhook(
   let errorMessage: string | undefined;
 
   try {
-    console.log(`Sending webhook to ${webhook.url}`);
+    console.log(`Sending webhook to ${webhook.url} (attempt ${attempt + 1})`);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -212,11 +266,13 @@ async function triggerWebhook(
 
     console.log(`Webhook response: ${responseStatus} - ${responseBody.substring(0, 200)}`);
 
-    // Update last_triggered_at
-    await supabase
-      .from("webhooks")
-      .update({ last_triggered_at: new Date().toISOString() })
-      .eq("id", webhook.id);
+    // Update last_triggered_at on success
+    if (success) {
+      await supabase
+        .from("webhooks")
+        .update({ last_triggered_at: new Date().toISOString() })
+        .eq("id", webhook.id);
+    }
   } catch (err: unknown) {
     console.error(`Error triggering webhook ${webhook.id}:`, err);
     if (err instanceof Error) {
@@ -229,19 +285,26 @@ async function triggerWebhook(
     }
   }
 
-  // Log the webhook delivery
-  const logEntry = {
-    webhook_id: webhook.id,
-    event_type: isTest ? "test" : payload.event,
-    payload,
-    response_status: responseStatus || null,
-    response_body: responseBody?.substring(0, 5000) || errorMessage || null,
-    success,
-  };
+  // Only log on final attempt or success (to avoid spamming logs during retries)
+  const shouldLog = isTest || success || attempt >= MAX_RETRIES;
+  
+  if (shouldLog) {
+    const logEntry = {
+      webhook_id: webhook.id,
+      event_type: isTest ? "test" : payload.event,
+      payload: {
+        ...payload,
+        _meta: { attempts: attempt + 1 },
+      },
+      response_status: responseStatus || null,
+      response_body: responseBody?.substring(0, 5000) || errorMessage || null,
+      success,
+    };
 
-  const { error: logError } = await supabase.from("webhook_logs").insert(logEntry);
-  if (logError) {
-    console.error("Error logging webhook:", logError);
+    const { error: logError } = await supabase.from("webhook_logs").insert(logEntry);
+    if (logError) {
+      console.error("Error logging webhook:", logError);
+    }
   }
 
   return {
