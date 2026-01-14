@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { LanguageProvider } from "@/hooks/useLanguage";
 import Index from "./pages/Index";
 import Import from "./pages/Import";
 import Products from "./pages/Products";
@@ -16,6 +17,8 @@ import MercadoLivreDiagnostics from "./pages/MercadoLivreDiagnostics";
 import PublicationDiagnostics from "./pages/PublicationDiagnostics";
 import MetricsDashboard from "./pages/MetricsDashboard";
 import SecurityLogs from "./pages/SecurityLogs";
+import Reports from "./pages/Reports";
+import Webhooks from "./pages/Webhooks";
 
 const queryClient = new QueryClient();
 
@@ -26,20 +29,24 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
-            <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
-            <Route path="/publications/diagnostics" element={<PublicationDiagnostics />} />
-            <Route path="/metrics" element={<MetricsDashboard />} />
-            <Route path="/import" element={<Import />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/security-logs" element={<SecurityLogs />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <LanguageProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
+              <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
+              <Route path="/publications/diagnostics" element={<PublicationDiagnostics />} />
+              <Route path="/metrics" element={<MetricsDashboard />} />
+              <Route path="/import" element={<Import />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/history" element={<History />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/security-logs" element={<SecurityLogs />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/webhooks" element={<Webhooks />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </LanguageProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

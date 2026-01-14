@@ -14,24 +14,30 @@ import {
   Stethoscope,
   FileWarning,
   BarChart3,
+  FileText,
+  Webhook,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/hooks/useLanguage";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: BarChart3, label: "Métricas", path: "/metrics" },
-  { icon: Store, label: "Mercado Livre", path: "/mercado-livre" },
-  { icon: PlusCircle, label: "Importar Produto", path: "/import" },
-  { icon: Package, label: "Produtos", path: "/products" },
-  { icon: History, label: "Histórico", path: "/history" },
-  { icon: Stethoscope, label: "Diag. Conexão", path: "/mercado-livre/diagnostics" },
-  { icon: FileWarning, label: "Diag. Publicações", path: "/publications/diagnostics" },
-  { icon: Settings, label: "Configurações", path: "/settings" },
+  { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
+  { icon: BarChart3, labelKey: "nav.metrics", path: "/metrics" },
+  { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
+  { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
+  { icon: Package, labelKey: "nav.products", path: "/products" },
+  { icon: History, labelKey: "nav.history", path: "/history" },
+  { icon: FileText, labelKey: "nav.reports", path: "/reports" },
+  { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },
+  { icon: Stethoscope, labelKey: "nav.connectionDiag", path: "/mercado-livre/diagnostics" },
+  { icon: FileWarning, labelKey: "nav.publicationDiag", path: "/publications/diagnostics" },
+  { icon: Settings, labelKey: "nav.settings", path: "/settings" },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { t } = useLanguage();
 
   return (
     <aside
@@ -85,7 +91,7 @@ export function Sidebar() {
                 )}
               >
                 <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span>{t(item.labelKey)}</span>}
               </Link>
             );
           })}

@@ -23,16 +23,19 @@ import {
   Sun,
   Moon,
   Monitor,
+  Languages,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage, Language } from "@/hooks/useLanguage";
 import { toast } from "sonner";
 
 export default function Settings() {
   const { user, loading: authLoading } = useRequireAuth();
   const { connection, loading: mlLoading, getAuthUrl, handleCallback, disconnect, refreshToken } = useMercadoLivre();
   const { theme, setTheme } = useTheme();
+  const { language, setLanguage, languageNames, t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -268,7 +271,38 @@ export default function Settings() {
                 </Label>
               </RadioGroup>
               <p className="text-xs text-muted-foreground">
-                Escolha entre tema claro, escuro ou siga as preferências do sistema.
+                {t("settings.theme.desc")}
+              </p>
+            </div>
+
+            {/* Language Selection */}
+            <div className="space-y-3 pt-4 border-t border-border">
+              <Label className="text-base flex items-center gap-2">
+                <Languages className="h-4 w-4" />
+                {t("settings.language")}
+              </Label>
+              <RadioGroup
+                value={language}
+                onValueChange={(value) => setLanguage(value as Language)}
+                className="grid grid-cols-3 gap-4"
+              >
+                {(["pt-BR", "es", "en"] as Language[]).map((lang) => (
+                  <Label
+                    key={lang}
+                    htmlFor={`lang-${lang}`}
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                      language === lang
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <RadioGroupItem value={lang} id={`lang-${lang}`} className="sr-only" />
+                    <span className="text-sm font-medium">{languageNames[lang]}</span>
+                  </Label>
+                ))}
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.language.desc")}
               </p>
             </div>
           </CardContent>
