@@ -287,6 +287,22 @@ serve(async (req) => {
 
       if (!refreshResponse.ok) {
         console.error('ML refresh error:', refreshData);
+        
+        // Trigger webhook for token error
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'token_error',
+              user_id: userId,
+              data: { error: refreshData.message || 'Failed to refresh tokens' },
+            }),
+          });
+        } catch (webhookErr) {
+          console.error('Failed to trigger webhook for token_error:', webhookErr);
+        }
+
         return new Response(
           JSON.stringify({ error: refreshData.message || 'Failed to refresh tokens' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -316,6 +332,21 @@ serve(async (req) => {
         details: { action: 'refresh' },
         status: 'success',
       });
+
+      // Trigger webhook for token refresh
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'token_refresh',
+            user_id: userId,
+            data: { action: 'manual_refresh', timestamp: new Date().toISOString() },
+          }),
+        });
+      } catch (webhookErr) {
+        console.error('Failed to trigger webhook for token_refresh:', webhookErr);
+      }
 
       console.log('ML tokens refreshed successfully');
 

@@ -176,6 +176,21 @@ serve(async (req) => {
         details: { action: 'auto_refresh' },
         status: 'success',
       });
+
+      // Trigger webhook for token refresh
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'token_refresh',
+            user_id: userId,
+            data: { action: 'auto_refresh', timestamp: new Date().toISOString() },
+          }),
+        });
+      } catch (webhookErr) {
+        console.error('Failed to trigger webhook for token_refresh:', webhookErr);
+      }
     }
 
     // Rate limiting check
@@ -286,6 +301,26 @@ serve(async (req) => {
               status: 'success',
               ml_response: result,
             });
+
+            // Trigger webhook for successful publish
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event_type: 'publish_success',
+                  user_id: userId,
+                  data: {
+                    product_id: data.product_id,
+                    ml_item_id: result.id,
+                    ml_permalink: result.permalink,
+                    title: data.title,
+                  },
+                }),
+              });
+            } catch (webhookErr) {
+              console.error('Failed to trigger webhook for publish_success:', webhookErr);
+            }
           }
         } else if (data.product_id) {
           await supabase
@@ -303,6 +338,25 @@ serve(async (req) => {
             status: 'error',
             error_details: result.message || JSON.stringify(result),
           });
+
+          // Trigger webhook for publish error
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event_type: 'publish_error',
+                user_id: userId,
+                data: {
+                  product_id: data.product_id,
+                  title: data.title,
+                  error: result.message || JSON.stringify(result.cause),
+                },
+              }),
+            });
+          } catch (webhookErr) {
+            console.error('Failed to trigger webhook for publish_error:', webhookErr);
+          }
         }
         break;
       }
