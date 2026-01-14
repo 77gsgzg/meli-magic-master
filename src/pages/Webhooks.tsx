@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,9 @@ import {
   History,
   Globe,
   Send,
+  BarChart3,
+  AlertCircle,
+  Settings,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -48,6 +52,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { WebhookMetrics } from "@/components/webhooks/WebhookMetrics";
+import { FailedWebhooksQueue } from "@/components/webhooks/FailedWebhooksQueue";
 
 const WEBHOOK_EVENTS = [
   { id: "publish_success", key: "webhooks.event.publish_success" },
@@ -78,6 +84,7 @@ export default function Webhooks() {
     events: [],
   });
   const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("config");
 
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ["webhooks", user?.id],
@@ -105,7 +112,7 @@ export default function Webhooks() {
         .select("*")
         .in("webhook_id", webhookIds)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(200);
 
       if (error) throw error;
       return data || [];
@@ -207,7 +214,6 @@ export default function Webhooks() {
         });
       }
 
-      // Refresh logs
       queryClient.invalidateQueries({ queryKey: ["webhook-logs"] });
     } catch (error: any) {
       toast.error(t("common.error"), {
@@ -260,6 +266,9 @@ export default function Webhooks() {
     }));
   };
 
+  // Calculate pending count for tab badge
+  const pendingCount = webhookLogs?.filter((l) => !l.success && l.event_type !== "test").length || 0;
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -271,258 +280,328 @@ export default function Webhooks() {
   return (
     <DashboardLayout title={t("webhooks.title")} subtitle={t("webhooks.subtitle")}>
       <div className="space-y-6">
-        {/* Create Button */}
-        <div className="flex justify-end">
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4" />
-                {t("webhooks.create")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingWebhook ? t("common.edit") : t("webhooks.create")} Webhook
-                </DialogTitle>
-                <DialogDescription>
-                  Configure as notificações para sistemas externos
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">{t("webhooks.name")} *</Label>
-                  <Input
-                    id="name"
-                    value={form.name}
-                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Meu Webhook"
-                  />
-                </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="config" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Configuração
+              </TabsTrigger>
+              <TabsTrigger value="metrics" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Monitoramento
+              </TabsTrigger>
+              <TabsTrigger value="queue" className="gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Fila Pendente
+                {pendingCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="gap-2">
+                <History className="h-4 w-4" />
+                Histórico
+              </TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="url">{t("webhooks.url")} *</Label>
-                  <Input
-                    id="url"
-                    type="url"
-                    value={form.url}
-                    onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
-                    placeholder="https://example.com/webhook"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="secret">{t("webhooks.secret")}</Label>
-                  <Input
-                    id="secret"
-                    type="password"
-                    value={form.secret}
-                    onChange={(e) => setForm((prev) => ({ ...prev, secret: e.target.value }))}
-                    placeholder="Chave secreta para validação"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>{t("webhooks.events")} *</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {WEBHOOK_EVENTS.map((event) => (
-                      <div key={event.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={event.id}
-                          checked={form.events.includes(event.id)}
-                          onCheckedChange={() => toggleEvent(event.id)}
-                        />
-                        <Label htmlFor={event.id} className="text-sm font-normal cursor-pointer">
-                          {t(event.key)}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    {t("common.cancel")}
+            {activeTab === "config" && (
+              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) resetForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4" />
+                    {t("webhooks.create")}
                   </Button>
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    {(createMutation.isPending || updateMutation.isPending) && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    {t("common.save")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingWebhook ? t("common.edit") : t("webhooks.create")} Webhook
+                    </DialogTitle>
+                    <DialogDescription>
+                      Configure as notificações para sistemas externos
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{t("webhooks.name")} *</Label>
+                      <Input
+                        id="name"
+                        value={form.name}
+                        onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="Meu Webhook"
+                      />
+                    </div>
 
-        {/* Webhooks List */}
-        <Card variant="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Webhook className="h-5 w-5 text-primary" />
-              Webhooks Configurados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : !webhooks?.length ? (
-              <div className="text-center py-12">
-                <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="font-medium">{t("webhooks.noWebhooks")}</p>
-                <p className="text-sm text-muted-foreground">{t("webhooks.noWebhooks.desc")}</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("webhooks.name")}</TableHead>
-                    <TableHead>{t("webhooks.url")}</TableHead>
-                    <TableHead>{t("webhooks.events")}</TableHead>
-                    <TableHead>{t("webhooks.status")}</TableHead>
-                    <TableHead>{t("webhooks.lastTriggered")}</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {webhooks.map((webhook) => (
-                    <TableRow key={webhook.id}>
-                      <TableCell className="font-medium">{webhook.name}</TableCell>
-                      <TableCell className="text-muted-foreground max-w-xs truncate">
-                        {webhook.url}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {webhook.events?.slice(0, 2).map((event) => (
-                            <Badge key={event} variant="secondary" className="text-xs">
-                              {event}
-                            </Badge>
-                          ))}
-                          {webhook.events?.length > 2 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{webhook.events.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={webhook.is_active}
-                          onCheckedChange={(checked) =>
-                            updateMutation.mutate({
-                              id: webhook.id,
-                              data: { is_active: checked },
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {webhook.last_triggered_at
-                          ? format(new Date(webhook.last_triggered_at), "dd/MM/yyyy HH:mm")
-                          : t("webhooks.never")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => testWebhook(webhook.id)}
-                            disabled={testingWebhookId === webhook.id}
-                            title="Testar webhook"
-                          >
-                            {testingWebhookId === webhook.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4 text-primary" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(webhook)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(webhook.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                    <div className="space-y-2">
+                      <Label htmlFor="url">{t("webhooks.url")} *</Label>
+                      <Input
+                        id="url"
+                        type="url"
+                        value={form.url}
+                        onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
+                        placeholder="https://example.com/webhook"
+                      />
+                    </div>
 
-        {/* Webhook Logs */}
-        {webhookLogs && webhookLogs.length > 0 && (
-          <Card variant="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" />
-                {t("webhooks.logs")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {webhookLogs.map((log) => (
-                  <AccordionItem key={log.id} value={log.id}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-3">
-                        {log.success ? (
-                          <CheckCircle2 className="h-4 w-4 text-success" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-destructive" />
-                        )}
-                        <Badge variant="secondary">{log.event_type}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss")}
-                        </span>
-                        {log.response_status && (
-                          <Badge
-                            variant={log.response_status >= 200 && log.response_status < 300 ? "success" : "destructive"}
-                          >
-                            {log.response_status}
-                          </Badge>
-                        )}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 text-sm">
-                        <div>
-                          <span className="font-medium">Payload:</span>
-                          <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
-                            {JSON.stringify(log.payload, null, 2)}
-                          </pre>
-                        </div>
-                        {log.response_body && (
-                          <div>
-                            <span className="font-medium">Response:</span>
-                            <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
-                              {log.response_body}
-                            </pre>
+                    <div className="space-y-2">
+                      <Label htmlFor="secret">{t("webhooks.secret")}</Label>
+                      <Input
+                        id="secret"
+                        type="password"
+                        value={form.secret}
+                        onChange={(e) => setForm((prev) => ({ ...prev, secret: e.target.value }))}
+                        placeholder="Chave secreta para validação"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{t("webhooks.events")} *</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {WEBHOOK_EVENTS.map((event) => (
+                          <div key={event.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={event.id}
+                              checked={form.events.includes(event.id)}
+                              onCheckedChange={() => toggleEvent(event.id)}
+                            />
+                            <Label htmlFor={event.id} className="text-sm font-normal cursor-pointer">
+                              {t(event.key)}
+                            </Label>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        )}
+                    </div>
+
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                        {t("common.cancel")}
+                      </Button>
+                      <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                        {(createMutation.isPending || updateMutation.isPending) && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        {t("common.save")}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {/* Configuration Tab */}
+          <TabsContent value="config" className="mt-6">
+            <Card variant="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Webhook className="h-5 w-5 text-primary" />
+                  Webhooks Configurados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : !webhooks?.length ? (
+                  <div className="text-center py-12">
+                    <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="font-medium">{t("webhooks.noWebhooks")}</p>
+                    <p className="text-sm text-muted-foreground">{t("webhooks.noWebhooks.desc")}</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("webhooks.name")}</TableHead>
+                        <TableHead>{t("webhooks.url")}</TableHead>
+                        <TableHead>{t("webhooks.events")}</TableHead>
+                        <TableHead>{t("webhooks.status")}</TableHead>
+                        <TableHead>{t("webhooks.lastTriggered")}</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {webhooks.map((webhook) => (
+                        <TableRow key={webhook.id}>
+                          <TableCell className="font-medium">{webhook.name}</TableCell>
+                          <TableCell className="text-muted-foreground max-w-xs truncate">
+                            {webhook.url}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {webhook.events?.slice(0, 2).map((event) => (
+                                <Badge key={event} variant="secondary" className="text-xs">
+                                  {event}
+                                </Badge>
+                              ))}
+                              {webhook.events?.length > 2 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{webhook.events.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={webhook.is_active}
+                              onCheckedChange={(checked) =>
+                                updateMutation.mutate({
+                                  id: webhook.id,
+                                  data: { is_active: checked },
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {webhook.last_triggered_at
+                              ? format(new Date(webhook.last_triggered_at), "dd/MM/yyyy HH:mm")
+                              : t("webhooks.never")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => testWebhook(webhook.id)}
+                                disabled={testingWebhookId === webhook.id}
+                                title="Testar webhook"
+                              >
+                                {testingWebhookId === webhook.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="h-4 w-4 text-primary" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(webhook)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(webhook.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Metrics Tab */}
+          <TabsContent value="metrics" className="mt-6">
+            {webhookLogs && webhookLogs.length > 0 ? (
+              <WebhookMetrics logs={webhookLogs} />
+            ) : (
+              <Card variant="glass">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="font-medium">Sem dados de monitoramento</p>
+                    <p className="text-sm text-muted-foreground">
+                      Configure webhooks e comece a enviar eventos para ver métricas
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Queue Tab */}
+          <TabsContent value="queue" className="mt-6">
+            <FailedWebhooksQueue
+              logs={webhookLogs || []}
+              webhooks={webhooks || []}
+            />
+          </TabsContent>
+
+          {/* Logs Tab */}
+          <TabsContent value="logs" className="mt-6">
+            {webhookLogs && webhookLogs.length > 0 ? (
+              <Card variant="glass">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    {t("webhooks.logs")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Accordion type="single" collapsible className="w-full">
+                    {webhookLogs.map((log) => (
+                      <AccordionItem key={log.id} value={log.id}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            {log.success ? (
+                              <CheckCircle2 className="h-4 w-4 text-success" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            )}
+                            <Badge variant="secondary">{log.event_type}</Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss")}
+                            </span>
+                            {log.response_status && (
+                              <Badge
+                                variant={log.response_status >= 200 && log.response_status < 300 ? "success" : "destructive"}
+                              >
+                                {log.response_status}
+                              </Badge>
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="font-medium">Payload:</span>
+                              <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                                {JSON.stringify(log.payload, null, 2)}
+                              </pre>
+                            </div>
+                            {log.response_body && (
+                              <div>
+                                <span className="font-medium">Response:</span>
+                                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                                  {log.response_body}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card variant="glass">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="font-medium">Nenhum log disponível</p>
+                    <p className="text-sm text-muted-foreground">
+                      Os logs aparecerão aqui quando webhooks forem disparados
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
