@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -45,6 +51,10 @@ import {
   BarChart3,
   AlertCircle,
   Settings,
+  Download,
+  FileJson,
+  FileSpreadsheet,
+  Clock,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -54,6 +64,13 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { WebhookMetrics } from "@/components/webhooks/WebhookMetrics";
 import { FailedWebhooksQueue } from "@/components/webhooks/FailedWebhooksQueue";
+import { WebhookAutoRetrySettings } from "@/components/webhooks/WebhookAutoRetrySettings";
+import { useWebhookAutoRetry } from "@/hooks/useWebhookAutoRetry";
+import { 
+  exportWebhookLogsToCSV, 
+  exportWebhookLogsToJSON, 
+  exportFailedWebhooksToCSV 
+} from "@/utils/exportWebhookLogs";
 
 const WEBHOOK_EVENTS = [
   { id: "publish_success", key: "webhooks.event.publish_success" },
@@ -85,6 +102,12 @@ export default function Webhooks() {
   });
   const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("config");
+  const [autoRetrySettings, setAutoRetrySettings] = useState<{
+    enabled: boolean;
+    intervalMinutes: number;
+    maxRetries: number;
+    retryOlderThanHours: number;
+  } | null>(null);
 
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ["webhooks", user?.id],
@@ -269,6 +292,38 @@ export default function Webhooks() {
   // Calculate pending count for tab badge
   const pendingCount = webhookLogs?.filter((l) => !l.success && l.event_type !== "test").length || 0;
 
+  // Auto-retry settings handler
+  const handleAutoRetrySettingsChange = useCallback((settings: typeof autoRetrySettings) => {
+    setAutoRetrySettings(settings);
+  }, []);
+
+  // Hook for auto-retry functionality
+  useWebhookAutoRetry(
+    autoRetrySettings,
+    webhookLogs || [],
+    webhooks || [],
+    user?.id
+  );
+
+  // Export handlers
+  const handleExportCSV = () => {
+    if (!webhookLogs || !webhooks) return;
+    exportWebhookLogsToCSV(webhookLogs, webhooks);
+    toast.success("Exportado!", { description: "Logs exportados para CSV" });
+  };
+
+  const handleExportJSON = () => {
+    if (!webhookLogs || !webhooks) return;
+    exportWebhookLogsToJSON(webhookLogs, webhooks);
+    toast.success("Exportado!", { description: "Logs exportados para JSON" });
+  };
+
+  const handleExportFailedCSV = () => {
+    if (!webhookLogs || !webhooks) return;
+    exportFailedWebhooksToCSV(webhookLogs, webhooks);
+    toast.success("Exportado!", { description: "Falhas exportadas para CSV" });
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -299,6 +354,10 @@ export default function Webhooks() {
                     {pendingCount}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="gap-2">
+                <Clock className="h-4 w-4" />
+                Agendamento
               </TabsTrigger>
               <TabsTrigger value="logs" className="gap-2">
                 <History className="h-4 w-4" />
@@ -523,11 +582,30 @@ export default function Webhooks() {
           </TabsContent>
 
           {/* Queue Tab */}
-          <TabsContent value="queue" className="mt-6">
+          <TabsContent value="queue" className="mt-6 space-y-6">
             <FailedWebhooksQueue
               logs={webhookLogs || []}
               webhooks={webhooks || []}
             />
+            
+            {pendingCount > 0 && (
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={handleExportFailedCSV} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Exportar Falhas (CSV)
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Schedule Tab */}
+          <TabsContent value="schedule" className="mt-6">
+            {user && (
+              <WebhookAutoRetrySettings
+                userId={user.id}
+                onSettingsChange={handleAutoRetrySettingsChange}
+              />
+            )}
           </TabsContent>
 
           {/* Logs Tab */}
@@ -535,10 +613,30 @@ export default function Webhooks() {
             {webhookLogs && webhookLogs.length > 0 ? (
               <Card variant="glass">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    {t("webhooks.logs")}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5 text-primary" />
+                      {t("webhooks.logs")}
+                    </CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-2">
+                          <Download className="h-4 w-4" />
+                          Exportar
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Exportar CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportJSON} className="gap-2">
+                          <FileJson className="h-4 w-4" />
+                          Exportar JSON
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Accordion type="single" collapsible className="w-full">
