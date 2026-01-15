@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-pause-signal',
 };
 
 interface BatchItem {
@@ -17,15 +17,6 @@ interface BatchItem {
   error?: string;
   started_at?: string;
   completed_at?: string;
-}
-
-interface BatchResult {
-  batch_id: string;
-  total: number;
-  processed: number;
-  success: number;
-  failed: number;
-  items: BatchItem[];
 }
 
 serve(async (req) => {
@@ -58,7 +49,8 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-    const { urls } = await req.json();
+    const body = await req.json();
+    const { urls, resume_log_id, save_progress = true } = body;
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return new Response(
@@ -107,8 +99,54 @@ serve(async (req) => {
       );
     }
 
-    // Process items sequentially to avoid rate limiting
-    const processItem = async (item: BatchItem): Promise<void> => {
+    // Create or update log entry for progress tracking
+    let logId = resume_log_id;
+    if (!logId && save_progress) {
+      const { data: logEntry, error: logError } = await supabase
+        .from('batch_import_logs')
+        .insert({
+          user_id: userId,
+          batch_id: batchId,
+          total_urls: urls.length,
+          status: 'processing',
+          remaining_urls: urls,
+          processed_urls: [],
+          is_paused: false,
+          can_resume: true,
+        })
+        .select()
+        .single();
+
+      if (!logError && logEntry) {
+        logId = logEntry.id;
+      }
+    }
+
+    const processedUrls: string[] = [];
+    const remainingUrls: string[] = [...urls];
+    let successCount = 0;
+    let failedCount = 0;
+    let wasPaused = false;
+
+    // Process items sequentially
+    for (let i = 0; i < validItems.length; i++) {
+      const item = validItems[i];
+      
+      // Check if pause was requested by checking the log status
+      if (logId && save_progress) {
+        const { data: logStatus } = await supabase
+          .from('batch_import_logs')
+          .select('is_paused')
+          .eq('id', logId)
+          .single();
+
+        if (logStatus?.is_paused) {
+          console.log(`[BATCH-IMPORT] Pause requested at item ${i + 1}/${validItems.length}`);
+          wasPaused = true;
+          break;
+        }
+      }
+
       item.status = 'processing';
       item.started_at = new Date().toISOString();
 
@@ -132,66 +170,102 @@ serve(async (req) => {
           item.ml_permalink = result.ml_permalink;
           item.title = result.title;
           item.price = result.price;
+          successCount++;
         } else {
           item.status = 'error';
           item.error = result.error || 'Erro desconhecido';
           item.product_id = result.product_id;
+          failedCount++;
         }
       } catch (err) {
         item.status = 'error';
         item.error = err instanceof Error ? err.message : 'Erro ao processar';
+        failedCount++;
       }
 
       item.completed_at = new Date().toISOString();
-    };
 
-    // Process all items (sequentially to respect ML rate limits)
-    for (const item of validItems) {
-      await processItem(item);
-      
+      // Update progress tracking
+      processedUrls.push(item.url);
+      remainingUrls.shift();
+
+      // Update log with current progress
+      if (logId && save_progress) {
+        await supabase
+          .from('batch_import_logs')
+          .update({
+            success_count: successCount,
+            failed_count: failedCount,
+            processed_urls: processedUrls,
+            remaining_urls: remainingUrls,
+            items: batchItems.filter(bi => bi.status !== 'pending'),
+          })
+          .eq('id', logId);
+      }
+
       // Small delay between requests to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Calculate stats
-    const successCount = batchItems.filter(i => i.status === 'success').length;
-    const failedCount = batchItems.filter(i => i.status === 'error').length;
+    // Final update to log
+    if (logId && save_progress) {
+      await supabase
+        .from('batch_import_logs')
+        .update({
+          success_count: successCount,
+          failed_count: failedCount,
+          processed_urls: processedUrls,
+          remaining_urls: remainingUrls,
+          items: batchItems,
+          status: wasPaused ? 'paused' : 'complete',
+          is_paused: wasPaused,
+          can_resume: wasPaused && remainingUrls.length > 0,
+          completed_at: wasPaused ? null : new Date().toISOString(),
+        })
+        .eq('id', logId);
+    }
 
-    console.log(`[BATCH-IMPORT] Complete: ${successCount} success, ${failedCount} failed`);
+    console.log(`[BATCH-IMPORT] ${wasPaused ? 'Paused' : 'Complete'}: ${successCount} success, ${failedCount} failed, ${remainingUrls.length} remaining`);
 
-    // Trigger batch webhook notification
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_type: 'batch_import_complete',
-          user_id: userId,
-          data: {
-            batch_id: batchId,
-            total: batchItems.length,
-            success: successCount,
-            failed: failedCount,
-            items: batchItems.map(i => ({
-              url: i.url,
-              status: i.status,
-              ml_item_id: i.ml_item_id,
-              title: i.title,
-              error: i.error,
-            })),
-          },
-        }),
-      });
-    } catch {}
+    // Trigger batch webhook notification (only if not paused)
+    if (!wasPaused) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'batch_import_complete',
+            user_id: userId,
+            data: {
+              batch_id: batchId,
+              total: batchItems.length,
+              success: successCount,
+              failed: failedCount,
+              items: batchItems.map(i => ({
+                url: i.url,
+                status: i.status,
+                ml_item_id: i.ml_item_id,
+                title: i.title,
+                error: i.error,
+              })),
+            },
+          }),
+        });
+      } catch {}
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         batch_id: batchId,
+        log_id: logId,
         total: batchItems.length,
         processed: successCount + failedCount,
-        successCount: successCount,
-        failedCount: failedCount,
+        successCount,
+        failedCount,
+        remainingCount: remainingUrls.length,
+        wasPaused,
+        canResume: wasPaused && remainingUrls.length > 0,
         items: batchItems,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

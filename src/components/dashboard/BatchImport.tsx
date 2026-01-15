@@ -14,6 +14,7 @@ import {
   ExternalLink,
   RotateCcw,
   Play,
+  Pause,
   Clock,
   AlertTriangle,
   LinkIcon,
@@ -25,7 +26,7 @@ import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-type BatchStep = 'idle' | 'validating' | 'processing' | 'complete';
+type BatchStep = 'idle' | 'validating' | 'processing' | 'paused' | 'complete';
 
 interface UrlValidation {
   url: string;
@@ -47,10 +48,14 @@ interface BatchItem {
 interface BatchResult {
   success: boolean;
   batch_id: string;
+  log_id?: string;
   total: number;
   processed: number;
   successCount: number;
   failedCount: number;
+  remainingCount?: number;
+  wasPaused?: boolean;
+  canResume?: boolean;
   items: BatchItem[];
 }
 
@@ -75,6 +80,8 @@ export function BatchImport() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<BatchResult | null>(null);
   const [periodFilter, setPeriodFilter] = useState<string>("all");
+  const [currentLogId, setCurrentLogId] = useState<string | null>(null);
+  const [isPauseRequested, setIsPauseRequested] = useState(false);
   
   const { session } = useRequireAuth();
   const { connection } = useMercadoLivre();
@@ -176,15 +183,23 @@ export function BatchImport() {
       const data = response.data as BatchResult;
 
       if (data.success) {
-        setStep('complete');
-        setProgress(100);
-        setResult(data);
-        
-        if (data.successCount > 0) {
-          toast.success(`${data.successCount} produto(s) publicado(s) com sucesso!`);
-        }
-        if (data.failedCount > 0) {
-          toast.warning(`${data.failedCount} produto(s) falharam`);
+        if (data.wasPaused) {
+          setStep('paused');
+          setProgress(Math.round((data.processed / data.total) * 100));
+          setResult(data);
+          setCurrentLogId(data.log_id || null);
+          toast.info(`Importação pausada. ${data.remainingCount} produto(s) restante(s).`);
+        } else {
+          setStep('complete');
+          setProgress(100);
+          setResult(data);
+          
+          if (data.successCount > 0) {
+            toast.success(`${data.successCount} produto(s) publicado(s) com sucesso!`);
+          }
+          if (data.failedCount > 0) {
+            toast.warning(`${data.failedCount} produto(s) falharam`);
+          }
         }
       } else {
         throw new Error('Erro ao processar lote');
@@ -195,6 +210,84 @@ export function BatchImport() {
       setStep('idle');
       setProgress(0);
       toast.error(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setIsPauseRequested(false);
+    }
+  };
+
+  const handlePause = async () => {
+    if (!currentLogId) return;
+    
+    setIsPauseRequested(true);
+    
+    try {
+      // Mark the log as paused - the edge function will check this
+      await supabase
+        .from('batch_import_logs')
+        .update({ is_paused: true })
+        .eq('id', currentLogId);
+
+      toast.info("Solicitando pausa...");
+    } catch (err) {
+      console.error("Pause error:", err);
+      setIsPauseRequested(false);
+    }
+  };
+
+  const handleResume = async () => {
+    if (!result?.log_id) return;
+
+    setStep('processing');
+    setIsPauseRequested(false);
+
+    try {
+      // Get remaining URLs from the log
+      const { data: logData } = await supabase
+        .from('batch_import_logs')
+        .select('remaining_urls')
+        .eq('id', result.log_id)
+        .single();
+
+      if (!logData?.remaining_urls?.length) {
+        toast.error("Nenhuma URL restante para processar");
+        return;
+      }
+
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 2, 95));
+      }, 1000);
+
+      const response = await supabase.functions.invoke('batch-import', {
+        body: { 
+          urls: logData.remaining_urls, 
+          resume_log_id: result.log_id 
+        },
+      });
+
+      clearInterval(progressInterval);
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const data = response.data as BatchResult;
+
+      if (data.success) {
+        if (data.wasPaused) {
+          setStep('paused');
+          setResult(data);
+          toast.info(`Importação pausada. ${data.remainingCount} produto(s) restante(s).`);
+        } else {
+          setStep('complete');
+          setProgress(100);
+          setResult(data);
+          toast.success(`Retomada concluída! ${data.successCount} publicado(s).`);
+        }
+      }
+    } catch (err) {
+      console.error("Resume error:", err);
+      toast.error(err instanceof Error ? err.message : "Erro ao retomar");
+      setStep('paused');
     }
   };
 
@@ -203,6 +296,8 @@ export function BatchImport() {
     setStep('idle');
     setProgress(0);
     setResult(null);
+    setCurrentLogId(null);
+    setIsPauseRequested(false);
   };
 
   const getStatusIcon = (status: BatchItem['status']) => {
@@ -273,6 +368,7 @@ export function BatchImport() {
             <CardDescription>
               {step === 'idle' && `Publique até 20 produtos de uma vez`}
               {step === 'processing' && "Processando URLs..."}
+              {step === 'paused' && "Importação pausada"}
               {step === 'complete' && "Importação concluída!"}
             </CardDescription>
           </div>
@@ -401,8 +497,82 @@ export function BatchImport() {
               <Badge variant="info">Otimização IA</Badge>
               <Badge variant="info">Publicação</Badge>
             </div>
+            
+            {/* Pause Button */}
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handlePause}
+              disabled={isPauseRequested}
+            >
+              {isPauseRequested ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Pausando...
+                </>
+              ) : (
+                <>
+                  <Pause className="h-4 w-4" />
+                  Pausar Importação
+                </>
+              )}
+            </Button>
+            
             <p className="text-xs text-center text-muted-foreground">
-              Este processo pode levar alguns minutos
+              O progresso será salvo automaticamente
+            </p>
+          </div>
+        )}
+
+        {/* Paused State */}
+        {step === 'paused' && result && (
+          <div className="py-4 space-y-4">
+            <div className="flex items-center justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning/10">
+                <Pause className="h-8 w-8 text-warning" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-center text-muted-foreground">
+                {result.processed} de {result.total} processado(s) • {result.remainingCount} restante(s)
+              </p>
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center justify-center gap-4">
+              <Badge variant="success" className="gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                {result.successCount} sucesso
+              </Badge>
+              <Badge variant="destructive" className="gap-1">
+                <XCircle className="h-3 w-3" />
+                {result.failedCount} falha
+              </Badge>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleResume}
+              >
+                <Play className="h-4 w-4" />
+                Retomar
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleReset}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Descartar
+              </Button>
+            </div>
+
+            <p className="text-xs text-center text-muted-foreground">
+              O progresso foi salvo. Você pode retomar a qualquer momento.
             </p>
           </div>
         )}
