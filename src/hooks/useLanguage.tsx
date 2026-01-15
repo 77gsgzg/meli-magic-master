@@ -41,6 +41,7 @@ const translations: Translations = {
     "nav.dashboard": "Dashboard",
     "nav.metrics": "Métricas",
     "nav.analytics": "Analytics",
+    "nav.importStats": "Estatísticas Import.",
     "nav.mercadoLivre": "Mercado Livre",
     "nav.import": "Importar Produto",
     "nav.products": "Produtos",
@@ -51,6 +52,16 @@ const translations: Translations = {
     "nav.reports": "Relatórios",
     "nav.webhooks": "Webhooks",
     "nav.logout": "Sair",
+
+    // Import Statistics
+    "importStats.title": "Estatísticas de Importação",
+    "importStats.subtitle": "Dashboard completo de importações em lote",
+    "importStats.statsTab": "Estatísticas",
+    "importStats.pendingTab": "Pendentes",
+    "importStats.staleAlertTitle": "Importações Pausadas há Mais de 24h",
+    "importStats.staleAlertDesc": "As seguintes importações estão pausadas há mais de 24 horas e podem precisar de atenção.",
+    "importStats.resumeAll": "Retomar Todas",
+    "common.refresh": "Atualizar",
 
     // Settings
     "settings.title": "Configurações",
@@ -169,6 +180,7 @@ const translations: Translations = {
     "nav.dashboard": "Panel",
     "nav.metrics": "Métricas",
     "nav.analytics": "Analytics",
+    "nav.importStats": "Estadísticas Import.",
     "nav.mercadoLivre": "Mercado Libre",
     "nav.import": "Importar Producto",
     "nav.products": "Productos",
@@ -179,6 +191,16 @@ const translations: Translations = {
     "nav.reports": "Informes",
     "nav.webhooks": "Webhooks",
     "nav.logout": "Salir",
+
+    // Import Statistics
+    "importStats.title": "Estadísticas de Importación",
+    "importStats.subtitle": "Dashboard completo de importaciones en lote",
+    "importStats.statsTab": "Estadísticas",
+    "importStats.pendingTab": "Pendientes",
+    "importStats.staleAlertTitle": "Importaciones Pausadas por Más de 24h",
+    "importStats.staleAlertDesc": "Las siguientes importaciones están pausadas por más de 24 horas y pueden necesitar atención.",
+    "importStats.resumeAll": "Reanudar Todas",
+    "common.refresh": "Actualizar",
 
     // Settings
     "settings.title": "Configuración",
@@ -297,6 +319,7 @@ const translations: Translations = {
     "nav.dashboard": "Dashboard",
     "nav.metrics": "Metrics",
     "nav.analytics": "Analytics",
+    "nav.importStats": "Import Stats",
     "nav.mercadoLivre": "Mercado Livre",
     "nav.import": "Import Product",
     "nav.products": "Products",
@@ -307,6 +330,16 @@ const translations: Translations = {
     "nav.reports": "Reports",
     "nav.webhooks": "Webhooks",
     "nav.logout": "Logout",
+
+    // Import Statistics
+    "importStats.title": "Import Statistics",
+    "importStats.subtitle": "Complete batch import dashboard",
+    "importStats.statsTab": "Statistics",
+    "importStats.pendingTab": "Pending",
+    "importStats.staleAlertTitle": "Imports Paused for Over 24h",
+    "importStats.staleAlertDesc": "The following imports have been paused for over 24 hours and may need attention.",
+    "importStats.resumeAll": "Resume All",
+    "common.refresh": "Refresh",
 
     // Settings
     "settings.title": "Settings",
