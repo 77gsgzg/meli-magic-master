@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,7 @@ import { FailedWebhooksQueue } from "@/components/webhooks/FailedWebhooksQueue";
 import { WebhookAutoRetrySettings } from "@/components/webhooks/WebhookAutoRetrySettings";
 import { useWebhookAutoRetry } from "@/hooks/useWebhookAutoRetry";
 import { WebhookLogsFilter, WebhookLogsFilters } from "@/components/webhooks/WebhookLogsFilter";
+import { WebhookLogsPagination } from "@/components/webhooks/WebhookLogsPagination";
 import { 
   exportWebhookLogsToCSV, 
   exportWebhookLogsToJSON, 
@@ -119,6 +120,8 @@ export default function Webhooks() {
     dateFrom: undefined,
     dateTo: undefined,
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ["webhooks", user?.id],
@@ -350,6 +353,27 @@ export default function Webhooks() {
       return true;
     });
   }, [webhookLogs, logsFilters]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredLogs.slice(startIndex, startIndex + pageSize);
+  }, [filteredLogs, currentPage, pageSize]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [logsFilters]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // Auto-retry settings handler
   const handleAutoRetrySettingsChange = useCallback((settings: typeof autoRetrySettings) => {
@@ -793,9 +817,9 @@ SELECT cron.schedule(
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <Accordion type="single" collapsible className="w-full">
-                    {filteredLogs.map((log) => (
+                    {paginatedLogs.map((log) => (
                       <AccordionItem key={log.id} value={log.id}>
                         <AccordionTrigger className="hover:no-underline">
                           <div className="flex items-center gap-3">
@@ -838,6 +862,18 @@ SELECT cron.schedule(
                       </AccordionItem>
                     ))}
                   </Accordion>
+
+                  {/* Pagination */}
+                  {filteredLogs.length > 0 && (
+                    <WebhookLogsPagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      totalItems={filteredLogs.length}
+                      onPageChange={handlePageChange}
+                      onPageSizeChange={handlePageSizeChange}
+                    />
+                  )}
                 </CardContent>
               </Card>
             ) : webhookLogs && webhookLogs.length > 0 ? (

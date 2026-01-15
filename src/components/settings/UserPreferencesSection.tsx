@@ -1,0 +1,246 @@
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Bell, Globe, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+interface UserPreferences {
+  timezone: string;
+  notify_publish_success: boolean;
+  notify_publish_error: boolean;
+  notify_token_refresh: boolean;
+  notify_import_success: boolean;
+  notify_import_error: boolean;
+  notify_webhook_failure: boolean;
+}
+
+const TIMEZONES = [
+  { value: "America/Sao_Paulo", label: "São Paulo (GMT-3)" },
+  { value: "America/Manaus", label: "Manaus (GMT-4)" },
+  { value: "America/Recife", label: "Recife (GMT-3)" },
+  { value: "America/Fortaleza", label: "Fortaleza (GMT-3)" },
+  { value: "America/Belem", label: "Belém (GMT-3)" },
+  { value: "America/Cuiaba", label: "Cuiabá (GMT-4)" },
+  { value: "America/Porto_Velho", label: "Porto Velho (GMT-4)" },
+  { value: "America/Rio_Branco", label: "Rio Branco (GMT-5)" },
+  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires (GMT-3)" },
+  { value: "America/Santiago", label: "Santiago (GMT-4)" },
+  { value: "America/Lima", label: "Lima (GMT-5)" },
+  { value: "America/Bogota", label: "Bogotá (GMT-5)" },
+  { value: "America/Mexico_City", label: "México (GMT-6)" },
+  { value: "America/New_York", label: "New York (GMT-5)" },
+  { value: "America/Los_Angeles", label: "Los Angeles (GMT-8)" },
+  { value: "Europe/London", label: "Londres (GMT+0)" },
+  { value: "Europe/Madrid", label: "Madrid (GMT+1)" },
+  { value: "Europe/Paris", label: "Paris (GMT+1)" },
+  { value: "Europe/Lisbon", label: "Lisboa (GMT+0)" },
+  { value: "UTC", label: "UTC (GMT+0)" },
+];
+
+const NOTIFICATION_SETTINGS = [
+  {
+    key: "notify_publish_success" as const,
+    label: "Publicações bem-sucedidas",
+    description: "Notificar quando um produto for publicado com sucesso",
+  },
+  {
+    key: "notify_publish_error" as const,
+    label: "Erros de publicação",
+    description: "Alertar sobre falhas na publicação de produtos",
+  },
+  {
+    key: "notify_import_success" as const,
+    label: "Importações bem-sucedidas",
+    description: "Notificar quando um produto for importado",
+  },
+  {
+    key: "notify_import_error" as const,
+    label: "Erros de importação",
+    description: "Alertar sobre falhas na importação",
+  },
+  {
+    key: "notify_token_refresh" as const,
+    label: "Renovação de token",
+    description: "Avisar quando o token OAuth for renovado",
+  },
+  {
+    key: "notify_webhook_failure" as const,
+    label: "Falhas de webhook",
+    description: "Alertar quando webhooks falharem",
+  },
+];
+
+interface UserPreferencesSectionProps {
+  userId: string;
+}
+
+export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) {
+  const queryClient = useQueryClient();
+
+  const { data: preferences, isLoading } = useQuery({
+    queryKey: ["user-preferences", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // Return defaults if no preferences exist
+      if (!data) {
+        return {
+          timezone: "America/Sao_Paulo",
+          notify_publish_success: true,
+          notify_publish_error: true,
+          notify_token_refresh: false,
+          notify_import_success: true,
+          notify_import_error: true,
+          notify_webhook_failure: true,
+        } as UserPreferences;
+      }
+
+      return {
+        timezone: (data as any).timezone || "America/Sao_Paulo",
+        notify_publish_success: (data as any).notify_publish_success ?? true,
+        notify_publish_error: (data as any).notify_publish_error ?? true,
+        notify_token_refresh: (data as any).notify_token_refresh ?? false,
+        notify_import_success: (data as any).notify_import_success ?? true,
+        notify_import_error: (data as any).notify_import_error ?? true,
+        notify_webhook_failure: (data as any).notify_webhook_failure ?? true,
+      } as UserPreferences;
+    },
+    enabled: !!userId,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (updates: Partial<UserPreferences>) => {
+      // First check if record exists
+      const { data: existing } = await supabase
+        .from("user_preferences")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("user_preferences")
+          .update({ ...updates, updated_at: new Date().toISOString() } as any)
+          .eq("user_id", userId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("user_preferences")
+          .insert({ user_id: userId, ...updates } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-preferences", userId] });
+      toast.success("Preferências salvas!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao salvar preferências", { description: error.message });
+    },
+  });
+
+  const handleToggle = (key: keyof UserPreferences, value: boolean) => {
+    updateMutation.mutate({ [key]: value });
+  };
+
+  const handleTimezoneChange = (timezone: string) => {
+    updateMutation.mutate({ timezone });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Timezone */}
+      <Card variant="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            Fuso Horário
+          </CardTitle>
+          <CardDescription>
+            Defina o fuso horário para exibição de datas e horários
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-sm">
+            <Label className="text-sm text-muted-foreground mb-2 block">
+              Timezone
+            </Label>
+            <Select
+              value={preferences?.timezone || "America/Sao_Paulo"}
+              onValueChange={handleTimezoneChange}
+              disabled={updateMutation.isPending}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o fuso horário" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-2">
+              Usado para exibir datas e horários consistentes em todo o sistema
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card variant="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            Notificações
+          </CardTitle>
+          <CardDescription>
+            Configure quais notificações deseja receber no sistema
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {NOTIFICATION_SETTINGS.map((setting) => (
+            <div key={setting.key} className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base">{setting.label}</Label>
+                <p className="text-sm text-muted-foreground">
+                  {setting.description}
+                </p>
+              </div>
+              <Switch
+                checked={preferences?.[setting.key] ?? true}
+                onCheckedChange={(checked) => handleToggle(setting.key, checked)}
+                disabled={updateMutation.isPending}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
