@@ -40,6 +40,7 @@ const translations: Translations = {
     // Navigation
     "nav.dashboard": "Dashboard",
     "nav.metrics": "Métricas",
+    "nav.analytics": "Analytics",
     "nav.mercadoLivre": "Mercado Livre",
     "nav.import": "Importar Produto",
     "nav.products": "Produtos",
@@ -166,6 +167,7 @@ const translations: Translations = {
     // Navigation
     "nav.dashboard": "Panel",
     "nav.metrics": "Métricas",
+    "nav.analytics": "Analytics",
     "nav.mercadoLivre": "Mercado Libre",
     "nav.import": "Importar Producto",
     "nav.products": "Productos",
@@ -292,6 +294,7 @@ const translations: Translations = {
     // Navigation
     "nav.dashboard": "Dashboard",
     "nav.metrics": "Metrics",
+    "nav.analytics": "Analytics",
     "nav.mercadoLivre": "Mercado Livre",
     "nav.import": "Import Product",
     "nav.products": "Products",

@@ -19,6 +19,7 @@ import MetricsDashboard from "./pages/MetricsDashboard";
 import SecurityLogs from "./pages/SecurityLogs";
 import Reports from "./pages/Reports";
 import Webhooks from "./pages/Webhooks";
+import ProductAnalytics from "./pages/ProductAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
               <Route path="/publications/diagnostics" element={<PublicationDiagnostics />} />
               <Route path="/metrics" element={<MetricsDashboard />} />
+              <Route path="/analytics" element={<ProductAnalytics />} />
               <Route path="/import" element={<Import />} />
               <Route path="/products" element={<Products />} />
               <Route path="/history" element={<History />} />

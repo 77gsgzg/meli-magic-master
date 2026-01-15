@@ -16,6 +16,7 @@ import {
   BarChart3,
   FileText,
   Webhook,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -23,6 +24,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 const menuItems = [
   { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
   { icon: BarChart3, labelKey: "nav.metrics", path: "/metrics" },
+  { icon: TrendingUp, labelKey: "nav.analytics", path: "/analytics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
   { icon: Package, labelKey: "nav.products", path: "/products" },
