@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.auto-publish]
 verify_jwt = false
+
+[functions.batch-import]
+verify_jwt = false
