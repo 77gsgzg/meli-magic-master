@@ -79,6 +79,7 @@ import {
 const WEBHOOK_EVENTS = [
   { id: "publish_success", key: "webhooks.event.publish_success" },
   { id: "publish_error", key: "webhooks.event.publish_error" },
+  { id: "batch_import_complete", key: "webhooks.event.batch_import_complete" },
   { id: "import_success", key: "webhooks.event.import_success" },
   { id: "import_error", key: "webhooks.event.import_error" },
   { id: "token_refresh", key: "webhooks.event.token_refresh" },
