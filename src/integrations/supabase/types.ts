@@ -17,12 +17,16 @@ export type Database = {
       batch_import_logs: {
         Row: {
           batch_id: string
+          can_resume: boolean | null
           completed_at: string | null
           created_at: string
           error_message: string | null
           failed_count: number
           id: string
+          is_paused: boolean | null
           items: Json | null
+          processed_urls: string[] | null
+          remaining_urls: string[] | null
           scheduled_import_id: string | null
           started_at: string
           status: string
@@ -32,12 +36,16 @@ export type Database = {
         }
         Insert: {
           batch_id: string
+          can_resume?: boolean | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
           failed_count?: number
           id?: string
+          is_paused?: boolean | null
           items?: Json | null
+          processed_urls?: string[] | null
+          remaining_urls?: string[] | null
           scheduled_import_id?: string | null
           started_at?: string
           status?: string
@@ -47,12 +55,16 @@ export type Database = {
         }
         Update: {
           batch_id?: string
+          can_resume?: boolean | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
           failed_count?: number
           id?: string
+          is_paused?: boolean | null
           items?: Json | null
+          processed_urls?: string[] | null
+          remaining_urls?: string[] | null
           scheduled_import_id?: string | null
           started_at?: string
           status?: string

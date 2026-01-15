@@ -4,6 +4,7 @@ import { RecentProducts } from "@/components/dashboard/RecentProducts";
 import { QuickImport } from "@/components/dashboard/QuickImport";
 import { BatchImport } from "@/components/dashboard/BatchImport";
 import { ScheduledBatchImports } from "@/components/dashboard/ScheduledBatchImports";
+import { ResumableImports } from "@/components/dashboard/ResumableImports";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
@@ -88,6 +89,7 @@ export default function Dashboard() {
         {/* Main Content */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
+            <ResumableImports />
             <div className="grid gap-4 md:grid-cols-2">
               <QuickImport />
               <BatchImport />
