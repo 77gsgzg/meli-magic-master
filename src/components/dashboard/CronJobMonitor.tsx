@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   Clock, 
   CheckCircle2, 
@@ -14,7 +15,9 @@ import {
   Activity,
   Bell,
   Timer,
-  TrendingUp
+  TrendingUp,
+  Play,
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR, enUS } from "date-fns/locale";
@@ -67,6 +70,7 @@ export function CronJobMonitor() {
   const [cronLogs, setCronLogs] = useState<CronJobLog[]>([]);
   const [alertLogs, setAlertLogs] = useState<WebhookAlertLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runningManual, setRunningManual] = useState(false);
   const [stats, setStats] = useState({
     totalExecutions: 0,
     successRate: 0,
@@ -132,6 +136,31 @@ export function CronJobMonitor() {
       console.error("Error fetching cron job data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runManualCheck = async () => {
+    setRunningManual(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('check-stale-imports', {
+        body: { manual: true }
+      });
+
+      if (error) throw error;
+
+      toast.success(t("cronMonitor.manualRunSuccess") || "Verificação executada com sucesso!", {
+        description: `${data?.stale_count || 0} importações pausadas encontradas`
+      });
+
+      // Refresh data after manual run
+      await fetchData();
+    } catch (err) {
+      console.error("Error running manual check:", err);
+      toast.error(t("cronMonitor.manualRunError") || "Erro ao executar verificação", {
+        description: err instanceof Error ? err.message : "Erro desconhecido"
+      });
+    } finally {
+      setRunningManual(false);
     }
   };
 
@@ -263,6 +292,38 @@ export function CronJobMonitor() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Manual Run Button */}
+      <Card className="border-dashed border-primary/50 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-primary/10">
+                <Play className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">{t("cronMonitor.manualRun") || "Execução Manual"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("cronMonitor.manualRunDesc") || "Execute a verificação de importações pausadas agora"}
+                </p>
+              </div>
+            </div>
+            <Button onClick={runManualCheck} disabled={runningManual}>
+              {runningManual ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t("common.running") || "Executando..."}
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  {t("cronMonitor.runNow") || "Executar Agora"}
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Chart */}
       <Card>
