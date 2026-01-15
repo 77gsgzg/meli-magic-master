@@ -23,7 +23,10 @@ import {
   Activity,
   Sparkles,
   Target,
+  FileDown,
 } from "lucide-react";
+import { toast } from "sonner";
+import { exportAnalyticsPDF } from "@/utils/exportAnalyticsPDF";
 import {
   ResponsiveContainer,
   LineChart,
@@ -260,6 +263,73 @@ export default function ProductAnalytics() {
     return ranges.map((r) => ({ name: r.label, quantidade: r.count }));
   }, [products]);
 
+  // AI comparison stats for PDF export
+  const aiStats = useMemo(() => {
+    const aiProducts = products.filter((p) => p.ai_optimized);
+    const manualProducts = products.filter((p) => !p.ai_optimized);
+
+    const calculateStats = (items: Product[]) => {
+      const count = items.length;
+      const published = items.filter((p) => p.status === "published").length;
+      const totalViews = items.reduce((acc, p) => acc + (p.views || 0), 0);
+      const totalSales = items.reduce((acc, p) => acc + (p.sales || 0), 0);
+      const totalRevenue = items.reduce(
+        (acc, p) => acc + (p.sales || 0) * (p.price || 0),
+        0
+      );
+
+      return {
+        count,
+        published,
+        publishRate: count > 0 ? (published / count) * 100 : 0,
+        totalViews,
+        avgViews: published > 0 ? totalViews / published : 0,
+        totalSales,
+        avgSales: published > 0 ? totalSales / published : 0,
+        totalRevenue,
+        avgRevenue: published > 0 ? totalRevenue / published : 0,
+        conversionRate: totalViews > 0 ? (totalSales / totalViews) * 100 : 0,
+      };
+    };
+
+    const ai = calculateStats(aiProducts);
+    const manual = calculateStats(manualProducts);
+
+    const calcImprovement = (aiVal: number, manualVal: number) => {
+      if (manualVal === 0) return aiVal > 0 ? 100 : 0;
+      return ((aiVal - manualVal) / manualVal) * 100;
+    };
+
+    return {
+      ai,
+      manual,
+      improvements: {
+        publishRate: calcImprovement(ai.publishRate, manual.publishRate),
+        avgViews: calcImprovement(ai.avgViews, manual.avgViews),
+        avgSales: calcImprovement(ai.avgSales, manual.avgSales),
+        avgRevenue: calcImprovement(ai.avgRevenue, manual.avgRevenue),
+        conversionRate: calcImprovement(ai.conversionRate, manual.conversionRate),
+      },
+    };
+  }, [products]);
+
+  const handleExportPDF = () => {
+    try {
+      const fileName = exportAnalyticsPDF({
+        period,
+        stats,
+        aiStats,
+        topProducts,
+        categoryDistribution,
+        priceRangeDistribution,
+      });
+      toast.success(`Relatório exportado: ${fileName}`);
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Erro ao exportar relatório PDF");
+    }
+  };
+
   const loading = authLoading || productsLoading || historyLoading;
 
   if (loading) {
@@ -313,6 +383,10 @@ export default function ProductAnalytics() {
                     <SelectItem value="all">Todo o período</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button variant="outline" className="gap-2" onClick={handleExportPDF}>
+                  <FileDown className="h-4 w-4" />
+                  Exportar PDF
+                </Button>
               </div>
             </div>
 
