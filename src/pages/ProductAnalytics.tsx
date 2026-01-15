@@ -2,10 +2,13 @@ import { useEffect, useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
 import { supabase } from "@/integrations/supabase/client";
+import { AIComparisonCharts } from "@/components/analytics/AIComparisonCharts";
+import { GoalsManager } from "@/components/analytics/GoalsManager";
 import {
   Loader2,
   TrendingUp,
@@ -18,6 +21,8 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Activity,
+  Sparkles,
+  Target,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -277,25 +282,42 @@ export default function ProductAnalytics() {
     >
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Period Selector */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Período:</span>
-          </div>
-          <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Últimos 7 dias</SelectItem>
-              <SelectItem value="30d">Últimos 30 dias</SelectItem>
-              <SelectItem value="90d">Últimos 90 dias</SelectItem>
-              <SelectItem value="all">Todo o período</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <Tabs defaultValue="overview" className="w-full">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+              <TabsList className="flex-wrap">
+                <TabsTrigger value="overview" className="gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Visão Geral
+                </TabsTrigger>
+                <TabsTrigger value="ai-comparison" className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  IA vs Manual
+                </TabsTrigger>
+                <TabsTrigger value="goals" className="gap-2">
+                  <Target className="h-4 w-4" />
+                  Metas
+                </TabsTrigger>
+              </TabsList>
 
-        {/* Summary Stats */}
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                    <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                    <SelectItem value="all">Todo o período</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           <Card variant="glass">
             <CardContent className="pt-4">
@@ -649,6 +671,19 @@ export default function ProductAnalytics() {
             </div>
           </CardContent>
         </Card>
+            </TabsContent>
+
+            {/* AI Comparison Tab */}
+            <TabsContent value="ai-comparison">
+              <AIComparisonCharts products={products} />
+            </TabsContent>
+
+            {/* Goals Tab */}
+            <TabsContent value="goals">
+              {user && <GoalsManager userId={user.id} products={products} />}
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </DashboardLayout>
   );
