@@ -3,6 +3,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentProducts } from "@/components/dashboard/RecentProducts";
 import { QuickImport } from "@/components/dashboard/QuickImport";
 import { BatchImport } from "@/components/dashboard/BatchImport";
+import { ScheduledBatchImports } from "@/components/dashboard/ScheduledBatchImports";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
@@ -91,6 +92,7 @@ export default function Dashboard() {
               <QuickImport />
               <BatchImport />
             </div>
+            <ScheduledBatchImports />
             <RecentProducts products={products.slice(0, 5)} />
           </div>
           <div className="space-y-4">
