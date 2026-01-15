@@ -335,18 +335,39 @@ export type Database = {
         Row: {
           created_at: string
           language: string
+          notify_import_error: boolean | null
+          notify_import_success: boolean | null
+          notify_publish_error: boolean | null
+          notify_publish_success: boolean | null
+          notify_token_refresh: boolean | null
+          notify_webhook_failure: boolean | null
+          timezone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           language?: string
+          notify_import_error?: boolean | null
+          notify_import_success?: boolean | null
+          notify_publish_error?: boolean | null
+          notify_publish_success?: boolean | null
+          notify_token_refresh?: boolean | null
+          notify_webhook_failure?: boolean | null
+          timezone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           language?: string
+          notify_import_error?: boolean | null
+          notify_import_success?: boolean | null
+          notify_publish_error?: boolean | null
+          notify_publish_success?: boolean | null
+          notify_token_refresh?: boolean | null
+          notify_webhook_failure?: boolean | null
+          timezone?: string | null
           updated_at?: string
           user_id?: string
         }
