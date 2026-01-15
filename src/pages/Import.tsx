@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,9 +26,14 @@ import {
   Send,
   AlertCircle,
   ExternalLink,
+  Zap,
+  Edit3,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 
 type ImportStep = "input" | "extracting" | "optimizing" | "review" | "publishing" | "done" | "error";
+type AutoPublishStep = "idle" | "processing" | "success" | "error";
 
 interface ProductData {
   title: string;
@@ -39,6 +46,19 @@ interface ProductData {
   source_url: string;
 }
 
+interface AutoPublishResult {
+  success: boolean;
+  step?: string;
+  product_id?: string;
+  ml_item_id?: string;
+  ml_permalink?: string;
+  title?: string;
+  price?: number;
+  images_count?: number;
+  error?: string;
+  error_details?: unknown;
+}
+
 export default function Import() {
   const { session } = useRequireAuth();
   const { connection, loading: mlLoading } = useMercadoLivre();
@@ -46,6 +66,9 @@ export default function Import() {
   const [searchParams] = useSearchParams();
 
   const [url, setUrl] = useState("");
+  const [importMode, setImportMode] = useState<"auto" | "manual">("auto");
+  
+  // Manual mode state
   const [step, setStep] = useState<ImportStep>("input");
   const [error, setError] = useState<string | null>(null);
   const [publishedItemId, setPublishedItemId] = useState<string | null>(null);
@@ -60,13 +83,88 @@ export default function Import() {
     source_url: "",
   });
 
-  // Check for URL in query params (from QuickImport)
+  // Auto mode state
+  const [autoStep, setAutoStep] = useState<AutoPublishStep>("idle");
+  const [autoProgress, setAutoProgress] = useState(0);
+  const [autoStatusText, setAutoStatusText] = useState("");
+  const [autoResult, setAutoResult] = useState<AutoPublishResult | null>(null);
+
+  // Check for URL in query params
   useEffect(() => {
     const urlParam = searchParams.get("url");
     if (urlParam) {
       setUrl(urlParam);
     }
   }, [searchParams]);
+
+  // Auto-publish function
+  const handleAutoPublish = async () => {
+    if (!url || !session?.access_token) return;
+    if (!connection.connected) {
+      toast.error("Conecte sua conta do Mercado Livre primeiro");
+      navigate("/mercado-livre");
+      return;
+    }
+
+    setAutoStep("processing");
+    setAutoProgress(10);
+    setAutoStatusText("Acessando link do produto...");
+    setAutoResult(null);
+
+    try {
+      const progressSteps = [
+        { progress: 25, text: "Extraindo dados do produto..." },
+        { progress: 50, text: "Otimizando com IA..." },
+        { progress: 75, text: "Validando para Mercado Livre..." },
+        { progress: 90, text: "Publicando na sua loja..." },
+      ];
+
+      let stepIndex = 0;
+      const progressInterval = setInterval(() => {
+        if (stepIndex < progressSteps.length) {
+          setAutoProgress(progressSteps[stepIndex].progress);
+          setAutoStatusText(progressSteps[stepIndex].text);
+          stepIndex++;
+        }
+      }, 2000);
+
+      const response = await supabase.functions.invoke('auto-publish', {
+        body: { url },
+      });
+
+      clearInterval(progressInterval);
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao processar');
+      }
+
+      const data = response.data as AutoPublishResult;
+
+      if (data.success) {
+        setAutoStep("success");
+        setAutoProgress(100);
+        setAutoResult(data);
+        toast.success(`Produto publicado: ${data.title?.substring(0, 40)}...`);
+      } else {
+        setAutoStep("error");
+        setAutoResult(data);
+        toast.error(data.error || "Erro ao publicar");
+      }
+    } catch (err) {
+      setAutoStep("error");
+      const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
+      setAutoResult({ success: false, error: errorMsg });
+      toast.error(errorMsg);
+    }
+  };
+
+  const resetAutoPublish = () => {
+    setUrl("");
+    setAutoStep("idle");
+    setAutoProgress(0);
+    setAutoStatusText("");
+    setAutoResult(null);
+  };
 
   const extractProduct = async () => {
     if (!session?.access_token) {
