@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.retry-webhooks]
 verify_jwt = false
+
+[functions.send-scheduled-reports]
+verify_jwt = false
