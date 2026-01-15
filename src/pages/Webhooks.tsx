@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,17 +55,20 @@ import {
   FileJson,
   FileSpreadsheet,
   Clock,
+  Play,
+  Server,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { WebhookMetrics } from "@/components/webhooks/WebhookMetrics";
 import { FailedWebhooksQueue } from "@/components/webhooks/FailedWebhooksQueue";
 import { WebhookAutoRetrySettings } from "@/components/webhooks/WebhookAutoRetrySettings";
 import { useWebhookAutoRetry } from "@/hooks/useWebhookAutoRetry";
+import { WebhookLogsFilter, WebhookLogsFilters } from "@/components/webhooks/WebhookLogsFilter";
 import { 
   exportWebhookLogsToCSV, 
   exportWebhookLogsToJSON, 
@@ -108,6 +111,14 @@ export default function Webhooks() {
     maxRetries: number;
     retryOlderThanHours: number;
   } | null>(null);
+  const [isRunningCronJob, setIsRunningCronJob] = useState(false);
+  const [logsFilters, setLogsFilters] = useState<WebhookLogsFilters>({
+    search: "",
+    eventType: "",
+    status: "",
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
 
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ["webhooks", user?.id],
@@ -292,6 +303,54 @@ export default function Webhooks() {
   // Calculate pending count for tab badge
   const pendingCount = webhookLogs?.filter((l) => !l.success && l.event_type !== "test").length || 0;
 
+  // Get unique event types for filter
+  const eventTypes = useMemo(() => {
+    if (!webhookLogs) return [];
+    return [...new Set(webhookLogs.map((log) => log.event_type))];
+  }, [webhookLogs]);
+
+  // Apply filters to logs
+  const filteredLogs = useMemo(() => {
+    if (!webhookLogs) return [];
+    
+    return webhookLogs.filter((log) => {
+      // Search filter
+      if (logsFilters.search) {
+        const searchLower = logsFilters.search.toLowerCase();
+        const payloadString = JSON.stringify(log.payload || {}).toLowerCase();
+        const eventMatch = log.event_type.toLowerCase().includes(searchLower);
+        const payloadMatch = payloadString.includes(searchLower);
+        const responseMatch = log.response_body?.toLowerCase().includes(searchLower);
+        if (!eventMatch && !payloadMatch && !responseMatch) return false;
+      }
+
+      // Event type filter
+      if (logsFilters.eventType && log.event_type !== logsFilters.eventType) {
+        return false;
+      }
+
+      // Status filter
+      if (logsFilters.status) {
+        if (logsFilters.status === "success" && !log.success) return false;
+        if (logsFilters.status === "failed" && log.success) return false;
+      }
+
+      // Date from filter
+      if (logsFilters.dateFrom) {
+        const logDate = new Date(log.created_at);
+        if (logDate < startOfDay(logsFilters.dateFrom)) return false;
+      }
+
+      // Date to filter
+      if (logsFilters.dateTo) {
+        const logDate = new Date(log.created_at);
+        if (logDate > endOfDay(logsFilters.dateTo)) return false;
+      }
+
+      return true;
+    });
+  }, [webhookLogs, logsFilters]);
+
   // Auto-retry settings handler
   const handleAutoRetrySettingsChange = useCallback((settings: typeof autoRetrySettings) => {
     setAutoRetrySettings(settings);
@@ -304,6 +363,31 @@ export default function Webhooks() {
     webhooks || [],
     user?.id
   );
+
+  // Manual cron job trigger
+  const runCronJobManually = async () => {
+    setIsRunningCronJob(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("retry-webhooks", {
+        body: {
+          maxRetries: autoRetrySettings?.maxRetries || 3,
+          retryOlderThanHours: autoRetrySettings?.retryOlderThanHours || 24,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Job executado!", {
+        description: `Processados: ${data.processed}, Sucesso: ${data.success}, Falhas: ${data.failed}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["webhook-logs"] });
+    } catch (error: any) {
+      toast.error("Erro ao executar job", { description: error.message });
+    } finally {
+      setIsRunningCronJob(false);
+    }
+  };
 
   // Export handlers
   const handleExportCSV = () => {
@@ -599,24 +683,95 @@ export default function Webhooks() {
           </TabsContent>
 
           {/* Schedule Tab */}
-          <TabsContent value="schedule" className="mt-6">
+          <TabsContent value="schedule" className="mt-6 space-y-6">
             {user && (
               <WebhookAutoRetrySettings
                 userId={user.id}
                 onSettingsChange={handleAutoRetrySettingsChange}
               />
             )}
+
+            {/* Background Cron Job Section */}
+            <Card variant="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5 text-primary" />
+                  Retry em Background (Cron Job)
+                </CardTitle>
+                <CardDescription>
+                  Execute retry de webhooks mesmo quando o navegador estiver fechado
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Button 
+                    onClick={runCronJobManually} 
+                    disabled={isRunningCronJob}
+                    className="gap-2"
+                  >
+                    {isRunningCronJob ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Executar Agora
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Reprocessa webhooks falhados nas últimas {autoRetrySettings?.retryOlderThanHours || 24}h
+                  </span>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                  <p className="text-sm font-medium mb-2">Configurar execução automática:</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Para executar automaticamente em segundo plano, configure um cron job no banco de dados.
+                    Execute o seguinte SQL no painel de administração:
+                  </p>
+                  <pre className="text-xs bg-background p-3 rounded overflow-auto border">
+{`-- Habilitar extensões necessárias (se ainda não estiverem)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Agendar retry a cada 15 minutos
+SELECT cron.schedule(
+  'retry-failed-webhooks',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retry-webhooks',
+    headers:='{"Content-Type": "application/json", "Authorization": "Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"maxRetries": 3, "retryOlderThanHours": 24}'::jsonb
+  );
+  $$
+);
+
+-- Para remover o agendamento:
+-- SELECT cron.unschedule('retry-failed-webhooks');`}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Logs Tab */}
-          <TabsContent value="logs" className="mt-6">
-            {webhookLogs && webhookLogs.length > 0 ? (
+          <TabsContent value="logs" className="mt-6 space-y-4">
+            {/* Filters */}
+            <WebhookLogsFilter
+              filters={logsFilters}
+              onFiltersChange={setLogsFilters}
+              eventTypes={eventTypes}
+            />
+
+            {filteredLogs && filteredLogs.length > 0 ? (
               <Card variant="glass">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <History className="h-5 w-5 text-primary" />
                       {t("webhooks.logs")}
+                      <Badge variant="secondary" className="ml-2">
+                        {filteredLogs.length} {filteredLogs.length !== webhookLogs?.length && `de ${webhookLogs?.length}`}
+                      </Badge>
                     </CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -640,7 +795,7 @@ export default function Webhooks() {
                 </CardHeader>
                 <CardContent>
                   <Accordion type="single" collapsible className="w-full">
-                    {webhookLogs.map((log) => (
+                    {filteredLogs.map((log) => (
                       <AccordionItem key={log.id} value={log.id}>
                         <AccordionTrigger className="hover:no-underline">
                           <div className="flex items-center gap-3">
@@ -683,6 +838,18 @@ export default function Webhooks() {
                       </AccordionItem>
                     ))}
                   </Accordion>
+                </CardContent>
+              </Card>
+            ) : webhookLogs && webhookLogs.length > 0 ? (
+              <Card variant="glass">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="font-medium">Nenhum log encontrado</p>
+                    <p className="text-sm text-muted-foreground">
+                      Tente ajustar os filtros para ver mais resultados
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

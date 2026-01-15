@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.extract-product]
 verify_jwt = false
+
+[functions.trigger-webhook]
+verify_jwt = false
+
+[functions.retry-webhooks]
+verify_jwt = false
