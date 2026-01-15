@@ -1,11 +1,12 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BatchImportStats } from "@/components/dashboard/BatchImportStats";
 import { ResumableImports } from "@/components/dashboard/ResumableImports";
+import { CronJobMonitor } from "@/components/dashboard/CronJobMonitor";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Clock, AlertTriangle, Bell, RefreshCw } from "lucide-react";
+import { BarChart3, Clock, AlertTriangle, Bell, RefreshCw, Activity } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -168,9 +169,13 @@ export default function ImportStatistics() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="stats" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="stats">{t("importStats.statsTab")}</TabsTrigger>
             <TabsTrigger value="pending">{t("importStats.pendingTab")}</TabsTrigger>
+            <TabsTrigger value="monitor" className="flex items-center gap-1">
+              <Activity className="h-4 w-4" />
+              {t("importStats.monitorTab") || "Monitoramento"}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="stats" className="space-y-6">
@@ -179,6 +184,10 @@ export default function ImportStatistics() {
 
           <TabsContent value="pending" className="space-y-6">
             <ResumableImports />
+          </TabsContent>
+
+          <TabsContent value="monitor" className="space-y-6">
+            <CronJobMonitor />
           </TabsContent>
         </Tabs>
       </div>

@@ -21,11 +21,23 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Create a log entry for this cron job execution
+  const { data: logEntry, error: logError } = await supabase
+    .from('cron_job_logs')
+    .insert({
+      job_name: 'check-stale-imports',
+      status: 'running',
+    })
+    .select()
+    .single();
+
+  const logId = logEntry?.id;
+
+  try {
     const twentyFourHoursAgo = new Date();
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
@@ -42,6 +54,18 @@ Deno.serve(async (req) => {
     }
 
     if (!staleImports || staleImports.length === 0) {
+      // Update log entry with success
+      if (logId) {
+        await supabase
+          .from('cron_job_logs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            result: { message: "No stale imports found", stale_count: 0, users_notified: 0 },
+          })
+          .eq('id', logId);
+      }
+
       return new Response(
         JSON.stringify({ message: "No stale imports found", count: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -162,17 +186,48 @@ Deno.serve(async (req) => {
       }
     }
 
+    const result = {
+      message: "Stale import check completed",
+      stale_count: staleImports.length,
+      users_notified: notificationResults.filter(r => r.success).length,
+      results: notificationResults,
+    };
+
+    // Update log entry with success
+    if (logId) {
+      await supabase
+        .from('cron_job_logs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          result: {
+            stale_count: staleImports.length,
+            users_notified: notificationResults.filter(r => r.success).length,
+            message: result.message,
+          },
+        })
+        .eq('id', logId);
+    }
+
     return new Response(
-      JSON.stringify({
-        message: "Stale import check completed",
-        stale_count: staleImports.length,
-        users_notified: notificationResults.filter(r => r.success).length,
-        results: notificationResults,
-      }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in check-stale-imports:", error);
+
+    // Update log entry with error
+    if (logId) {
+      await supabase
+        .from('cron_job_logs')
+        .update({
+          status: 'error',
+          completed_at: new Date().toISOString(),
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .eq('id', logId);
+    }
+
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
