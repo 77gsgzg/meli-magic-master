@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_import_logs: {
+        Row: {
+          batch_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          failed_count: number
+          id: string
+          items: Json | null
+          scheduled_import_id: string | null
+          started_at: string
+          status: string
+          success_count: number
+          total_urls: number
+          user_id: string
+        }
+        Insert: {
+          batch_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          failed_count?: number
+          id?: string
+          items?: Json | null
+          scheduled_import_id?: string | null
+          started_at?: string
+          status?: string
+          success_count?: number
+          total_urls?: number
+          user_id: string
+        }
+        Update: {
+          batch_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          failed_count?: number
+          id?: string
+          items?: Json | null
+          scheduled_import_id?: string | null
+          started_at?: string
+          status?: string
+          success_count?: number
+          total_urls?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_import_logs_scheduled_import_id_fkey"
+            columns: ["scheduled_import_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_batch_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goal_alerts: {
         Row: {
           acknowledged: boolean | null
@@ -391,6 +447,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scheduled_batch_imports: {
+        Row: {
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          frequency: string
+          hour_of_day: number
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          name: string
+          next_run_at: string | null
+          updated_at: string
+          urls: string[]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string | null
+          updated_at?: string
+          urls?: string[]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          updated_at?: string
+          urls?: string[]
+          user_id?: string
+        }
+        Relationships: []
       }
       scheduled_reports: {
         Row: {

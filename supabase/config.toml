@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.batch-import]
 verify_jwt = false
+
+[functions.run-scheduled-imports]
+verify_jwt = false

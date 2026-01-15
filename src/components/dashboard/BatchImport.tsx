@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Layers, 
   Loader2, 
@@ -14,7 +15,9 @@ import {
   RotateCcw,
   Play,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  LinkIcon,
+  Filter
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -22,7 +25,13 @@ import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-type BatchStep = 'idle' | 'processing' | 'complete';
+type BatchStep = 'idle' | 'validating' | 'processing' | 'complete';
+
+interface UrlValidation {
+  url: string;
+  isValid: boolean;
+  error?: string;
+}
 
 interface BatchItem {
   url: string;
@@ -45,39 +54,83 @@ interface BatchResult {
   items: BatchItem[];
 }
 
+// Common product URL patterns
+const PRODUCT_URL_PATTERNS = [
+  /mercadolivre\.com\.br.*\/p\//i,
+  /amazon\.com.*\/dp\//i,
+  /amazon\.com\.br.*\/dp\//i,
+  /shopee\.com\.br.*\/product\//i,
+  /magazineluiza\.com\.br.*\/p\//i,
+  /americanas\.com\.br.*\/produto\//i,
+  /casasbahia\.com\.br.*\/produto\//i,
+  /extra\.com\.br.*\/produto\//i,
+  /submarino\.com\.br.*\/produto\//i,
+  /aliexpress\.com.*\/item\//i,
+  /produto|product|item|dp/i, // Generic patterns
+];
+
 export function BatchImport() {
   const [urlsText, setUrlsText] = useState("");
   const [step, setStep] = useState<BatchStep>('idle');
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<BatchResult | null>(null);
+  const [periodFilter, setPeriodFilter] = useState<string>("all");
   
   const { session } = useRequireAuth();
   const { connection } = useMercadoLivre();
   const navigate = useNavigate();
 
-  const parseUrls = (text: string): string[] => {
-    return text
-      .split(/[\n,;]+/)
-      .map(url => url.trim())
-      .filter(url => {
-        try {
-          const parsed = new URL(url);
-          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-        } catch {
-          return false;
-        }
-      });
+  // URL validation with pattern matching
+  const validateUrl = (url: string): UrlValidation => {
+    const trimmedUrl = url.trim();
+    
+    if (!trimmedUrl) {
+      return { url: trimmedUrl, isValid: false, error: "URL vazia" };
+    }
+
+    try {
+      const parsed = new URL(trimmedUrl);
+      
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { url: trimmedUrl, isValid: false, error: "Protocolo inválido" };
+      }
+
+      // Check if it looks like a product URL
+      const isLikelyProduct = PRODUCT_URL_PATTERNS.some(pattern => pattern.test(trimmedUrl));
+      
+      if (!isLikelyProduct) {
+        // Still valid but with warning - might not be a product page
+        return { url: trimmedUrl, isValid: true, error: "Pode não ser uma página de produto" };
+      }
+
+      return { url: trimmedUrl, isValid: true };
+    } catch {
+      return { url: trimmedUrl, isValid: false, error: "URL inválida" };
+    }
   };
 
-  const urls = parseUrls(urlsText);
+  // Parse and validate all URLs with memoization
+  const urlValidations = useMemo(() => {
+    return urlsText
+      .split(/[\n,;]+/)
+      .map(url => url.trim())
+      .filter(url => url.length > 0)
+      .map(validateUrl);
+  }, [urlsText]);
+
+  const validUrls = urlValidations.filter(v => v.isValid);
+  const invalidUrls = urlValidations.filter(v => !v.isValid);
+  const warningUrls = validUrls.filter(v => v.error);
 
   const handleBatchImport = async () => {
-    if (urls.length === 0) {
+    const urlsToImport = validUrls.map(v => v.url);
+    
+    if (urlsToImport.length === 0) {
       toast.error("Adicione pelo menos uma URL válida");
       return;
     }
 
-    if (urls.length > 20) {
+    if (urlsToImport.length > 20) {
       toast.error("Máximo de 20 URLs por lote");
       return;
     }
@@ -93,9 +146,16 @@ export function BatchImport() {
       return;
     }
 
-    setStep('processing');
-    setProgress(0);
+    // Show validation step briefly
+    setStep('validating');
+    setProgress(5);
     setResult(null);
+    
+    // Validate URLs visually
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    setStep('processing');
+    setProgress(10);
 
     // Simulate progress
     const progressInterval = setInterval(() => {
@@ -104,7 +164,7 @@ export function BatchImport() {
 
     try {
       const response = await supabase.functions.invoke('batch-import', {
-        body: { urls },
+        body: { urls: urlsToImport, period_filter: periodFilter },
       });
 
       clearInterval(progressInterval);
@@ -225,33 +285,80 @@ export function BatchImport() {
       </CardHeader>
       
       <CardContent className="relative space-y-4">
-        {/* Idle State - Input */}
+        {/* Idle State - Input with Validation */}
         {step === 'idle' && (
           <>
             <Textarea
-              placeholder={`Cole as URLs dos produtos (uma por linha)\n\nhttps://www.exemplo.com/produto-1\nhttps://www.exemplo.com/produto-2\nhttps://www.exemplo.com/produto-3`}
+              placeholder={`Cole as URLs dos produtos (uma por linha)\n\nhttps://www.mercadolivre.com.br/produto-1\nhttps://www.amazon.com.br/dp/produto-2\nhttps://www.shopee.com.br/product/produto-3`}
               className="min-h-[150px] font-mono text-sm"
               value={urlsText}
               onChange={(e) => setUrlsText(e.target.value)}
             />
             
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {urls.length > 0 ? (
-                  <>
-                    <span className="font-medium text-foreground">{urls.length}</span> URL(s) válida(s)
-                    {urls.length > 20 && (
-                      <span className="text-destructive ml-2">(máx: 20)</span>
-                    )}
-                  </>
-                ) : (
-                  "Cole URLs para iniciar"
+            {/* URL Validation Summary */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-3">
+                  {validUrls.length > 0 && (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="font-medium">{validUrls.length}</span> válida(s)
+                    </span>
+                  )}
+                  {invalidUrls.length > 0 && (
+                    <span className="flex items-center gap-1 text-destructive">
+                      <XCircle className="h-4 w-4" />
+                      <span className="font-medium">{invalidUrls.length}</span> inválida(s)
+                    </span>
+                  )}
+                  {warningUrls.length > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="font-medium">{warningUrls.length}</span> com aviso
+                    </span>
+                  )}
+                  {validUrls.length > 20 && (
+                    <span className="text-destructive font-medium">(máx: 20)</span>
+                  )}
+                </div>
+                {validUrls.length > 0 && validUrls.length <= 20 && (
+                  <Badge variant="outline">
+                    ~{Math.ceil(validUrls.length * 0.5)} min
+                  </Badge>
                 )}
-              </span>
-              {urls.length > 0 && urls.length <= 20 && (
-                <Badge variant="outline">
-                  ~{Math.ceil(urls.length * 0.5)} min
-                </Badge>
+              </div>
+
+              {/* Show invalid URLs */}
+              {invalidUrls.length > 0 && (
+                <div className="p-2 rounded-md bg-destructive/10 border border-destructive/20">
+                  <p className="text-xs font-medium text-destructive mb-1">URLs inválidas:</p>
+                  <div className="space-y-1">
+                    {invalidUrls.slice(0, 3).map((v, i) => (
+                      <p key={i} className="text-xs text-destructive/80 truncate flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{v.url || "(vazio)"}</span>
+                        <span className="text-destructive/60">- {v.error}</span>
+                      </p>
+                    ))}
+                    {invalidUrls.length > 3 && (
+                      <p className="text-xs text-destructive/60">+{invalidUrls.length - 3} mais...</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Show warning URLs */}
+              {warningUrls.length > 0 && invalidUrls.length === 0 && (
+                <div className="p-2 rounded-md bg-warning/10 border border-warning/20">
+                  <p className="text-xs font-medium text-warning mb-1">URLs com aviso:</p>
+                  <div className="space-y-1">
+                    {warningUrls.slice(0, 2).map((v, i) => (
+                      <p key={i} className="text-xs text-warning/80 truncate">
+                        {v.error}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -259,10 +366,11 @@ export function BatchImport() {
               className="w-full gap-2"
               size="lg"
               onClick={handleBatchImport}
-              disabled={urls.length === 0 || urls.length > 20}
+              disabled={validUrls.length === 0 || validUrls.length > 20}
             >
               <Play className="h-5 w-5" />
               Iniciar Importação em Lote
+              {validUrls.length > 0 && ` (${validUrls.length})`}
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
@@ -285,7 +393,7 @@ export function BatchImport() {
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <p className="text-sm text-center text-muted-foreground">
-                Processando {urls.length} produto(s)...
+                Processando {validUrls.length} produto(s)...
               </p>
             </div>
             <div className="flex justify-center gap-2 flex-wrap">
