@@ -322,6 +322,7 @@ export default function ProductAnalytics() {
         topProducts,
         categoryDistribution,
         priceRangeDistribution,
+        trendData: publicationsOverTime,
       });
       toast.success(`Relatório exportado: ${fileName}`);
     } catch (error) {
