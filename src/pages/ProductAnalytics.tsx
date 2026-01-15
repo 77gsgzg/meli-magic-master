@@ -9,6 +9,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { supabase } from "@/integrations/supabase/client";
 import { AIComparisonCharts } from "@/components/analytics/AIComparisonCharts";
 import { GoalsManager } from "@/components/analytics/GoalsManager";
+import { ScheduledReportsManager } from "@/components/analytics/ScheduledReportsManager";
 import {
   Loader2,
   TrendingUp,
@@ -24,6 +25,7 @@ import {
   Sparkles,
   Target,
   FileDown,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportAnalyticsPDF } from "@/utils/exportAnalyticsPDF";
@@ -368,6 +370,10 @@ export default function ProductAnalytics() {
                 <TabsTrigger value="goals" className="gap-2">
                   <Target className="h-4 w-4" />
                   Metas
+                </TabsTrigger>
+                <TabsTrigger value="scheduled" className="gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Agendamentos
                 </TabsTrigger>
               </TabsList>
 
@@ -756,6 +762,11 @@ export default function ProductAnalytics() {
             {/* Goals Tab */}
             <TabsContent value="goals">
               {user && <GoalsManager userId={user.id} products={products} />}
+            </TabsContent>
+
+            {/* Scheduled Reports Tab */}
+            <TabsContent value="scheduled">
+              <ScheduledReportsManager />
             </TabsContent>
           </Tabs>
         </div>

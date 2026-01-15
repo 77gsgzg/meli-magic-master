@@ -351,6 +351,101 @@ export type Database = {
         }
         Relationships: []
       }
+      report_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          report_data: Json | null
+          response_status: number | null
+          scheduled_report_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          report_data?: Json | null
+          response_status?: number | null
+          scheduled_report_id: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          report_data?: Json | null
+          response_status?: number | null
+          scheduled_report_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_logs_scheduled_report_id_fkey"
+            columns: ["scheduled_report_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_reports: {
+        Row: {
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          frequency: string
+          hour_of_day: number
+          id: string
+          is_active: boolean
+          last_sent_at: string | null
+          name: string
+          next_run_at: string | null
+          report_type: string
+          updated_at: string
+          user_id: string
+          webhook_secret: string | null
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          name: string
+          next_run_at?: string | null
+          report_type?: string
+          updated_at?: string
+          user_id: string
+          webhook_secret?: string | null
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_sent_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          report_type?: string
+          updated_at?: string
+          user_id?: string
+          webhook_secret?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       security_alert_settings: {
         Row: {
           created_at: string
