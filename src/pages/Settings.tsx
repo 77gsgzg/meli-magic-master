@@ -25,12 +25,14 @@ import {
   Monitor,
   Languages,
   User,
+  Database,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage, Language } from "@/hooks/useLanguage";
 import { UserPreferencesSection } from "@/components/settings/UserPreferencesSection";
+import { BackupRestoreSection } from "@/components/settings/BackupRestoreSection";
 
 export default function Settings() {
   const { user, loading: authLoading } = useRequireAuth();
@@ -103,7 +105,7 @@ export default function Settings() {
       subtitle="Gerencie sua conta e preferências"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex-wrap">
           <TabsTrigger value="account" className="gap-2">
             <User className="h-4 w-4" />
             Conta
@@ -119,6 +121,10 @@ export default function Settings() {
           <TabsTrigger value="ai" className="gap-2">
             <Sparkles className="h-4 w-4" />
             IA
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="gap-2">
+            <Database className="h-4 w-4" />
+            Backup
           </TabsTrigger>
         </TabsList>
 
@@ -428,6 +434,11 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Backup Tab */}
+        <TabsContent value="backup">
+          {user && <BackupRestoreSection userId={user.id} />}
         </TabsContent>
       </Tabs>
     </DashboardLayout>
