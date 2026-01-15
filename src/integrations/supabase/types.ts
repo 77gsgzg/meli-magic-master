@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      goal_alerts: {
+        Row: {
+          acknowledged: boolean | null
+          alert_type: string
+          created_at: string
+          current_value: number
+          goal_id: string
+          id: string
+          message: string | null
+          target_value: number
+          user_id: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          alert_type: string
+          created_at?: string
+          current_value: number
+          goal_id: string
+          id?: string
+          message?: string | null
+          target_value: number
+          user_id: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          alert_type?: string
+          created_at?: string
+          current_value?: number
+          goal_id?: string
+          id?: string
+          message?: string | null
+          target_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_alerts_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "user_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ml_tokens: {
         Row: {
           access_token: string
@@ -328,6 +372,42 @@ export type Database = {
           updated_at?: string
           user_id?: string
           window_minutes?: number
+        }
+        Relationships: []
+      }
+      user_goals: {
+        Row: {
+          comparison_operator: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          metric_key: string
+          metric_name: string
+          target_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comparison_operator?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          metric_key: string
+          metric_name: string
+          target_value: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comparison_operator?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          metric_key?: string
+          metric_name?: string
+          target_value?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
