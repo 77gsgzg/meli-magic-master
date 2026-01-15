@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { useLanguage } from "@/hooks/useLanguage";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -17,9 +21,12 @@ import {
   Timer,
   TrendingUp,
   Play,
-  Loader2
+  Loader2,
+  BellRing,
+  Settings2,
+  BellOff
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, differenceInMinutes } from "date-fns";
 import { ptBR, enUS } from "date-fns/locale";
 import {
   AreaChart,
@@ -33,6 +40,9 @@ import {
   Bar,
   Legend,
 } from "recharts";
+
+const MIN_INTERVAL_KEY = "cron_min_interval_minutes";
+const DEFAULT_MIN_INTERVAL = 5; // 5 minutes default
 
 interface CronJobLog {
   id: string;
@@ -67,10 +77,16 @@ interface WebhookAlertLog {
 
 export function CronJobMonitor() {
   const { t, language } = useLanguage();
+  const pushNotifications = usePushNotifications();
   const [cronLogs, setCronLogs] = useState<CronJobLog[]>([]);
   const [alertLogs, setAlertLogs] = useState<WebhookAlertLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningManual, setRunningManual] = useState(false);
+  const [minInterval, setMinInterval] = useState(() => {
+    const stored = localStorage.getItem(MIN_INTERVAL_KEY);
+    return stored ? parseInt(stored, 10) : DEFAULT_MIN_INTERVAL;
+  });
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [stats, setStats] = useState({
     totalExecutions: 0,
     successRate: 0,
@@ -81,9 +97,82 @@ export function CronJobMonitor() {
 
   const dateLocale = language === 'pt-BR' ? ptBR : enUS;
 
+  // Check cooldown based on last manual execution
+  const checkCooldown = useCallback(() => {
+    const lastManualRun = localStorage.getItem("last_manual_cron_run");
+    if (!lastManualRun) return 0;
+
+    const lastRunDate = new Date(lastManualRun);
+    const now = new Date();
+    const minutesPassed = differenceInMinutes(now, lastRunDate);
+    const remaining = Math.max(0, minInterval - minutesPassed);
+    return remaining;
+  }, [minInterval]);
+
+  useEffect(() => {
+    const remaining = checkCooldown();
+    setCooldownRemaining(remaining);
+
+    if (remaining > 0) {
+      const interval = setInterval(() => {
+        const newRemaining = checkCooldown();
+        setCooldownRemaining(newRemaining);
+        if (newRemaining === 0) {
+          clearInterval(interval);
+        }
+      }, 60000); // Check every minute
+
+      return () => clearInterval(interval);
+    }
+  }, [checkCooldown, minInterval]);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Subscribe to realtime alerts for push notifications
+  useEffect(() => {
+    if (!pushNotifications.isEnabled) return;
+
+    const channel = supabase
+      .channel('stale-alerts')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'webhook_logs',
+          filter: 'event_type=eq.stale_import_alert'
+        },
+        (payload) => {
+          const newAlert = payload.new as WebhookAlertLog;
+          const count = (newAlert.payload as any)?.data?.count || 0;
+          
+          pushNotifications.sendNotification(
+            t("cronMonitor.alertNotificationTitle") || "⚠️ Alerta de Importação",
+            {
+              body: `${count} ${t("cronMonitor.alertNotificationBody") || "importações pausadas há mais de 24h"}`,
+              tag: 'stale-import-alert',
+              requireInteraction: true,
+            }
+          );
+
+          // Also refresh data
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pushNotifications.isEnabled, t]);
+
+  const handleMinIntervalChange = (value: number[]) => {
+    const newValue = value[0];
+    setMinInterval(newValue);
+    localStorage.setItem(MIN_INTERVAL_KEY, newValue.toString());
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -140,6 +229,15 @@ export function CronJobMonitor() {
   };
 
   const runManualCheck = async () => {
+    // Check cooldown
+    const remaining = checkCooldown();
+    if (remaining > 0) {
+      toast.error(t("cronMonitor.cooldownError") || "Aguarde antes de executar novamente", {
+        description: `${remaining} ${t("cronMonitor.minutesRemaining") || "minuto(s) restante(s)"}`
+      });
+      return;
+    }
+
     setRunningManual(true);
     try {
       const { data, error } = await supabase.functions.invoke('check-stale-imports', {
@@ -148,9 +246,24 @@ export function CronJobMonitor() {
 
       if (error) throw error;
 
+      // Store last manual run time
+      localStorage.setItem("last_manual_cron_run", new Date().toISOString());
+      setCooldownRemaining(minInterval);
+
       toast.success(t("cronMonitor.manualRunSuccess") || "Verificação executada com sucesso!", {
         description: `${data?.stale_count || 0} importações pausadas encontradas`
       });
+
+      // Send push notification if enabled and stale imports found
+      if (pushNotifications.isEnabled && data?.stale_count > 0) {
+        pushNotifications.sendNotification(
+          t("cronMonitor.manualCheckComplete") || "Verificação Concluída",
+          {
+            body: `${data.stale_count} ${t("cronMonitor.staleImportsFound") || "importações pausadas encontradas"}`,
+            tag: 'manual-check-complete',
+          }
+        );
+      }
 
       // Refresh data after manual run
       await fetchData();
@@ -293,6 +406,81 @@ export function CronJobMonitor() {
         </Card>
       </div>
 
+      {/* Settings Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">{t("cronMonitor.settings") || "Configurações"}</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Push Notifications */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`p-2 rounded-full ${pushNotifications.isEnabled ? 'bg-green-500/10' : 'bg-muted'}`}>
+                {pushNotifications.isEnabled ? (
+                  <BellRing className="h-5 w-5 text-green-500" />
+                ) : (
+                  <BellOff className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <Label htmlFor="push-notifications" className="font-medium">
+                  {t("cronMonitor.pushNotifications") || "Notificações Push"}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t("cronMonitor.pushNotificationsDesc") || "Receba alertas no navegador quando importações pausadas forem detectadas"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="push-notifications"
+              checked={pushNotifications.isEnabled}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  pushNotifications.enableNotifications();
+                } else {
+                  pushNotifications.disableNotifications();
+                }
+              }}
+              disabled={!pushNotifications.isSupported}
+            />
+          </div>
+
+          {!pushNotifications.isSupported && (
+            <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+              {t("cronMonitor.pushNotSupported") || "Notificações push não são suportadas neste navegador"}
+            </p>
+          )}
+
+          {/* Minimum Interval */}
+          <div className="space-y-4">
+            <div>
+              <Label className="font-medium">
+                {t("cronMonitor.minInterval") || "Intervalo Mínimo entre Execuções Manuais"}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {t("cronMonitor.minIntervalDesc") || "Tempo mínimo de espera entre execuções manuais para evitar sobrecarga"}
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Slider
+                value={[minInterval]}
+                onValueChange={handleMinIntervalChange}
+                min={1}
+                max={60}
+                step={1}
+                className="flex-1"
+              />
+              <span className="text-sm font-medium w-20 text-right">
+                {minInterval} {t("cronMonitor.minutes") || "min"}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Manual Run Button */}
       <Card className="border-dashed border-primary/50 bg-primary/5">
         <CardContent className="pt-6">
@@ -306,13 +494,27 @@ export function CronJobMonitor() {
                 <p className="text-sm text-muted-foreground">
                   {t("cronMonitor.manualRunDesc") || "Execute a verificação de importações pausadas agora"}
                 </p>
+                {cooldownRemaining > 0 && (
+                  <p className="text-xs text-warning mt-1">
+                    <Clock className="h-3 w-3 inline mr-1" />
+                    {t("cronMonitor.cooldownActive") || "Aguarde"} {cooldownRemaining} {t("cronMonitor.minutes") || "min"}
+                  </p>
+                )}
               </div>
             </div>
-            <Button onClick={runManualCheck} disabled={runningManual}>
+            <Button 
+              onClick={runManualCheck} 
+              disabled={runningManual || cooldownRemaining > 0}
+            >
               {runningManual ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   {t("common.running") || "Executando..."}
+                </>
+              ) : cooldownRemaining > 0 ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  {cooldownRemaining} {t("cronMonitor.minutes") || "min"}
                 </>
               ) : (
                 <>
