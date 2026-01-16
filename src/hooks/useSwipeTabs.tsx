@@ -69,6 +69,11 @@ export function useSwipeTabs<T extends string>({
         const direction: SwipeDirection = dx < 0 ? "left" : "right";
         setSwipeDirection(direction);
 
+        // Haptic feedback - subtle vibration on successful swipe
+        if (navigator.vibrate) {
+          navigator.vibrate(10); // 10ms subtle vibration
+        }
+
         onValueChange(tabs[nextIndex]);
 
         // Reset direction after animation completes
