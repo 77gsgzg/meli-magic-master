@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRequireAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { toast } from "sonner";
 import {
   Loader2,
   Download,
@@ -22,6 +23,9 @@ import {
   Activity,
   BarChart3,
   Image,
+  Radio,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -43,7 +47,6 @@ import {
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import html2canvas from "html2canvas";
-import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 type OperationLog = Tables<"operation_logs">;
@@ -81,38 +84,120 @@ export default function MetricsDashboard() {
   const [period, setPeriod] = useState<"7d" | "30d" | "all">("7d");
   const chartsRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Load operation logs
+      const { data: logData } = await supabase
+        .from("operation_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      setLogs(logData || []);
+      setLastUpdate(new Date());
+
+      // Load token info
+      const { data: tokenData } = await supabase
+        .from("ml_tokens")
+        .select("expires_at, updated_at, nickname")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setTokenInfo(tokenData);
+    } catch (err) {
+      console.error("Error loading metrics:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Initial data load
   useEffect(() => {
-    const load = async () => {
-      if (!user) return;
+    loadData();
+  }, [loadData]);
 
-      try {
-        // Load operation logs
-        const { data: logData } = await supabase
-          .from("operation_logs")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1000);
+  // Realtime subscription for operation_logs
+  useEffect(() => {
+    if (!user) return;
 
-        setLogs(logData || []);
+    const channel = supabase
+      .channel('metrics-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'operation_logs',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newLog = payload.new as OperationLog;
+          setLogs((prevLogs) => [newLog, ...prevLogs].slice(0, 1000));
+          setLastUpdate(new Date());
+          
+          // Show toast for new operations
+          if (newLog.status === 'success') {
+            toast.success(`Nova operação: ${newLog.operation_type}`, {
+              description: 'Métricas atualizadas em tempo real',
+              duration: 3000,
+            });
+          } else if (newLog.status === 'error') {
+            toast.error(`Erro em ${newLog.operation_type}`, {
+              description: newLog.error_message || 'Verifique os detalhes',
+              duration: 5000,
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'operation_logs',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updatedLog = payload.new as OperationLog;
+          setLogs((prevLogs) =>
+            prevLogs.map((log) => (log.id === updatedLog.id ? updatedLog : log))
+          );
+          setLastUpdate(new Date());
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ml_tokens',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async () => {
+          // Reload token info when tokens change
+          const { data: tokenData } = await supabase
+            .from("ml_tokens")
+            .select("expires_at, updated_at, nickname")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          
+          setTokenInfo(tokenData);
+          setLastUpdate(new Date());
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
 
-        // Load token info
-        const { data: tokenData } = await supabase
-          .from("ml_tokens")
-          .select("expires_at, updated_at, nickname")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        setTokenInfo(tokenData);
-      } catch (err) {
-        console.error("Error loading metrics:", err);
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    load();
   }, [user]);
 
   // Filter logs by period
@@ -344,16 +429,58 @@ export default function MetricsDashboard() {
                 <SelectItem value="all">Todo período</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Realtime Status Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border">
+              {realtimeConnected ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Wifi className="h-3 w-3" />
+                    Tempo real
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <WifiOff className="h-3 w-3" />
+                    Conectando...
+                  </span>
+                </>
+              )}
+            </div>
+            
+            {lastUpdate && (
+              <span className="text-xs text-muted-foreground">
+                Atualizado: {format(lastUpdate, "HH:mm:ss")}
+              </span>
+            )}
           </div>
 
-          <Button variant="outline" onClick={exportAsImage} disabled={exporting}>
-            {exporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Image className="h-4 w-4 mr-2" />
-            )}
-            Exportar como Imagem
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={loadData}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+            
+            <Button variant="outline" onClick={exportAsImage} disabled={exporting}>
+              {exporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Image className="h-4 w-4 mr-2" />
+              )}
+              Exportar como Imagem
+            </Button>
+          </div>
         </div>
 
         {/* Main content with ref for export */}
