@@ -149,7 +149,7 @@ export default function Settings() {
         )}
 
         {/* Account Tab */}
-        <TabsContent value="account" className="space-y-6">
+        <TabsContent value="account" className="space-y-6" animated>
           {/* Mercado Livre Connection */}
           <Card variant="glass">
             <CardHeader>
@@ -295,12 +295,12 @@ export default function Settings() {
         </TabsContent>
 
         {/* Preferences Tab */}
-        <TabsContent value="preferences">
+        <TabsContent value="preferences" animated>
           {user && <UserPreferencesSection userId={user.id} />}
         </TabsContent>
 
         {/* Appearance Tab */}
-        <TabsContent value="appearance" className="space-y-6">
+        <TabsContent value="appearance" className="space-y-6" animated>
           <Card variant="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -402,7 +402,7 @@ export default function Settings() {
         </TabsContent>
 
         {/* AI Tab */}
-        <TabsContent value="ai" className="space-y-6">
+        <TabsContent value="ai" className="space-y-6" animated>
           <Card variant="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function Settings() {
         </TabsContent>
 
         {/* Backup Tab */}
-        <TabsContent value="backup">
+        <TabsContent value="backup" animated>
           {user && <BackupRestoreSection userId={user.id} />}
         </TabsContent>
       </Tabs>
