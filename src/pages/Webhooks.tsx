@@ -60,6 +60,8 @@ import {
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeTabs } from "@/hooks/useSwipeTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay } from "date-fns";
@@ -441,10 +443,17 @@ export default function Webhooks() {
     );
   }
 
+  const swipeHandlers = useSwipeTabs({
+    tabs: ["config", "metrics", "queue", "schedule", "logs"] as const,
+    value: activeTab as "config" | "metrics" | "queue" | "schedule" | "logs",
+    onValueChange: (v) => setActiveTab(v),
+    enabled: isMobile,
+  });
+
   return (
     <DashboardLayout title={t("webhooks.title")} subtitle={t("webhooks.subtitle")}>
       <div className="space-y-4 md:space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} {...swipeHandlers}>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <TabsList className="w-full md:w-auto flex flex-wrap h-auto gap-1 p-1">
               <TabsTrigger value="config" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">

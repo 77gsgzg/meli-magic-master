@@ -5,9 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeTabs } from "@/hooks/useSwipeTabs";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -78,6 +82,8 @@ const OPERATION_COLORS: Record<string, string> = {
 export default function MetricsDashboard() {
   const { user, loading: authLoading } = useRequireAuth();
   const { connection } = useMercadoLivre();
+  const isMobile = useIsMobile();
+
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +92,9 @@ export default function MetricsDashboard() {
   const [exporting, setExporting] = useState(false);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  const [chartsTab, setChartsTab] = useState<"overview" | "operations" | "hourly" | "tokens">("overview");
+  const [compactCharts, setCompactCharts] = useState<boolean>(() => isMobile);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -121,6 +130,11 @@ export default function MetricsDashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Default compact mode on mobile (keeps user choice on desktop)
+  useEffect(() => {
+    if (isMobile) setCompactCharts(true);
+  }, [isMobile]);
 
   // Realtime subscription for operation_logs
   useEffect(() => {
@@ -663,331 +677,360 @@ export default function MetricsDashboard() {
           </Card>
 
           {/* Charts Section */}
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-              <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-              <TabsTrigger value="operations">Por Operação</TabsTrigger>
-              <TabsTrigger value="hourly">Por Hora</TabsTrigger>
-              <TabsTrigger value="tokens">Tokens</TabsTrigger>
-            </TabsList>
+          {(() => {
+            const swipeHandlers = useSwipeTabs({
+              tabs: ["overview", "operations", "hourly", "tokens"] as const,
+              value: chartsTab,
+              onValueChange: setChartsTab,
+              enabled: isMobile,
+            });
 
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                {/* Daily Trend */}
-                <Card variant="glass">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-primary" />
-                      Tendência Diária
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Sucesso vs Erros por dia
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={dailyTrend}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                          />
-                          <YAxis
-                            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                            allowDecimals={false}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                            }}
-                          />
-                          <Legend wrapperStyle={{ fontSize: "11px" }} />
-                          <Area
-                            type="monotone"
-                            dataKey="success"
-                            name="Sucesso"
-                            stackId="1"
-                            stroke={COLORS.success}
-                            fill={COLORS.success}
-                            fillOpacity={0.6}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="error"
-                            name="Erro"
-                            stackId="1"
-                            stroke={COLORS.error}
-                            fill={COLORS.error}
-                            fillOpacity={0.6}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+            const hSmall = compactCharts ? 200 : 250;
+            const hMedium = compactCharts ? 240 : 300;
+
+            return (
+              <Tabs value={chartsTab} onValueChange={(v) => setChartsTab(v as typeof chartsTab)} className="space-y-4" {...swipeHandlers}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <TabsList className="w-full md:w-auto flex flex-wrap h-auto gap-1 p-1">
+                    <TabsTrigger value="overview" className="flex-1 md:flex-none text-xs md:text-sm">Visão Geral</TabsTrigger>
+                    <TabsTrigger value="operations" className="flex-1 md:flex-none text-xs md:text-sm">Por Operação</TabsTrigger>
+                    <TabsTrigger value="hourly" className="flex-1 md:flex-none text-xs md:text-sm">Por Hora</TabsTrigger>
+                    <TabsTrigger value="tokens" className="flex-1 md:flex-none text-xs md:text-sm">Tokens</TabsTrigger>
+                  </TabsList>
+
+                  <div className="flex items-center justify-between md:justify-end gap-3">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="compact-charts" className="text-xs text-muted-foreground">Compacto</Label>
+                      <Switch
+                        id="compact-charts"
+                        checked={compactCharts}
+                        onCheckedChange={(v) => setCompactCharts(Boolean(v))}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Success/Error Pie */}
-                <Card variant="glass">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      Distribuição de Status
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Proporção sucesso vs erro
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: "Sucesso", value: stats.success, color: COLORS.success },
-                              { name: "Erro", value: stats.errors, color: COLORS.error },
-                            ]}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                            paddingAngle={2}
-                          >
-                            <Cell fill={COLORS.success} />
-                            <Cell fill={COLORS.error} />
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                          />
-                          <Legend
-                            wrapperStyle={{ fontSize: "11px" }}
-                            formatter={(value) => (
-                              <span className="text-foreground">{value}</span>
-                            )}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="operations" className="space-y-4">
-              <Card variant="glass">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    Operações por Tipo
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Distribuição de imports, publicações, atualizações, etc.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={operationDistribution} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          type="number"
-                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                          allowDecimals={false}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                          width={100}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "8px",
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: "11px" }} />
-                        <Bar
-                          dataKey="success"
-                          name="Sucesso"
-                          fill={COLORS.success}
-                          stackId="a"
-                          radius={[0, 4, 4, 0]}
-                        />
-                        <Bar
-                          dataKey="error"
-                          name="Erro"
-                          fill={COLORS.error}
-                          stackId="a"
-                          radius={[0, 4, 4, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      Deslize para trocar de aba
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                </div>
 
-            <TabsContent value="hourly" className="space-y-4">
-              <Card variant="glass">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    Atividade por Hora do Dia
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Quando ocorrem mais operações
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={hourlyDistribution}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="hour"
-                          tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                          allowDecimals={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "8px",
-                          }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: "11px" }} />
-                        <Bar
-                          dataKey="success"
-                          name="Sucesso"
-                          fill={COLORS.success}
-                          stackId="a"
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Bar
-                          dataKey="error"
-                          name="Erro"
-                          fill={COLORS.error}
-                          stackId="a"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                <TabsContent value="overview" className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {/* Daily Trend */}
+                    <Card variant="glass">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4 text-primary" />
+                          Tendência Diária
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Sucesso vs Erros por dia
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div style={{ height: hSmall }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={dailyTrend}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: compactCharts ? 9 : 10, fill: "hsl(var(--muted-foreground))" }}
+                              />
+                              <YAxis
+                                tick={{ fontSize: compactCharts ? 9 : 10, fill: "hsl(var(--muted-foreground))" }}
+                                allowDecimals={false}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                }}
+                              />
+                              <Legend wrapperStyle={{ fontSize: compactCharts ? "10px" : "11px" }} />
+                              <Area
+                                type="monotone"
+                                dataKey="success"
+                                name="Sucesso"
+                                stackId="1"
+                                stroke={COLORS.success}
+                                fill={COLORS.success}
+                                fillOpacity={0.6}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="error"
+                                name="Erro"
+                                stackId="1"
+                                stroke={COLORS.error}
+                                fill={COLORS.error}
+                                fillOpacity={0.6}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Success/Error Pie */}
+                    <Card variant="glass">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-primary" />
+                          Distribuição de Status
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Proporção sucesso vs erro
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div style={{ height: hSmall }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "Sucesso", value: stats.success, color: COLORS.success },
+                                  { name: "Erro", value: stats.errors, color: COLORS.error },
+                                ]}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={compactCharts ? 45 : 50}
+                                outerRadius={compactCharts ? 70 : 80}
+                                paddingAngle={2}
+                              >
+                                <Cell fill={COLORS.success} />
+                                <Cell fill={COLORS.error} />
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                }}
+                              />
+                              <Legend
+                                wrapperStyle={{ fontSize: compactCharts ? "10px" : "11px" }}
+                                formatter={(value) => (
+                                  <span className="text-foreground">{value}</span>
+                                )}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                </TabsContent>
 
-            <TabsContent value="tokens" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card variant="glass">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <RefreshCw className="h-4 w-4 text-primary" />
-                      Status do Token
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Status:</span>
-                        <Badge
-                          variant={
-                            tokenStatus.status === "valid"
-                              ? "success"
-                              : tokenStatus.status === "warning"
-                              ? "warning"
-                              : "destructive"
-                          }
-                        >
-                          {tokenStatus.label}
-                        </Badge>
+                <TabsContent value="operations" className="space-y-4">
+                  <Card variant="glass">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Package className="h-4 w-4 text-primary" />
+                        Operações por Tipo
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Distribuição de imports, publicações, atualizações, etc.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div style={{ height: hMedium }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={operationDistribution} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis
+                              type="number"
+                              tick={{ fontSize: compactCharts ? 9 : 10, fill: "hsl(var(--muted-foreground))" }}
+                              allowDecimals={false}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              tick={{ fontSize: compactCharts ? 9 : 10, fill: "hsl(var(--muted-foreground))" }}
+                              width={compactCharts ? 70 : 100}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--card))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "8px",
+                              }}
+                            />
+                            <Legend wrapperStyle={{ fontSize: compactCharts ? "10px" : "11px" }} />
+                            <Bar
+                              dataKey="success"
+                              name="Sucesso"
+                              fill={COLORS.success}
+                              stackId="a"
+                              radius={[0, 4, 4, 0]}
+                            />
+                            <Bar
+                              dataKey="error"
+                              name="Erro"
+                              fill={COLORS.error}
+                              stackId="a"
+                              radius={[0, 4, 4, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Conexão ML:</span>
-                        <span className="font-medium">
-                          {connection.connected
-                            ? connection.nickname || "Conectado"
-                            : "Desconectado"}
-                        </span>
+                <TabsContent value="hourly" className="space-y-4">
+                  <Card variant="glass">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                        Atividade por Hora do Dia
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Quando ocorrem mais operações
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div style={{ height: hMedium }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={hourlyDistribution}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis
+                              dataKey="hour"
+                              tick={{ fontSize: compactCharts ? 8 : 9, fill: "hsl(var(--muted-foreground))" }}
+                            />
+                            <YAxis
+                              tick={{ fontSize: compactCharts ? 9 : 10, fill: "hsl(var(--muted-foreground))" }}
+                              allowDecimals={false}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "hsl(var(--card))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "8px",
+                              }}
+                            />
+                            <Legend wrapperStyle={{ fontSize: compactCharts ? "10px" : "11px" }} />
+                            <Bar
+                              dataKey="success"
+                              name="Sucesso"
+                              fill={COLORS.success}
+                              stackId="a"
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="error"
+                              name="Erro"
+                              fill={COLORS.error}
+                              stackId="a"
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                      {tokenInfo?.expires_at && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Expira em:</span>
-                          <span className="font-medium">
-                            {format(new Date(tokenInfo.expires_at), "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })}
-                          </span>
+                <TabsContent value="tokens" className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card variant="glass">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4 text-primary" />
+                          Status do Token
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Status:</span>
+                            <Badge
+                              variant={
+                                tokenStatus.status === "valid"
+                                  ? "success"
+                                  : tokenStatus.status === "warning"
+                                  ? "warning"
+                                  : "destructive"
+                              }
+                            >
+                              {tokenStatus.label}
+                            </Badge>
+                          </div>
+
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Conexão ML:</span>
+                            <span className="font-medium">
+                              {connection.connected
+                                ? connection.nickname || "Conectado"
+                                : "Desconectado"}
+                            </span>
+                          </div>
+
+                          {tokenInfo?.expires_at && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Expira em:</span>
+                              <span className="font-medium">
+                                {format(new Date(tokenInfo.expires_at), "dd/MM/yyyy HH:mm", {
+                                  locale: ptBR,
+                                })}
+                              </span>
+                            </div>
+                          )}
+
+                          {tokenInfo?.updated_at && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Última renovação:</span>
+                              <span className="font-medium">
+                                {format(new Date(tokenInfo.updated_at), "dd/MM/yyyy HH:mm", {
+                                  locale: ptBR,
+                                })}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
 
-                      {tokenInfo?.updated_at && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Última renovação:</span>
-                          <span className="font-medium">
-                            {format(new Date(tokenInfo.updated_at), "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })}
-                          </span>
+                    <Card variant="glass">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-primary" />
+                          Renovações de Token
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <p className="text-4xl font-bold">{stats.tokenRefreshes}</p>
+                            <p className="text-xs text-muted-foreground">
+                              renovações no período
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-2 rounded-lg bg-green-500/10">
+                              <p className="text-lg font-bold text-green-500">
+                                {stats.byType.token_refresh?.success || 0}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Sucesso</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg bg-red-500/10">
+                              <p className="text-lg font-bold text-red-500">
+                                {stats.byType.token_refresh?.error || 0}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Falhas</p>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card variant="glass">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-primary" />
-                      Renovações de Token
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <p className="text-4xl font-bold">{stats.tokenRefreshes}</p>
-                        <p className="text-xs text-muted-foreground">
-                          renovações no período
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="text-center p-2 rounded-lg bg-green-500/10">
-                          <p className="text-lg font-bold text-green-500">
-                            {stats.byType.token_refresh?.success || 0}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Sucesso</p>
-                        </div>
-                        <div className="text-center p-2 rounded-lg bg-red-500/10">
-                          <p className="text-lg font-bold text-red-500">
-                            {stats.byType.token_refresh?.error || 0}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Falhas</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            );
+          })()}
           {/* Performance Stats */}
           <Card variant="glass">
             <CardHeader className="pb-2">
