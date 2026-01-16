@@ -665,6 +665,8 @@ export type Database = {
           notify_publish_success: boolean | null
           notify_token_refresh: boolean | null
           notify_webhook_failure: boolean | null
+          swipe_haptic_enabled: boolean | null
+          swipe_sound_enabled: boolean | null
           timezone: string | null
           updated_at: string
           user_id: string
@@ -678,6 +680,8 @@ export type Database = {
           notify_publish_success?: boolean | null
           notify_token_refresh?: boolean | null
           notify_webhook_failure?: boolean | null
+          swipe_haptic_enabled?: boolean | null
+          swipe_sound_enabled?: boolean | null
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -691,6 +695,8 @@ export type Database = {
           notify_publish_success?: boolean | null
           notify_token_refresh?: boolean | null
           notify_webhook_failure?: boolean | null
+          swipe_haptic_enabled?: boolean | null
+          swipe_sound_enabled?: boolean | null
           timezone?: string | null
           updated_at?: string
           user_id?: string

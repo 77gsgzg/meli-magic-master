@@ -33,6 +33,7 @@ import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
+import { useSwipePreferences } from "@/hooks/useSwipePreferences";
 import { useLanguage, Language } from "@/hooks/useLanguage";
 import { UserPreferencesSection } from "@/components/settings/UserPreferencesSection";
 import { BackupRestoreSection } from "@/components/settings/BackupRestoreSection";
@@ -104,11 +105,14 @@ export default function Settings() {
     );
   }
 
+  const swipePrefs = useSwipePreferences();
   const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
     tabs: ["account", "preferences", "appearance", "ai", "backup"] as const,
     value: activeTab as "account" | "preferences" | "appearance" | "ai" | "backup",
     onValueChange: (v) => setActiveTab(v),
     enabled: isMobile,
+    hapticEnabled: swipePrefs.hapticEnabled,
+    soundEnabled: swipePrefs.soundEnabled,
   });
 
   return (
