@@ -45,6 +45,7 @@ const translations: Translations = {
     "nav.mercadoLivre": "Mercado Livre",
     "nav.import": "Importar Produto",
     "nav.products": "Produtos",
+    "nav.orders": "Pedidos",
     "nav.history": "Histórico",
     "nav.connectionDiag": "Diag. Conexão",
     "nav.publicationDiag": "Diag. Publicações",

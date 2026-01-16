@@ -18,6 +18,7 @@ import {
   Webhook,
   TrendingUp,
   ClipboardList,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -30,6 +31,7 @@ const menuItems = [
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
   { icon: Package, labelKey: "nav.products", path: "/products" },
+  { icon: ShoppingBag, labelKey: "nav.orders", path: "/orders" },
   { icon: History, labelKey: "nav.history", path: "/history" },
   { icon: FileText, labelKey: "nav.reports", path: "/reports" },
   { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },
