@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import {
   Store,
   Bell,
@@ -138,6 +139,14 @@ export default function Settings() {
             <span className="hidden sm:inline">Backup</span>
           </TabsTrigger>
         </TabsList>
+        {isMobile && (
+          <SwipeIndicator
+            currentIndex={["account", "preferences", "appearance", "ai", "backup"].indexOf(activeTab)}
+            totalTabs={5}
+            tabLabels={["Conta", "Pref.", "Apar.", "IA", "Backup"]}
+            className="mb-4"
+          />
+        )}
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">

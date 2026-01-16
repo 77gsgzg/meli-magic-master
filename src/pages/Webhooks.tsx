@@ -72,6 +72,7 @@ import { WebhookAutoRetrySettings } from "@/components/webhooks/WebhookAutoRetry
 import { useWebhookAutoRetry } from "@/hooks/useWebhookAutoRetry";
 import { WebhookLogsFilter, WebhookLogsFilters } from "@/components/webhooks/WebhookLogsFilter";
 import { WebhookLogsPagination } from "@/components/webhooks/WebhookLogsPagination";
+import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { 
   exportWebhookLogsToCSV, 
   exportWebhookLogsToJSON, 
@@ -480,6 +481,13 @@ export default function Webhooks() {
                 <History className="h-3 w-3 md:h-4 md:w-4" />
               </TabsTrigger>
             </TabsList>
+            {isMobile && (
+              <SwipeIndicator
+                currentIndex={["config", "metrics", "queue", "schedule", "logs"].indexOf(activeTab)}
+                totalTabs={5}
+                tabLabels={["Config", "Monitor", "Fila", "Agenda", "Logs"]}
+              />
+            )}
 
             {activeTab === "config" && (
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
