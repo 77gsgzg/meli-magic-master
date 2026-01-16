@@ -215,6 +215,14 @@ export default function Products() {
     paused: products.filter(p => p.status === 'paused').length,
   };
 
+  const STATUS_TABS = ["all", "published", "pending", "draft", "error", "paused"] as const;
+  const swipeHandlers = useSwipeTabs({
+    tabs: STATUS_TABS,
+    value: statusFilter as (typeof STATUS_TABS)[number],
+    onValueChange: (v) => handleStatusChange(v),
+    enabled: isMobile,
+  });
+
   if (loading) {
     return (
       <DashboardLayout
@@ -281,42 +289,8 @@ export default function Products() {
         </div>
 
         {/* Status Tabs */}
-        {(() => {
-          const swipeHandlers = useSwipeTabs({
-            tabs: ["all", "published", "pending", "draft", "error"] as const,
-            value: statusFilter as "all" | "published" | "pending" | "draft" | "error",
-            onValueChange: (v) => handleStatusChange(v),
-            enabled: isMobile,
-          });
-
-          return (
-            <Tabs value={statusFilter} onValueChange={handleStatusChange} {...swipeHandlers}>
-              <TabsList className="bg-secondary/50 w-full flex-wrap h-auto gap-1 p-1">
-                <TabsTrigger value="all" className="text-xs sm:text-sm flex-1 sm:flex-none">
-                  Todos ({statusCounts.all})
-                </TabsTrigger>
-                <TabsTrigger value="published" className="text-xs sm:text-sm flex-1 sm:flex-none">
-                  <span className="hidden sm:inline">Publicados</span>
-                  <span className="sm:hidden">Pub.</span>
-                  ({statusCounts.published})
-                </TabsTrigger>
-                <TabsTrigger value="pending" className="text-xs sm:text-sm flex-1 sm:flex-none">
-                  <span className="hidden sm:inline">Pendentes</span>
-                  <span className="sm:hidden">Pend.</span>
-                  ({statusCounts.pending})
-                </TabsTrigger>
-                <TabsTrigger value="draft" className="text-xs sm:text-sm flex-1 sm:flex-none">
-                  <span className="hidden sm:inline">Rascunhos</span>
-                  <span className="sm:hidden">Rasc.</span>
-                  ({statusCounts.draft})
-                </TabsTrigger>
-                <TabsTrigger value="error" className="text-xs sm:text-sm flex-1 sm:flex-none">
-                  Erros ({statusCounts.error})
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          );
-        })()}
+        <Tabs value={statusFilter} onValueChange={handleStatusChange} {...swipeHandlers}>
+          <TabsList className="bg-secondary/50 w-full flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="all" className="text-xs sm:text-sm flex-1 sm:flex-none">
               Todos ({statusCounts.all})
             </TabsTrigger>
@@ -337,6 +311,11 @@ export default function Products() {
             </TabsTrigger>
             <TabsTrigger value="error" className="text-xs sm:text-sm flex-1 sm:flex-none">
               Erros ({statusCounts.error})
+            </TabsTrigger>
+            <TabsTrigger value="paused" className="text-xs sm:text-sm flex-1 sm:flex-none">
+              <span className="hidden sm:inline">Pausados</span>
+              <span className="sm:hidden">Paus.</span>
+              ({statusCounts.paused})
             </TabsTrigger>
           </TabsList>
         </Tabs>

@@ -681,7 +681,7 @@ export default function MetricsDashboard() {
             const swipeHandlers = useSwipeTabs({
               tabs: ["overview", "operations", "hourly", "tokens"] as const,
               value: chartsTab,
-              onValueChange: setChartsTab,
+              onValueChange: (v) => setChartsTab(v),
               enabled: isMobile,
             });
 
