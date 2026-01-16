@@ -23,6 +23,8 @@ export default function OrdersQueue() {
   const [bulkPrinting, setBulkPrinting] = useState(false);
 
   const selectedOrders = pending.filter((o) => selected[o.ml_order_id]);
+  const allSelected = pending.length > 0 && selectedOrders.length === pending.length;
+  const someSelected = selectedOrders.length > 0 && selectedOrders.length < pending.length;
 
   const toggleAll = (checked: boolean) => {
     const next: Record<string, boolean> = {};
@@ -100,7 +102,7 @@ export default function OrdersQueue() {
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <Checkbox
-                    checked={pending.length > 0 && selectedOrders.length === pending.length}
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                   <span className="text-sm text-muted-foreground">
@@ -108,11 +110,15 @@ export default function OrdersQueue() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={runBulkPrint} disabled={bulkPrinting}>
+                  <Button
+                    variant="outline"
+                    onClick={runBulkPrint}
+                    disabled={bulkPrinting || selectedOrders.length === 0}
+                  >
                     {bulkPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
                     Imprimir etiquetas
                   </Button>
-                  <Button onClick={runBulkShip} disabled={bulkShipping}>
+                  <Button onClick={runBulkShip} disabled={bulkShipping || selectedOrders.length === 0}>
                     {bulkShipping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                     Enviar selecionados
                   </Button>

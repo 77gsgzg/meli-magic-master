@@ -90,6 +90,7 @@ interface UserPreferencesSectionProps {
 
 export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) {
   const queryClient = useQueryClient();
+  const orderAlerts = useOrderAlertSettings();
 
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["user-preferences", userId],
@@ -178,8 +179,6 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
       </div>
     );
   }
-
-  const orderAlerts = useOrderAlertSettings();
 
   return (
     <div className="space-y-6">

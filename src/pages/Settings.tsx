@@ -97,14 +97,6 @@ export default function Settings() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const swipePrefs = useSwipePreferences();
   const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
     tabs: ["account", "preferences", "appearance", "ai", "backup"] as const,
@@ -114,6 +106,14 @@ export default function Settings() {
     hapticEnabled: swipePrefs.hapticEnabled,
     soundEnabled: swipePrefs.soundEnabled,
   });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <DashboardLayout

@@ -99,6 +99,9 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
       const byBuyer = new Map<string, { label: string; revenue: number; orders: number }>();
 
       for (const o of orders || []) {
+        // Métricas de vendas consideram somente pedidos pagos
+        if ((o.status as any) !== "paid") continue;
+
         const dayKey = format(new Date(o.date_created), "yyyy-MM-dd");
         const current = map.get(dayKey) || { revenue: 0, orders: 0 };
 
