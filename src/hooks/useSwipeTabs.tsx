@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 
 type SwipeDirection = "left" | "right" | null;
 
@@ -8,6 +8,8 @@ type SwipeTabsOptions<T extends string> = {
   onValueChange: (next: T) => void;
   enabled?: boolean;
   thresholdPx?: number;
+  hapticEnabled?: boolean;
+  soundEnabled?: boolean;
 };
 
 type SwipeTabsResult = {
@@ -24,6 +26,7 @@ type SwipeTabsResult = {
  * - No business logic changes (just an alternative input method)
  * - Ignores vertical scrolling gestures
  * - Returns swipe direction for directional animations
+ * - Supports haptic feedback (vibration) and sound feedback
  */
 export function useSwipeTabs<T extends string>({
   tabs,
@@ -31,9 +34,59 @@ export function useSwipeTabs<T extends string>({
   onValueChange,
   enabled = true,
   thresholdPx = 40,
+  hapticEnabled = true,
+  soundEnabled = false,
 }: SwipeTabsOptions<T>): SwipeTabsResult {
   const start = useRef<{ x: number; y: number } | null>(null);
   const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const getAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  }, []);
+
+  const playClickSound = useCallback(() => {
+    if (!soundEnabled) return;
+
+    try {
+      const audioContext = getAudioContext();
+      
+      // Create a short "click" sound
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // High frequency for a subtle "tick" sound
+      oscillator.frequency.setValueAtTime(1800, audioContext.currentTime);
+      oscillator.type = "sine";
+      
+      // Quick fade in/out for a clean click
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.002);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.015);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.015);
+    } catch (error) {
+      // Silently fail if audio context is not available
+      console.debug("Audio feedback not available:", error);
+    }
+  }, [soundEnabled, getAudioContext]);
+
+  const triggerFeedback = useCallback(() => {
+    // Haptic feedback - subtle vibration on successful swipe
+    if (hapticEnabled && navigator.vibrate) {
+      navigator.vibrate(10); // 10ms subtle vibration
+    }
+    
+    // Sound feedback
+    playClickSound();
+  }, [hapticEnabled, playClickSound]);
 
   const handlers = useMemo(() => {
     if (!enabled) return {} as const;
@@ -69,10 +122,8 @@ export function useSwipeTabs<T extends string>({
         const direction: SwipeDirection = dx < 0 ? "left" : "right";
         setSwipeDirection(direction);
 
-        // Haptic feedback - subtle vibration on successful swipe
-        if (navigator.vibrate) {
-          navigator.vibrate(10); // 10ms subtle vibration
-        }
+        // Trigger haptic and sound feedback
+        triggerFeedback();
 
         onValueChange(tabs[nextIndex]);
 
@@ -80,7 +131,7 @@ export function useSwipeTabs<T extends string>({
         setTimeout(() => setSwipeDirection(null), 300);
       },
     } as const;
-  }, [enabled, onValueChange, tabs, thresholdPx, value]);
+  }, [enabled, onValueChange, tabs, thresholdPx, value, triggerFeedback]);
 
   return { handlers, swipeDirection };
 }

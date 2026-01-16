@@ -62,6 +62,7 @@ import { useRequireAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
+import { useSwipePreferences } from "@/hooks/useSwipePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay } from "date-fns";
@@ -437,11 +438,14 @@ export default function Webhooks() {
     toast.success("Exportado!", { description: "Falhas exportadas para CSV" });
   };
 
+  const swipePrefs = useSwipePreferences();
   const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
     tabs: ["config", "metrics", "queue", "schedule", "logs"] as const,
     value: activeTab as "config" | "metrics" | "queue" | "schedule" | "logs",
     onValueChange: (v) => setActiveTab(v),
     enabled: isMobile,
+    hapticEnabled: swipePrefs.hapticEnabled,
+    soundEnabled: swipePrefs.soundEnabled,
   });
 
   if (authLoading) {

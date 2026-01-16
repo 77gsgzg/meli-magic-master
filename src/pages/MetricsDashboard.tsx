@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
+import { useSwipePreferences } from "@/hooks/useSwipePreferences";
 import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { toast } from "sonner";
 import {
@@ -679,11 +680,14 @@ export default function MetricsDashboard() {
 
           {/* Charts Section */}
           {(() => {
+            const swipePrefs = useSwipePreferences();
             const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
               tabs: ["overview", "operations", "hourly", "tokens"] as const,
               value: chartsTab,
               onValueChange: (v) => setChartsTab(v),
               enabled: isMobile,
+              hapticEnabled: swipePrefs.hapticEnabled,
+              soundEnabled: swipePrefs.soundEnabled,
             });
 
             const hSmall = compactCharts ? 200 : 250;

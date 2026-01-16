@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
+import { useSwipePreferences } from "@/hooks/useSwipePreferences";
 import {
   Search,
   MoreVertical,
@@ -217,11 +218,14 @@ export default function Products() {
   };
 
   const STATUS_TABS = ["all", "published", "pending", "draft", "error", "paused"] as const;
+  const swipePrefs = useSwipePreferences();
   const swipeHandlers = useSwipeTabs({
     tabs: STATUS_TABS,
     value: statusFilter as (typeof STATUS_TABS)[number],
     onValueChange: (v) => handleStatusChange(v),
     enabled: isMobile,
+    hapticEnabled: swipePrefs.hapticEnabled,
+    soundEnabled: swipePrefs.soundEnabled,
   });
 
   if (loading) {

@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bell, Globe, Loader2 } from "lucide-react";
+import { Bell, Globe, Loader2, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,6 +22,8 @@ interface UserPreferences {
   notify_import_success: boolean;
   notify_import_error: boolean;
   notify_webhook_failure: boolean;
+  swipe_haptic_enabled: boolean;
+  swipe_sound_enabled: boolean;
 }
 
 const TIMEZONES = [
@@ -108,6 +110,8 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
           notify_import_success: true,
           notify_import_error: true,
           notify_webhook_failure: true,
+          swipe_haptic_enabled: true,
+          swipe_sound_enabled: false,
         } as UserPreferences;
       }
 
@@ -119,6 +123,8 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
         notify_import_success: (data as any).notify_import_success ?? true,
         notify_import_error: (data as any).notify_import_error ?? true,
         notify_webhook_failure: (data as any).notify_webhook_failure ?? true,
+        swipe_haptic_enabled: (data as any).swipe_haptic_enabled ?? true,
+        swipe_sound_enabled: (data as any).swipe_sound_enabled ?? false,
       } as UserPreferences;
     },
     enabled: !!userId,
@@ -239,6 +245,47 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Mobile Swipe Feedback */}
+      <Card variant="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-primary" />
+            Feedback de Swipe (Mobile)
+          </CardTitle>
+          <CardDescription>
+            Configure o feedback ao navegar entre abas com gestos de swipe
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base">Vibração (Haptic)</Label>
+              <p className="text-sm text-muted-foreground">
+                Vibração sutil ao completar swipe entre abas
+              </p>
+            </div>
+            <Switch
+              checked={preferences?.swipe_haptic_enabled ?? true}
+              onCheckedChange={(checked) => handleToggle("swipe_haptic_enabled" as keyof UserPreferences, checked)}
+              disabled={updateMutation.isPending}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base">Som</Label>
+              <p className="text-sm text-muted-foreground">
+                Som sutil de "clique" ao completar swipe entre abas
+              </p>
+            </div>
+            <Switch
+              checked={preferences?.swipe_sound_enabled ?? false}
+              onCheckedChange={(checked) => handleToggle("swipe_sound_enabled" as keyof UserPreferences, checked)}
+              disabled={updateMutation.isPending}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
