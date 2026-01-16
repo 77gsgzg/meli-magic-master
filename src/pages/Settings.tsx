@@ -105,26 +105,26 @@ export default function Settings() {
       subtitle="Gerencie sua conta e preferências"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
-        <TabsList className="mb-6 flex-wrap">
-          <TabsTrigger value="account" className="gap-2">
-            <User className="h-4 w-4" />
-            Conta
+        <TabsList className="mb-6 flex flex-wrap w-full h-auto gap-1 p-1">
+          <TabsTrigger value="account" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
+            <User className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Conta</span>
           </TabsTrigger>
-          <TabsTrigger value="preferences" className="gap-2">
-            <Bell className="h-4 w-4" />
-            Preferências
+          <TabsTrigger value="preferences" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
+            <Bell className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Preferências</span>
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Palette className="h-4 w-4" />
-            Aparência
+          <TabsTrigger value="appearance" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
+            <Palette className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Aparência</span>
           </TabsTrigger>
-          <TabsTrigger value="ai" className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            IA
+          <TabsTrigger value="ai" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
+            <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">IA</span>
           </TabsTrigger>
-          <TabsTrigger value="backup" className="gap-2">
-            <Database className="h-4 w-4" />
-            Backup
+          <TabsTrigger value="backup" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
+            <Database className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Backup</span>
           </TabsTrigger>
         </TabsList>
 
@@ -163,7 +163,7 @@ export default function Settings() {
                     </Badge>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-muted-foreground">Access Token</Label>
                       <div className="flex gap-2">
@@ -193,26 +193,27 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleRefreshToken} disabled={isRefreshing}>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={handleRefreshToken} disabled={isRefreshing} className="flex-1 sm:flex-none">
                       {isRefreshing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="h-4 w-4" />
                       )}
-                      Renovar Token
+                      <span className="ml-2">Renovar Token</span>
                     </Button>
                     <Button 
                       variant="destructive" 
                       onClick={handleDisconnect} 
                       disabled={isDisconnecting}
+                      className="flex-1 sm:flex-none"
                     >
                       {isDisconnecting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Link2Off className="h-4 w-4" />
                       )}
-                      Desconectar
+                      <span className="ml-2">Desconectar</span>
                     </Button>
                   </div>
                 </>
@@ -296,43 +297,43 @@ export default function Settings() {
                 <RadioGroup
                   value={theme}
                   onValueChange={(value) => setTheme(value as "light" | "dark" | "system")}
-                  className="grid grid-cols-3 gap-4"
+                  className="grid grid-cols-3 gap-2 md:gap-4"
                 >
                   <Label
                     htmlFor="theme-light"
-                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-3 md:p-4 cursor-pointer transition-all ${
                       theme === "light"
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
                     <RadioGroupItem value="light" id="theme-light" className="sr-only" />
-                    <Sun className="h-6 w-6 mb-2" />
-                    <span className="text-sm font-medium">Claro</span>
+                    <Sun className="h-5 w-5 md:h-6 md:w-6 mb-1 md:mb-2" />
+                    <span className="text-xs md:text-sm font-medium">Claro</span>
                   </Label>
                   <Label
                     htmlFor="theme-dark"
-                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-3 md:p-4 cursor-pointer transition-all ${
                       theme === "dark"
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
                     <RadioGroupItem value="dark" id="theme-dark" className="sr-only" />
-                    <Moon className="h-6 w-6 mb-2" />
-                    <span className="text-sm font-medium">Escuro</span>
+                    <Moon className="h-5 w-5 md:h-6 md:w-6 mb-1 md:mb-2" />
+                    <span className="text-xs md:text-sm font-medium">Escuro</span>
                   </Label>
                   <Label
                     htmlFor="theme-system"
-                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 p-3 md:p-4 cursor-pointer transition-all ${
                       theme === "system"
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
                     <RadioGroupItem value="system" id="theme-system" className="sr-only" />
-                    <Monitor className="h-6 w-6 mb-2" />
-                    <span className="text-sm font-medium">Sistema</span>
+                    <Monitor className="h-5 w-5 md:h-6 md:w-6 mb-1 md:mb-2" />
+                    <span className="text-xs md:text-sm font-medium">Sistema</span>
                   </Label>
                 </RadioGroup>
                 <p className="text-xs text-muted-foreground">

@@ -52,45 +52,45 @@ export default function Dashboard() {
       title="Dashboard"
       subtitle="Gerencie seus produtos do Mercado Livre"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <StatCard
             title="Total de Produtos"
             value={stats.total}
-            icon={<Package className="h-6 w-6" />}
+            icon={<Package className="h-5 w-5 md:h-6 md:w-6" />}
           />
           <StatCard
             title="Publicados"
             value={stats.published}
             trend="up"
-            icon={<CheckCircle className="h-6 w-6" />}
+            icon={<CheckCircle className="h-5 w-5 md:h-6 md:w-6" />}
           />
           <StatCard
             title="Taxa de Sucesso"
             value={`${successRate}%`}
             trend={successRate >= 80 ? "up" : "down"}
-            icon={<TrendingUp className="h-6 w-6" />}
+            icon={<TrendingUp className="h-5 w-5 md:h-6 md:w-6" />}
           />
           <StatCard
             title="Vendas Totais"
             value={totalSales}
             trend="up"
-            icon={<ShoppingCart className="h-6 w-6" />}
+            icon={<ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />}
           />
           <StatCard
             title="Erros"
             value={stats.errors}
             trend={stats.errors > 0 ? "down" : "up"}
-            icon={<AlertCircle className="h-6 w-6" />}
+            icon={<AlertCircle className="h-5 w-5 md:h-6 md:w-6" />}
           />
         </div>
 
         {/* Main Content */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <ResumableImports />
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
               <QuickImport />
               <BatchImport />
             </div>

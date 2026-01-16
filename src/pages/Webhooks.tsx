@@ -443,34 +443,31 @@ export default function Webhooks() {
 
   return (
     <DashboardLayout title={t("webhooks.title")} subtitle={t("webhooks.subtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="config" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Configuração
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <TabsList className="w-full md:w-auto flex flex-wrap h-auto gap-1 p-1">
+              <TabsTrigger value="config" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">
+                <Settings className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Config</span>
               </TabsTrigger>
-              <TabsTrigger value="metrics" className="gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Monitoramento
+              <TabsTrigger value="metrics" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">
+                <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Monitor</span>
               </TabsTrigger>
-              <TabsTrigger value="queue" className="gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Fila Pendente
+              <TabsTrigger value="queue" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">
+                <AlertCircle className="h-3 w-3 md:h-4 md:w-4" />
                 {pendingCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                  <Badge variant="destructive" className="h-4 w-4 p-0 text-[10px] flex items-center justify-center">
                     {pendingCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="schedule" className="gap-2">
-                <Clock className="h-4 w-4" />
-                Agendamento
+              <TabsTrigger value="schedule" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
               </TabsTrigger>
-              <TabsTrigger value="logs" className="gap-2">
-                <History className="h-4 w-4" />
-                Histórico
+              <TabsTrigger value="logs" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 md:flex-none">
+                <History className="h-3 w-3 md:h-4 md:w-4" />
               </TabsTrigger>
             </TabsList>
 
@@ -480,9 +477,9 @@ export default function Webhooks() {
                 if (!open) resetForm();
               }}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button size="sm" className="w-full md:w-auto">
                     <Plus className="h-4 w-4" />
-                    {t("webhooks.create")}
+                    <span className="ml-2">{t("webhooks.create")}</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-lg">

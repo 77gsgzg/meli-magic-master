@@ -415,12 +415,12 @@ export default function MetricsDashboard() {
       title="Métricas Consolidadas"
       subtitle="Imports, publicações, tokens e performance em um só lugar"
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <Select value={period} onValueChange={(v) => setPeriod(v as "7d" | "30d" | "all")}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[140px] md:w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -431,34 +431,28 @@ export default function MetricsDashboard() {
             </Select>
             
             {/* Realtime Status Indicator */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border">
+            <div className="flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-full bg-muted/50 border text-xs">
               {realtimeConnected ? (
                 <>
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
                     <Wifi className="h-3 w-3" />
-                    Tempo real
+                    <span className="hidden sm:inline">Tempo real</span>
                   </span>
                 </>
               ) : (
                 <>
                   <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
                     <WifiOff className="h-3 w-3" />
-                    Conectando...
+                    <span className="hidden sm:inline">Conectando...</span>
                   </span>
                 </>
               )}
             </div>
-            
-            {lastUpdate && (
-              <span className="text-xs text-muted-foreground">
-                Atualizado: {format(lastUpdate, "HH:mm:ss")}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -467,26 +461,27 @@ export default function MetricsDashboard() {
               size="sm"
               onClick={loadData}
               disabled={loading}
+              className="flex-1 sm:flex-none"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="ml-2 hidden sm:inline">Atualizar</span>
             </Button>
             
-            <Button variant="outline" onClick={exportAsImage} disabled={exporting}>
+            <Button variant="outline" size="sm" onClick={exportAsImage} disabled={exporting} className="flex-1 sm:flex-none">
               {exporting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Image className="h-4 w-4 mr-2" />
+                <Image className="h-4 w-4" />
               )}
-              Exportar como Imagem
+              <span className="ml-2 hidden sm:inline">Exportar</span>
             </Button>
           </div>
         </div>
 
         {/* Main content with ref for export */}
-        <div ref={chartsRef} className="space-y-6">
+        <div ref={chartsRef} className="space-y-4 md:space-y-6">
           {/* Summary Stats */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             <Card variant="glass">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
