@@ -239,23 +239,23 @@ export default function Products() {
     >
       <div className="space-y-6">
         {/* Filters */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-3 md:gap-4">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               variant="glass"
               placeholder="Buscar produtos..."
-              className="pl-10"
+              className="pl-10 w-full"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" size="sm" className="h-9">
                   <Download className="h-4 w-4 mr-2" />
-                  Exportar
+                  <span className="hidden sm:inline">Exportar</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="glass">
@@ -269,29 +269,35 @@ export default function Products() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" onClick={() => fetchProducts()}>
+            <Button variant="outline" size="sm" className="h-9" onClick={() => fetchProducts()}>
               <RefreshCw className="h-4 w-4" />
-              Atualizar
+              <span className="hidden sm:inline ml-2">Atualizar</span>
             </Button>
           </div>
         </div>
 
         {/* Status Tabs */}
         <Tabs value={statusFilter} onValueChange={handleStatusChange}>
-          <TabsList className="bg-secondary/50">
-            <TabsTrigger value="all">
+          <TabsList className="bg-secondary/50 w-full flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="all" className="text-xs sm:text-sm flex-1 sm:flex-none">
               Todos ({statusCounts.all})
             </TabsTrigger>
-            <TabsTrigger value="published">
-              Publicados ({statusCounts.published})
+            <TabsTrigger value="published" className="text-xs sm:text-sm flex-1 sm:flex-none">
+              <span className="hidden sm:inline">Publicados</span>
+              <span className="sm:hidden">Pub.</span>
+              ({statusCounts.published})
             </TabsTrigger>
-            <TabsTrigger value="pending">
-              Pendentes ({statusCounts.pending})
+            <TabsTrigger value="pending" className="text-xs sm:text-sm flex-1 sm:flex-none">
+              <span className="hidden sm:inline">Pendentes</span>
+              <span className="sm:hidden">Pend.</span>
+              ({statusCounts.pending})
             </TabsTrigger>
-            <TabsTrigger value="draft">
-              Rascunhos ({statusCounts.draft})
+            <TabsTrigger value="draft" className="text-xs sm:text-sm flex-1 sm:flex-none">
+              <span className="hidden sm:inline">Rascunhos</span>
+              <span className="sm:hidden">Rasc.</span>
+              ({statusCounts.draft})
             </TabsTrigger>
-            <TabsTrigger value="error">
+            <TabsTrigger value="error" className="text-xs sm:text-sm flex-1 sm:flex-none">
               Erros ({statusCounts.error})
             </TabsTrigger>
           </TabsList>
@@ -318,7 +324,120 @@ export default function Products() {
         ) : (
           <Card variant="glass">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile Card View */}
+              <div className="block md:hidden divide-y divide-border/30">
+                {paginatedProducts.map((product) => {
+                  const imageUrl = getFirstImage(product.images);
+                  const status = statusMap[product.status || 'draft'] || statusMap.draft;
+                  const isOptimizing = optimizingId === product.id;
+                  const isDeleting = deletingId === product.id;
+                  
+                  return (
+                    <div
+                      key={product.id}
+                      className={`p-4 ${isDeleting || isOptimizing ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex gap-3">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={product.title}
+                            className="h-16 w-16 rounded-lg object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                            <Package className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-foreground line-clamp-2 text-sm">
+                                {product.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {product.ai_optimized && (
+                                  <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 text-[10px] px-1.5 py-0">
+                                    <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                                    IA
+                                  </Badge>
+                                )}
+                                <Badge variant={status.variant} className="text-[10px] px-1.5 py-0">
+                                  {status.label}
+                                </Badge>
+                              </div>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="glass">
+                                {product.ml_permalink && (
+                                  <DropdownMenuItem asChild>
+                                    <a href={product.ml_permalink} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      Ver no ML
+                                    </a>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReOptimize(product)} disabled={isOptimizing}>
+                                  {isOptimizing ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                  )}
+                                  Re-otimizar IA
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleDelete(product)}
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                  )}
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              {formatPrice(product.price, product.currency)}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Package className="h-3 w-3" />
+                                {product.available_quantity || 0}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                {product.views || 0}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ShoppingCart className="h-3 w-3" />
+                                {product.sales || 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border/50">
