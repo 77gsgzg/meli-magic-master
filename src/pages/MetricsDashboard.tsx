@@ -719,7 +719,7 @@ export default function MetricsDashboard() {
                   />
                 )}
 
-                <TabsContent value="overview" className="space-y-4">
+                <TabsContent value="overview" className="space-y-4" animated>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {/* Daily Trend */}
                     <Card variant="glass">
@@ -830,7 +830,7 @@ export default function MetricsDashboard() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="operations" className="space-y-4">
+                <TabsContent value="operations" className="space-y-4" animated>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -886,7 +886,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="hourly" className="space-y-4">
+                <TabsContent value="hourly" className="space-y-4" animated>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -939,7 +939,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="tokens" className="space-y-4">
+                <TabsContent value="tokens" className="space-y-4" animated>
                   <div className="grid gap-4 md:grid-cols-2">
                     <Card variant="glass">
                       <CardHeader className="pb-2">
