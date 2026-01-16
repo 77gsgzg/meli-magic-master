@@ -30,6 +30,8 @@ import {
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useTheme } from "@/hooks/useTheme";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeTabs } from "@/hooks/useSwipeTabs";
 import { useLanguage, Language } from "@/hooks/useLanguage";
 import { UserPreferencesSection } from "@/components/settings/UserPreferencesSection";
 import { BackupRestoreSection } from "@/components/settings/BackupRestoreSection";
@@ -39,6 +41,8 @@ export default function Settings() {
   const { connection, loading: mlLoading, getAuthUrl, handleCallback, disconnect, refreshToken } = useMercadoLivre();
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, languageNames, t } = useLanguage();
+  const isMobile = useIsMobile();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -99,12 +103,19 @@ export default function Settings() {
     );
   }
 
+  const swipeHandlers = useSwipeTabs({
+    tabs: ["account", "preferences", "appearance", "ai", "backup"] as const,
+    value: activeTab as "account" | "preferences" | "appearance" | "ai" | "backup",
+    onValueChange: (v) => setActiveTab(v),
+    enabled: isMobile,
+  });
+
   return (
     <DashboardLayout
       title="Configurações"
       subtitle="Gerencie sua conta e preferências"
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl" {...swipeHandlers}>
         <TabsList className="mb-6 flex flex-wrap w-full h-auto gap-1 p-1">
           <TabsTrigger value="account" className="gap-1 md:gap-2 text-xs md:text-sm flex-1 sm:flex-none">
             <User className="h-3 w-3 md:h-4 md:w-4" />
