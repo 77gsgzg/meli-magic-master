@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/useAuth';
 import { useOrders, MLOrder } from '@/hooks/useOrders';
 import { useMercadoLivre } from '@/hooks/useMercadoLivre';
+import { useOrderPushAlerts } from '@/hooks/useOrderPushAlerts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +72,8 @@ export default function Orders() {
   const { loading: authLoading } = useRequireAuth();
   const { connection, loading: mlLoading } = useMercadoLivre();
   const { orders, loading, syncing, syncOrders, shipOrder, printLabel, getOrderStats } = useOrders();
+
+  useOrderPushAlerts();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

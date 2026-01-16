@@ -19,6 +19,7 @@ import {
   TrendingUp,
   ClipboardList,
   ShoppingBag,
+  CircleDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -32,6 +33,7 @@ const menuItems = [
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
   { icon: Package, labelKey: "nav.products", path: "/products" },
   { icon: ShoppingBag, labelKey: "nav.orders", path: "/orders" },
+  { icon: CircleDollarSign, labelKey: "nav.sales", path: "/sales" },
   { icon: History, labelKey: "nav.history", path: "/history" },
   { icon: FileText, labelKey: "nav.reports", path: "/reports" },
   { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },

@@ -22,6 +22,7 @@ import Webhooks from "./pages/Webhooks";
 import ProductAnalytics from "./pages/ProductAnalytics";
 import ImportStatistics from "./pages/ImportStatistics";
 import Orders from "./pages/Orders";
+import SalesDashboard from "./pages/SalesDashboard";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/import" element={<Import />} />
               <Route path="/products" element={<Products />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/sales" element={<SalesDashboard />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/security-logs" element={<SecurityLogs />} />
