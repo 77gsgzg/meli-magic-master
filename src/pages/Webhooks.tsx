@@ -98,6 +98,7 @@ interface WebhookForm {
 export default function Webhooks() {
   const { user, loading: authLoading } = useRequireAuth();
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<string | null>(null);
@@ -435,6 +436,13 @@ export default function Webhooks() {
     toast.success("Exportado!", { description: "Falhas exportadas para CSV" });
   };
 
+  const swipeHandlers = useSwipeTabs({
+    tabs: ["config", "metrics", "queue", "schedule", "logs"] as const,
+    value: activeTab as "config" | "metrics" | "queue" | "schedule" | "logs",
+    onValueChange: (v) => setActiveTab(v),
+    enabled: isMobile,
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -442,13 +450,6 @@ export default function Webhooks() {
       </div>
     );
   }
-
-  const swipeHandlers = useSwipeTabs({
-    tabs: ["config", "metrics", "queue", "schedule", "logs"] as const,
-    value: activeTab as "config" | "metrics" | "queue" | "schedule" | "logs",
-    onValueChange: (v) => setActiveTab(v),
-    enabled: isMobile,
-  });
 
   return (
     <DashboardLayout title={t("webhooks.title")} subtitle={t("webhooks.subtitle")}>
