@@ -4,6 +4,7 @@ import { useRequireAuth } from '@/hooks/useAuth';
 import { useOrders, MLOrder } from '@/hooks/useOrders';
 import { useMercadoLivre } from '@/hooks/useMercadoLivre';
 import { useOrderPushAlerts } from '@/hooks/useOrderPushAlerts';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,7 @@ export default function Orders() {
   const { orders, loading, syncing, syncOrders, shipOrder, printLabel, getOrderStats } = useOrders();
 
   useOrderPushAlerts();
+  const push = usePushNotifications();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -221,14 +223,26 @@ export default function Orders() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={syncOrders} disabled={syncing}>
-              {syncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+
+            <div className="flex items-center gap-2">
+              {push.isSupported && (
+                <Button
+                  variant="outline"
+                  onClick={() => (push.isEnabled ? push.disableNotifications() : push.enableNotifications())}
+                >
+                  {push.isEnabled ? 'Notificações: ON' : 'Ativar Notificações'}
+                </Button>
               )}
-              Sincronizar Pedidos
-            </Button>
+
+              <Button onClick={syncOrders} disabled={syncing}>
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Sincronizar Pedidos
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
