@@ -1,17 +1,54 @@
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useSalesMetrics } from "@/hooks/useSalesMetrics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+} from "recharts";
 
 function formatCurrencyBRL(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+type Preset = "7" | "30" | "90" | "custom";
+
 export default function SalesDashboard() {
   const { loading: authLoading } = useRequireAuth();
-  const { data, isLoading, error } = useSalesMetrics(30);
+
+  const [preset, setPreset] = useState<Preset>("30");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+
+  const options = useMemo(() => {
+    if (preset === "custom") {
+      return {
+        from: from ? new Date(`${from}T00:00:00`) : undefined,
+        to: to ? new Date(`${to}T23:59:59`) : undefined,
+        days: 30,
+      };
+    }
+    return Number(preset);
+  }, [preset, from, to]);
+
+  const { data, isLoading, error } = useSalesMetrics(options);
 
   if (authLoading) {
     return (
@@ -25,27 +62,60 @@ export default function SalesDashboard() {
   }
 
   return (
-    <DashboardLayout title="Dashboard de Vendas" subtitle="Receita, conversão e tempo de envio (dados reais)">
+    <DashboardLayout title="Dashboard de Vendas" subtitle="Métricas reais: pedidos, faturamento e logística">
+      <Card className="glass border-border/50 mb-4">
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+          <CardDescription>Selecione o período para os gráficos e rankings.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row gap-3 md:items-end">
+          <div className="w-full md:w-[220px]">
+            <p className="text-sm text-muted-foreground mb-1">Período</p>
+            <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+                <SelectItem value="custom">Personalizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {preset === "custom" && (
+            <>
+              <div className="w-full md:w-[220px]">
+                <p className="text-sm text-muted-foreground mb-1">De</p>
+                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              </div>
+              <div className="w-full md:w-[220px]">
+                <p className="text-sm text-muted-foreground mb-1">Até</p>
+                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Receita (30d)</p>
+            <p className="text-sm text-muted-foreground">Receita</p>
             <p className="text-2xl font-bold">{data ? formatCurrencyBRL(data.totalRevenue) : "—"}</p>
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Pedidos (30d)</p>
+            <p className="text-sm text-muted-foreground">Pedidos</p>
             <p className="text-2xl font-bold">{data ? data.totalOrders : "—"}</p>
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Taxa de conversão</p>
-            <p className="text-2xl font-bold">
-              {data?.conversionRate == null ? "—" : `${(data.conversionRate * 100).toFixed(2)}%`}
-            </p>
-            <p className="text-xs text-muted-foreground">(Pedidos / Views do catálogo)</p>
+            <p className="text-sm text-muted-foreground">Ticket médio</p>
+            <p className="text-2xl font-bold">{data?.avgOrderValue == null ? "—" : formatCurrencyBRL(data.avgOrderValue)}</p>
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
@@ -59,7 +129,7 @@ export default function SalesDashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Faturamento por dia (30d)</CardTitle>
+            <CardTitle>Faturamento por dia</CardTitle>
             <CardDescription>Soma do total_amount dos pedidos pagos</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
@@ -93,7 +163,7 @@ export default function SalesDashboard() {
 
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Pedidos por dia (30d)</CardTitle>
+            <CardTitle>Pedidos por dia</CardTitle>
             <CardDescription>Contagem de pedidos sincronizados</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
@@ -125,25 +195,28 @@ export default function SalesDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 mt-4">
+      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Status logístico (30d)</CardTitle>
-            <CardDescription>Enviados vs entregues</CardDescription>
+            <CardTitle>Top produtos (por receita)</CardTitle>
+            <CardDescription>Pedidos pagos no período</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-40 w-full" />
+            ) : (data?.topProducts?.length || 0) === 0 ? (
+              <div className="text-sm text-muted-foreground">Sem dados.</div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground">Enviados</p>
-                  <p className="text-2xl font-bold">{data?.shippedOrders ?? "—"}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground">Entregues</p>
-                  <p className="text-2xl font-bold">{data?.deliveredOrders ?? "—"}</p>
-                </div>
+              <div className="space-y-2">
+                {data!.topProducts.map((p) => (
+                  <div key={p.key} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/40">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{p.label}</p>
+                      <p className="text-xs text-muted-foreground">{p.orders} pedido(s)</p>
+                    </div>
+                    <div className="text-sm font-semibold">{formatCurrencyBRL(p.revenue)}</div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -151,14 +224,40 @@ export default function SalesDashboard() {
 
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Observação</CardTitle>
-            <CardDescription>Somente dados reais da integração</CardDescription>
+            <CardTitle>Top compradores (por receita)</CardTitle>
+            <CardDescription>Somente nickname retornado pela API</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Conversão usa os campos atuais do catálogo (views). Se você quiser conversão por período, precisamos registrar views por dia.
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : (data?.topBuyers?.length || 0) === 0 ? (
+              <div className="text-sm text-muted-foreground">Sem dados.</div>
+            ) : (
+              <div className="space-y-2">
+                {data!.topBuyers.map((b) => (
+                  <div key={b.key} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/40">
+                    <div>
+                      <p className="text-sm font-medium">{b.label}</p>
+                      <p className="text-xs text-muted-foreground">{b.orders} pedido(s)</p>
+                    </div>
+                    <div className="text-sm font-semibold">{formatCurrencyBRL(b.revenue)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="glass border-border/50 mt-4">
+        <CardHeader>
+          <CardTitle>Observações</CardTitle>
+          <CardDescription>Dados reais e rastreáveis</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Conversão ainda usa o total de views atual do catálogo (não é por período). Se quiser conversão por período, precisamos registrar snapshots diários de views.
+        </CardContent>
+      </Card>
     </DashboardLayout>
   );
 }

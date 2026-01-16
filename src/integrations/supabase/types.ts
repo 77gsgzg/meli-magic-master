@@ -374,6 +374,33 @@ export type Database = {
         }
         Relationships: []
       }
+      order_alert_settings: {
+        Row: {
+          created_at: string
+          new_order_push_enabled: boolean
+          shipping_delay_alert_enabled: boolean
+          shipping_delay_hours: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          new_order_push_enabled?: boolean
+          shipping_delay_alert_enabled?: boolean
+          shipping_delay_hours?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          new_order_push_enabled?: boolean
+          shipping_delay_alert_enabled?: boolean
+          shipping_delay_hours?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           ai_optimized: boolean | null

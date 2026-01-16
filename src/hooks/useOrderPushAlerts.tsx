@@ -2,14 +2,17 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOrderAlertSettings } from "@/hooks/useOrderAlertSettings";
 
 export function useOrderPushAlerts() {
   const { session } = useAuth();
   const { isEnabled, sendNotification } = usePushNotifications();
+  const { settings } = useOrderAlertSettings();
   const lastNotifiedOrderId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!session?.user?.id) return;
+    if (!settings.new_order_push_enabled) return;
 
     const channel = supabase
       .channel("ml_orders_push_alerts")
@@ -27,13 +30,14 @@ export function useOrderPushAlerts() {
           const mlOrderId = row?.ml_order_id as string | undefined;
           if (!mlOrderId) return;
 
-          // Prevent duplicate notifications from quick reconnects.
+          // Prevent duplicates from quick reconnects.
           if (lastNotifiedOrderId.current === mlOrderId) return;
           lastNotifiedOrderId.current = mlOrderId;
 
           sendNotification("Novo pedido recebido", {
             body: `${row?.item_title || "Produto"} • Pedido #${mlOrderId}`,
             tag: `ml-order-${mlOrderId}`,
+            requireInteraction: true,
           });
         }
       )
@@ -42,5 +46,5 @@ export function useOrderPushAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id, isEnabled, sendNotification]);
+  }, [session?.user?.id, isEnabled, sendNotification, settings.new_order_push_enabled]);
 }

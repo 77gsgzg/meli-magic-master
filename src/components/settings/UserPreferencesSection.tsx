@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -9,10 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bell, Globe, Loader2, Smartphone } from "lucide-react";
+import { Bell, Globe, Loader2, Smartphone, ShoppingBag, TriangleAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useOrderAlertSettings } from "@/hooks/useOrderAlertSettings";
 
 interface UserPreferences {
   timezone: string;
@@ -177,6 +179,8 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
     );
   }
 
+  const orderAlerts = useOrderAlertSettings();
+
   return (
     <div className="space-y-6">
       {/* Timezone */}
@@ -245,6 +249,72 @@ export function UserPreferencesSection({ userId }: UserPreferencesSectionProps) 
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Orders Alerts */}
+      <Card variant="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-primary" />
+            Alertas de Pedidos
+          </CardTitle>
+          <CardDescription>
+            Alertas baseados somente em pedidos reais sincronizados.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base">Push para novo pedido</Label>
+              <p className="text-sm text-muted-foreground">
+                Notifica no navegador quando um novo pedido (pago) entrar.
+              </p>
+            </div>
+            <Switch
+              checked={orderAlerts.settings.new_order_push_enabled}
+              onCheckedChange={(v) => orderAlerts.update({ new_order_push_enabled: v })}
+              disabled={orderAlerts.updating}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-base">Atraso no envio</Label>
+              <p className="text-sm text-muted-foreground">
+                Registra eventos quando pedidos pagos ficam sem envio por X horas.
+              </p>
+            </div>
+            <Switch
+              checked={orderAlerts.settings.shipping_delay_alert_enabled}
+              onCheckedChange={(v) => orderAlerts.update({ shipping_delay_alert_enabled: v })}
+              disabled={orderAlerts.updating}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <TriangleAlert className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-sm">Limite (horas)</Label>
+            </div>
+            <div className="flex items-center gap-4">
+              <Slider
+                value={[orderAlerts.settings.shipping_delay_hours]}
+                min={1}
+                max={168}
+                step={1}
+                onValueChange={(v) => orderAlerts.update({ shipping_delay_hours: v[0] })}
+                disabled={orderAlerts.updating || !orderAlerts.settings.shipping_delay_alert_enabled}
+                className="flex-1"
+              />
+              <span className="text-sm font-medium w-16 text-right">
+                {orderAlerts.settings.shipping_delay_hours}h
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Os alertas são registrados no histórico e podem ser filtrados no Monitor de Pedidos.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

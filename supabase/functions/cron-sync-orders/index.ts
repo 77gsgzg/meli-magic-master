@@ -16,6 +16,17 @@ type MlTokenRow = {
   seller_id: string | null;
 };
 
+type OrderAlertSettingsRow = {
+  user_id: string;
+  shipping_delay_alert_enabled: boolean;
+  shipping_delay_hours: number;
+};
+
+const DEFAULT_ALERTS: Omit<OrderAlertSettingsRow, "user_id"> = {
+  shipping_delay_alert_enabled: true,
+  shipping_delay_hours: 24,
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -48,7 +59,7 @@ serve(async (req) => {
       });
     }
 
-    // Basic abuse protection: do not run more than once every 10 minutes.
+    // Abuse protection: do not run more than once every 10 minutes.
     const { data: lastRun } = await supabase
       .from("cron_job_logs")
       .select("started_at")
@@ -153,6 +164,7 @@ serve(async (req) => {
 
     let totalNewOrders = 0;
     let totalProcessedUsers = 0;
+    let totalShippingDelayAlerts = 0;
 
     for (const row of (tokenRows || []) as MlTokenRow[]) {
       try {
@@ -280,6 +292,64 @@ serve(async (req) => {
 
           if (isNew) totalNewOrders++;
         }
+
+        // ========== Shipping delay alert (per user) ==========
+        const { data: settingsRow } = await supabase
+          .from("order_alert_settings")
+          .select("user_id,shipping_delay_alert_enabled,shipping_delay_hours")
+          .eq("user_id", row.user_id)
+          .maybeSingle();
+
+        const effectiveSettings: OrderAlertSettingsRow = {
+          user_id: row.user_id,
+          shipping_delay_alert_enabled:
+            (settingsRow as any)?.shipping_delay_alert_enabled ?? DEFAULT_ALERTS.shipping_delay_alert_enabled,
+          shipping_delay_hours: (settingsRow as any)?.shipping_delay_hours ?? DEFAULT_ALERTS.shipping_delay_hours,
+        };
+
+        if (effectiveSettings.shipping_delay_alert_enabled) {
+          const thresholdMs = effectiveSettings.shipping_delay_hours * 60 * 60 * 1000;
+          const thresholdISO = new Date(Date.now() - thresholdMs).toISOString();
+
+          // Count paid orders older than threshold that are not shipped yet.
+          const { count: delayedCount } = await supabase
+            .from("ml_orders")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", row.user_id)
+            .eq("status", "paid")
+            .is("shipped_at", null)
+            .lt("date_created", thresholdISO);
+
+          const count = delayedCount || 0;
+
+          if (count > 0) {
+            // Deduplicate: only one alert per user per hour.
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+            const { data: recent } = await supabase
+              .from("operation_logs")
+              .select("id")
+              .eq("user_id", row.user_id)
+              .gte("created_at", oneHourAgo)
+              .contains("details", { action: "shipping_delay_alert" })
+              .limit(1);
+
+            if (!recent || recent.length === 0) {
+              await supabase.from("operation_logs").insert({
+                user_id: row.user_id,
+                operation_type: "update",
+                entity_type: "ml_orders",
+                status: "warning",
+                details: {
+                  action: "shipping_delay_alert",
+                  count,
+                  threshold_hours: effectiveSettings.shipping_delay_hours,
+                  generated_at: new Date().toISOString(),
+                },
+              });
+              totalShippingDelayAlerts++;
+            }
+          }
+        }
       } catch (e) {
         console.error("Cron sync failed for user", row.user_id, e);
       }
@@ -297,6 +367,7 @@ serve(async (req) => {
           result: {
             processed_users: totalProcessedUsers,
             new_orders: totalNewOrders,
+            shipping_delay_alerts: totalShippingDelayAlerts,
             duration_ms: durationMs,
           },
         })
@@ -304,7 +375,13 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, processed_users: totalProcessedUsers, new_orders: totalNewOrders, duration_ms: durationMs }),
+      JSON.stringify({
+        success: true,
+        processed_users: totalProcessedUsers,
+        new_orders: totalNewOrders,
+        shipping_delay_alerts: totalShippingDelayAlerts,
+        duration_ms: durationMs,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
