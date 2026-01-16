@@ -104,7 +104,7 @@ export default function Settings() {
     );
   }
 
-  const swipeHandlers = useSwipeTabs({
+  const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
     tabs: ["account", "preferences", "appearance", "ai", "backup"] as const,
     value: activeTab as "account" | "preferences" | "appearance" | "ai" | "backup",
     onValueChange: (v) => setActiveTab(v),
@@ -149,7 +149,7 @@ export default function Settings() {
         )}
 
         {/* Account Tab */}
-        <TabsContent value="account" className="space-y-6" animated>
+        <TabsContent value="account" className="space-y-6" animated swipeDirection={swipeDirection}>
           {/* Mercado Livre Connection */}
           <Card variant="glass">
             <CardHeader>
@@ -295,12 +295,12 @@ export default function Settings() {
         </TabsContent>
 
         {/* Preferences Tab */}
-        <TabsContent value="preferences" animated>
+        <TabsContent value="preferences" animated swipeDirection={swipeDirection}>
           {user && <UserPreferencesSection userId={user.id} />}
         </TabsContent>
 
         {/* Appearance Tab */}
-        <TabsContent value="appearance" className="space-y-6" animated>
+        <TabsContent value="appearance" className="space-y-6" animated swipeDirection={swipeDirection}>
           <Card variant="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -402,7 +402,7 @@ export default function Settings() {
         </TabsContent>
 
         {/* AI Tab */}
-        <TabsContent value="ai" className="space-y-6" animated>
+        <TabsContent value="ai" className="space-y-6" animated swipeDirection={swipeDirection}>
           <Card variant="glass">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function Settings() {
         </TabsContent>
 
         {/* Backup Tab */}
-        <TabsContent value="backup" animated>
+        <TabsContent value="backup" animated swipeDirection={swipeDirection}>
           {user && <BackupRestoreSection userId={user.id} />}
         </TabsContent>
       </Tabs>

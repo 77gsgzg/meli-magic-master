@@ -35,26 +35,41 @@ const TabsTrigger = React.forwardRef<
 ));
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
+type SwipeDirection = "left" | "right" | null;
+
 interface TabsContentProps
   extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> {
   /** Enable slide animation for swipe navigation */
   animated?: boolean;
+  /** Direction of swipe for directional animations */
+  swipeDirection?: SwipeDirection;
 }
 
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
   TabsContentProps
->(({ className, animated = false, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      animated && "data-[state=active]:animate-fade-in",
-      className,
-    )}
-    {...props}
-  />
-));
+>(({ className, animated = false, swipeDirection, ...props }, ref) => {
+  // Determine animation class based on swipe direction
+  const getAnimationClass = () => {
+    if (!animated) return "";
+    if (swipeDirection === "left") return "data-[state=active]:animate-slide-in-right";
+    if (swipeDirection === "right") return "data-[state=active]:animate-slide-in-left";
+    return "data-[state=active]:animate-fade-in";
+  };
+
+  return (
+    <TabsPrimitive.Content
+      ref={ref}
+      className={cn(
+        "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        getAnimationClass(),
+        className,
+      )}
+      {...props}
+    />
+  );
+});
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };
+export type { SwipeDirection };

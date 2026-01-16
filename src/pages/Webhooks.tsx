@@ -437,7 +437,7 @@ export default function Webhooks() {
     toast.success("Exportado!", { description: "Falhas exportadas para CSV" });
   };
 
-  const swipeHandlers = useSwipeTabs({
+  const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
     tabs: ["config", "metrics", "queue", "schedule", "logs"] as const,
     value: activeTab as "config" | "metrics" | "queue" | "schedule" | "logs",
     onValueChange: (v) => setActiveTab(v),
@@ -578,7 +578,7 @@ export default function Webhooks() {
           </div>
 
           {/* Configuration Tab */}
-          <TabsContent value="config" className="mt-6" animated>
+          <TabsContent value="config" className="mt-6" animated swipeDirection={swipeDirection}>
             <Card variant="glass">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -687,7 +687,7 @@ export default function Webhooks() {
           </TabsContent>
 
           {/* Metrics Tab */}
-          <TabsContent value="metrics" className="mt-6" animated>
+          <TabsContent value="metrics" className="mt-6" animated swipeDirection={swipeDirection}>
             {webhookLogs && webhookLogs.length > 0 ? (
               <WebhookMetrics logs={webhookLogs} />
             ) : (
@@ -706,7 +706,7 @@ export default function Webhooks() {
           </TabsContent>
 
           {/* Queue Tab */}
-          <TabsContent value="queue" className="mt-6 space-y-6" animated>
+          <TabsContent value="queue" className="mt-6 space-y-6" animated swipeDirection={swipeDirection}>
             <FailedWebhooksQueue
               logs={webhookLogs || []}
               webhooks={webhooks || []}
@@ -723,7 +723,7 @@ export default function Webhooks() {
           </TabsContent>
 
           {/* Schedule Tab */}
-          <TabsContent value="schedule" className="mt-6 space-y-6" animated>
+          <TabsContent value="schedule" className="mt-6 space-y-6" animated swipeDirection={swipeDirection}>
             {user && (
               <WebhookAutoRetrySettings
                 userId={user.id}
@@ -794,7 +794,7 @@ SELECT cron.schedule(
           </TabsContent>
 
           {/* Logs Tab */}
-          <TabsContent value="logs" className="mt-6 space-y-4" animated>
+          <TabsContent value="logs" className="mt-6 space-y-4" animated swipeDirection={swipeDirection}>
             {/* Filters */}
             <WebhookLogsFilter
               filters={logsFilters}

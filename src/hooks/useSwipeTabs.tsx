@@ -1,4 +1,6 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
+
+type SwipeDirection = "left" | "right" | null;
 
 type SwipeTabsOptions<T extends string> = {
   tabs: readonly T[];
@@ -8,10 +10,20 @@ type SwipeTabsOptions<T extends string> = {
   thresholdPx?: number;
 };
 
+type SwipeTabsResult = {
+  handlers: {
+    onTouchStart?: (e: React.TouchEvent) => void;
+    onTouchEnd?: (e: React.TouchEvent) => void;
+  };
+  /** Direction of the last swipe: "left" (next tab), "right" (prev tab), or null */
+  swipeDirection: SwipeDirection;
+};
+
 /**
  * Adds basic left/right swipe navigation for tabbed UIs on touch devices.
  * - No business logic changes (just an alternative input method)
  * - Ignores vertical scrolling gestures
+ * - Returns swipe direction for directional animations
  */
 export function useSwipeTabs<T extends string>({
   tabs,
@@ -19,8 +31,9 @@ export function useSwipeTabs<T extends string>({
   onValueChange,
   enabled = true,
   thresholdPx = 40,
-}: SwipeTabsOptions<T>) {
+}: SwipeTabsOptions<T>): SwipeTabsResult {
   const start = useRef<{ x: number; y: number } | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
 
   const handlers = useMemo(() => {
     if (!enabled) return {} as const;
@@ -52,10 +65,17 @@ export function useSwipeTabs<T extends string>({
         const nextIndex = dx < 0 ? currentIndex + 1 : currentIndex - 1;
         if (nextIndex < 0 || nextIndex >= tabs.length) return;
 
+        // Set direction: swipe left (dx < 0) goes to next = "left", swipe right goes to prev = "right"
+        const direction: SwipeDirection = dx < 0 ? "left" : "right";
+        setSwipeDirection(direction);
+
         onValueChange(tabs[nextIndex]);
+
+        // Reset direction after animation completes
+        setTimeout(() => setSwipeDirection(null), 300);
       },
     } as const;
   }, [enabled, onValueChange, tabs, thresholdPx, value]);
 
-  return handlers;
+  return { handlers, swipeDirection };
 }
