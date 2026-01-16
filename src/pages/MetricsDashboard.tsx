@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
+import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -707,11 +708,16 @@ export default function MetricsDashboard() {
                         onCheckedChange={(v) => setCompactCharts(Boolean(v))}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      Deslize para trocar de aba
-                    </span>
                   </div>
                 </div>
+
+                {isMobile && (
+                  <SwipeIndicator
+                    currentIndex={["overview", "operations", "hourly", "tokens"].indexOf(chartsTab)}
+                    totalTabs={4}
+                    tabLabels={["Visão", "Oper.", "Hora", "Tokens"]}
+                  />
+                )}
 
                 <TabsContent value="overview" className="space-y-4">
                   <div className="grid gap-4 lg:grid-cols-2">

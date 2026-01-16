@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
 import {
@@ -318,6 +319,13 @@ export default function Products() {
               ({statusCounts.paused})
             </TabsTrigger>
           </TabsList>
+          {isMobile && (
+            <SwipeIndicator
+              currentIndex={STATUS_TABS.indexOf(statusFilter as (typeof STATUS_TABS)[number])}
+              totalTabs={STATUS_TABS.length}
+              tabLabels={["Todos", "Pub.", "Pend.", "Rasc.", "Erros", "Paus."]}
+            />
+          )}
         </Tabs>
 
         {/* Products Table */}
