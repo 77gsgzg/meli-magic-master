@@ -679,7 +679,7 @@ export default function MetricsDashboard() {
 
           {/* Charts Section */}
           {(() => {
-            const swipeHandlers = useSwipeTabs({
+            const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
               tabs: ["overview", "operations", "hourly", "tokens"] as const,
               value: chartsTab,
               onValueChange: (v) => setChartsTab(v),
@@ -719,7 +719,7 @@ export default function MetricsDashboard() {
                   />
                 )}
 
-                <TabsContent value="overview" className="space-y-4" animated>
+                <TabsContent value="overview" className="space-y-4" animated swipeDirection={swipeDirection}>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {/* Daily Trend */}
                     <Card variant="glass">
@@ -830,7 +830,7 @@ export default function MetricsDashboard() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="operations" className="space-y-4" animated>
+                <TabsContent value="operations" className="space-y-4" animated swipeDirection={swipeDirection}>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -886,7 +886,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="hourly" className="space-y-4" animated>
+                <TabsContent value="hourly" className="space-y-4" animated swipeDirection={swipeDirection}>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -939,7 +939,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="tokens" className="space-y-4" animated>
+                <TabsContent value="tokens" className="space-y-4" animated swipeDirection={swipeDirection}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <Card variant="glass">
                       <CardHeader className="pb-2">
