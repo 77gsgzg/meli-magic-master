@@ -399,6 +399,257 @@ serve(async (req) => {
         break;
       }
 
+      // ========== ORDERS AND SHIPPING ACTIONS ==========
+
+      case 'sync_orders': {
+        console.log('Syncing orders from ML...');
+        
+        // Fetch recent orders (paid, confirmed)
+        const ordersResponse = await fetch(
+          `${ML_API_BASE}/orders/search?seller=${tokenRecord.seller_id}&order.status=paid&sort=date_desc&limit=50`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        
+        const ordersData = await ordersResponse.json();
+        
+        if (!ordersResponse.ok) {
+          console.error('Failed to fetch orders:', ordersData);
+          result = { error: ordersData.message || 'Failed to fetch orders', synced_count: 0 };
+          break;
+        }
+
+        const orders = ordersData.results || [];
+        let syncedCount = 0;
+
+        for (const order of orders) {
+          try {
+            // Get order details with buyer info
+            const orderDetailResponse = await fetch(
+              `${ML_API_BASE}/orders/${order.id}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            const orderDetail = await orderDetailResponse.json();
+
+            // Get shipping details if available
+            let shippingData = null;
+            if (order.shipping?.id) {
+              const shipmentResponse = await fetch(
+                `${ML_API_BASE}/shipments/${order.shipping.id}`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+              );
+              shippingData = await shipmentResponse.json();
+            }
+
+            const orderItem = orderDetail.order_items?.[0] || {};
+            const buyer = orderDetail.buyer || {};
+            const shipping = shippingData?.receiver_address || {};
+
+            // Find matching product in database
+            const { data: productData } = await supabase
+              .from('products')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('ml_item_id', orderItem.item?.id)
+              .maybeSingle();
+
+            // Upsert order in database
+            const { error: upsertError } = await supabase
+              .from('ml_orders')
+              .upsert({
+                user_id: userId,
+                ml_order_id: order.id.toString(),
+                ml_pack_id: order.pack_id?.toString() || null,
+                product_id: productData?.id || null,
+                status: order.status,
+                date_created: order.date_created,
+                date_closed: order.date_closed || null,
+                buyer_id: buyer.id?.toString() || '',
+                buyer_nickname: buyer.nickname || 'Unknown',
+                buyer_first_name: buyer.first_name || null,
+                buyer_last_name: buyer.last_name || null,
+                buyer_email: buyer.email || null,
+                buyer_phone: buyer.phone?.number || null,
+                shipping_id: order.shipping?.id?.toString() || null,
+                shipping_status: shippingData?.status || null,
+                shipping_receiver_name: shipping.receiver_name || null,
+                shipping_address_line: shipping.street_name 
+                  ? `${shipping.street_name}, ${shipping.street_number || ''}` 
+                  : null,
+                shipping_address_city: shipping.city?.name || null,
+                shipping_address_state: shipping.state?.name || null,
+                shipping_address_zip_code: shipping.zip_code || null,
+                shipping_address_country: shipping.country?.name || null,
+                ml_item_id: orderItem.item?.id || '',
+                item_title: orderItem.item?.title || 'Unknown Item',
+                item_quantity: orderItem.quantity || 1,
+                unit_price: orderItem.unit_price || 0,
+                currency_id: orderItem.currency_id || 'BRL',
+                payment_status: orderDetail.payments?.[0]?.status || null,
+                total_amount: order.total_amount || null,
+                tracking_number: shippingData?.tracking_number || null,
+                tracking_url: shippingData?.tracking_url || null,
+                raw_order_data: orderDetail,
+                raw_shipping_data: shippingData,
+              }, { onConflict: 'ml_order_id' });
+
+            if (!upsertError) {
+              syncedCount++;
+              
+              // Update product status if sold
+              if (productData?.id) {
+                await supabase
+                  .from('products')
+                  .update({ status: 'paused' }) // Mark as paused since it's sold
+                  .eq('id', productData.id);
+              }
+            }
+          } catch (orderError) {
+            console.error(`Error processing order ${order.id}:`, orderError);
+          }
+        }
+
+        // Trigger webhook for order sync
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'orders_synced',
+              user_id: userId,
+              data: { synced_count: syncedCount, timestamp: new Date().toISOString() },
+            }),
+          });
+        } catch (webhookErr) {
+          console.error('Failed to trigger orders_synced webhook:', webhookErr);
+        }
+
+        result = { success: true, synced_count: syncedCount, total_fetched: orders.length };
+        break;
+      }
+
+      case 'get_order': {
+        console.log('Fetching order details:', data.order_id);
+        const response = await fetch(
+          `${ML_API_BASE}/orders/${data.order_id}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        result = await response.json();
+        break;
+      }
+
+      case 'get_shipment': {
+        console.log('Fetching shipment details:', data.shipment_id);
+        const response = await fetch(
+          `${ML_API_BASE}/shipments/${data.shipment_id}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        result = await response.json();
+        break;
+      }
+
+      case 'ship_order': {
+        console.log('Processing shipment for order:', data.order_id);
+        
+        // First get the order to find shipping ID
+        const { data: orderRecord } = await supabase
+          .from('ml_orders')
+          .select('*')
+          .eq('ml_order_id', data.order_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (!orderRecord) {
+          result = { error: 'Order not found', success: false };
+          break;
+        }
+
+        if (!orderRecord.shipping_id) {
+          result = { error: 'No shipping information available for this order', success: false };
+          break;
+        }
+
+        // Get current shipment status
+        const shipmentResponse = await fetch(
+          `${ML_API_BASE}/shipments/${orderRecord.shipping_id}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        const shipmentData = await shipmentResponse.json();
+
+        if (!shipmentResponse.ok) {
+          result = { error: shipmentData.message || 'Failed to get shipment details', success: false };
+          break;
+        }
+
+        // Check if shipment can be marked as ready to ship
+        // The actual shipping process depends on the shipping method (Mercado Envios, etc.)
+        // For Mercado Envios, the seller needs to drop off at a designated point
+        // We update local status and provide tracking info
+
+        const trackingNumber = shipmentData.tracking_number;
+        const trackingUrl = shipmentData.tracking_url;
+
+        // Update local order record
+        await supabase
+          .from('ml_orders')
+          .update({
+            shipping_status: shipmentData.status,
+            tracking_number: trackingNumber,
+            tracking_url: trackingUrl,
+            shipped_at: shipmentData.status === 'shipped' ? new Date().toISOString() : null,
+            raw_shipping_data: shipmentData,
+          })
+          .eq('id', orderRecord.id);
+
+        // Trigger webhook
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'order_shipped',
+              user_id: userId,
+              data: {
+                order_id: data.order_id,
+                shipping_id: orderRecord.shipping_id,
+                tracking_number: trackingNumber,
+                status: shipmentData.status,
+              },
+            }),
+          });
+        } catch (webhookErr) {
+          console.error('Failed to trigger order_shipped webhook:', webhookErr);
+        }
+
+        result = {
+          success: true,
+          shipping_status: shipmentData.status,
+          tracking_number: trackingNumber,
+          tracking_url: trackingUrl,
+          shipment_data: shipmentData,
+        };
+        break;
+      }
+
+      case 'get_shipping_label': {
+        console.log('Getting shipping label for shipment:', data.shipment_id);
+        
+        // Get the ZPL label URL from ML
+        const response = await fetch(
+          `${ML_API_BASE}/shipment_labels?shipment_ids=${data.shipment_id}&response_type=pdf`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (response.ok) {
+          // For PDF, we get a redirect URL
+          const labelUrl = response.url;
+          result = { success: true, url: labelUrl };
+        } else {
+          const errorData = await response.json();
+          result = { error: errorData.message || 'Failed to get shipping label', success: false };
+        }
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),

@@ -159,6 +159,140 @@ export type Database = {
           },
         ]
       }
+      ml_orders: {
+        Row: {
+          buyer_document_number: string | null
+          buyer_document_type: string | null
+          buyer_email: string | null
+          buyer_first_name: string | null
+          buyer_id: string
+          buyer_last_name: string | null
+          buyer_nickname: string
+          buyer_phone: string | null
+          created_at: string
+          currency_id: string | null
+          date_closed: string | null
+          date_created: string
+          delivered_at: string | null
+          id: string
+          item_quantity: number
+          item_title: string
+          ml_item_id: string
+          ml_order_id: string
+          ml_pack_id: string | null
+          payment_status: string | null
+          product_id: string | null
+          raw_order_data: Json | null
+          raw_shipping_data: Json | null
+          shipped_at: string | null
+          shipping_address_city: string | null
+          shipping_address_country: string | null
+          shipping_address_line: string | null
+          shipping_address_state: string | null
+          shipping_address_zip_code: string | null
+          shipping_id: string | null
+          shipping_receiver_name: string | null
+          shipping_status: string | null
+          status: string
+          total_amount: number | null
+          tracking_number: string | null
+          tracking_url: string | null
+          unit_price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buyer_document_number?: string | null
+          buyer_document_type?: string | null
+          buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_id: string
+          buyer_last_name?: string | null
+          buyer_nickname: string
+          buyer_phone?: string | null
+          created_at?: string
+          currency_id?: string | null
+          date_closed?: string | null
+          date_created: string
+          delivered_at?: string | null
+          id?: string
+          item_quantity?: number
+          item_title: string
+          ml_item_id: string
+          ml_order_id: string
+          ml_pack_id?: string | null
+          payment_status?: string | null
+          product_id?: string | null
+          raw_order_data?: Json | null
+          raw_shipping_data?: Json | null
+          shipped_at?: string | null
+          shipping_address_city?: string | null
+          shipping_address_country?: string | null
+          shipping_address_line?: string | null
+          shipping_address_state?: string | null
+          shipping_address_zip_code?: string | null
+          shipping_id?: string | null
+          shipping_receiver_name?: string | null
+          shipping_status?: string | null
+          status: string
+          total_amount?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          unit_price: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buyer_document_number?: string | null
+          buyer_document_type?: string | null
+          buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_id?: string
+          buyer_last_name?: string | null
+          buyer_nickname?: string
+          buyer_phone?: string | null
+          created_at?: string
+          currency_id?: string | null
+          date_closed?: string | null
+          date_created?: string
+          delivered_at?: string | null
+          id?: string
+          item_quantity?: number
+          item_title?: string
+          ml_item_id?: string
+          ml_order_id?: string
+          ml_pack_id?: string | null
+          payment_status?: string | null
+          product_id?: string | null
+          raw_order_data?: Json | null
+          raw_shipping_data?: Json | null
+          shipped_at?: string | null
+          shipping_address_city?: string | null
+          shipping_address_country?: string | null
+          shipping_address_line?: string | null
+          shipping_address_state?: string | null
+          shipping_address_zip_code?: string | null
+          shipping_id?: string | null
+          shipping_receiver_name?: string | null
+          shipping_status?: string | null
+          status?: string
+          total_amount?: number | null
+          tracking_number?: string | null
+          tracking_url?: string | null
+          unit_price?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ml_tokens: {
         Row: {
           access_token: string

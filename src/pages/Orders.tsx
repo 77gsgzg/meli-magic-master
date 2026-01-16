@@ -1,0 +1,473 @@
+import { useState } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useRequireAuth } from '@/hooks/useAuth';
+import { useOrders, MLOrder } from '@/hooks/useOrders';
+import { useMercadoLivre } from '@/hooks/useMercadoLivre';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Package,
+  Truck,
+  RefreshCw,
+  Search,
+  ShoppingBag,
+  MapPin,
+  User,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  ExternalLink,
+  Printer,
+  Send,
+} from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const statusColors: Record<string, string> = {
+  paid: 'bg-green-500/10 text-green-600 border-green-500/20',
+  pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+  cancelled: 'bg-red-500/10 text-red-600 border-red-500/20',
+  shipped: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  delivered: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+  ready_to_ship: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+};
+
+const statusLabels: Record<string, string> = {
+  paid: 'Pago',
+  pending: 'Pendente',
+  cancelled: 'Cancelado',
+  shipped: 'Enviado',
+  delivered: 'Entregue',
+  ready_to_ship: 'Pronto p/ Envio',
+};
+
+export default function Orders() {
+  const { loading: authLoading } = useRequireAuth();
+  const { connection, loading: mlLoading } = useMercadoLivre();
+  const { orders, loading, syncing, syncOrders, shipOrder, printLabel, getOrderStats } = useOrders();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedOrder, setSelectedOrder] = useState<MLOrder | null>(null);
+  const [shippingOrder, setShippingOrder] = useState<string | null>(null);
+
+  if (authLoading || mlLoading) {
+    return (
+      <DashboardLayout title="Pedidos" subtitle="Carregando...">
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!connection.connected) {
+    return (
+      <DashboardLayout title="Pedidos" subtitle="Gerencie suas vendas">
+        <Card className="glass border-border/50">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Mercado Livre não conectado</h3>
+            <p className="text-muted-foreground text-center max-w-md mb-4">
+              Para ver seus pedidos, você precisa conectar sua conta do Mercado Livre.
+            </p>
+            <Button asChild>
+              <a href="/mercado-livre">Conectar Mercado Livre</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  const stats = getOrderStats();
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.item_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.buyer_nickname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.ml_order_id.includes(searchTerm);
+    
+    const matchesStatus = statusFilter === 'all' || 
+      order.status === statusFilter || 
+      order.shipping_status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleShipOrder = async (orderId: string) => {
+    setShippingOrder(orderId);
+    try {
+      await shipOrder(orderId);
+    } finally {
+      setShippingOrder(null);
+    }
+  };
+
+  const handlePrintLabel = async (shipmentId: string) => {
+    await printLabel(shipmentId);
+  };
+
+  return (
+    <DashboardLayout 
+      title="Pedidos" 
+      subtitle="Gerencie vendas e envios do Mercado Livre"
+    >
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total de Pedidos</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <ShoppingBag className="h-8 w-8 text-primary opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Aguardando Envio</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-600 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Enviados</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.shipped}</p>
+              </div>
+              <Truck className="h-8 w-8 text-blue-600 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Entregues</p>
+                <p className="text-2xl font-bold text-emerald-600">{stats.delivered}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-emerald-600 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Actions */}
+      <Card className="glass border-border/50 mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="flex flex-1 gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por produto, comprador ou ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="paid">Pagos</SelectItem>
+                  <SelectItem value="shipped">Enviados</SelectItem>
+                  <SelectItem value="delivered">Entregues</SelectItem>
+                  <SelectItem value="cancelled">Cancelados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={syncOrders} disabled={syncing}>
+              {syncing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sincronizar Pedidos
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Orders Table */}
+      <Card className="glass border-border/50">
+        <CardHeader>
+          <CardTitle>Lista de Pedidos</CardTitle>
+          <CardDescription>
+            Todos os pedidos são obtidos diretamente da API oficial do Mercado Livre
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Package className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                {orders.length === 0 ? 'Nenhum pedido encontrado' : 'Nenhum resultado'}
+              </h3>
+              <p className="text-muted-foreground max-w-md">
+                {orders.length === 0
+                  ? 'Quando você tiver vendas no Mercado Livre, elas aparecerão aqui. Clique em "Sincronizar Pedidos" para atualizar.'
+                  : 'Tente ajustar os filtros de busca.'}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead>Comprador</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell>
+                      <div className="max-w-[250px]">
+                        <p className="font-medium truncate">{order.item_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Qtd: {order.item_quantity} • ID: {order.ml_order_id}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>{order.buyer_nickname}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">
+                        {order.currency_id} {order.total_amount?.toFixed(2) || order.unit_price.toFixed(2)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={statusColors[order.shipping_status || order.status] || statusColors.pending}
+                      >
+                        {statusLabels[order.shipping_status || order.status] || order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p>{format(new Date(order.date_created), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(order.date_created), { addSuffix: true, locale: ptBR })}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedOrder(order)}
+                        >
+                          Detalhes
+                        </Button>
+                        {order.status === 'paid' && !order.shipped_at && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleShipOrder(order.ml_order_id)}
+                            disabled={shippingOrder === order.ml_order_id}
+                          >
+                            {shippingOrder === order.ml_order_id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-1" />
+                                Enviar
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        {order.shipping_id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrintLabel(order.shipping_id!)}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Order Details Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Pedido</DialogTitle>
+            <DialogDescription>
+              Pedido #{selectedOrder?.ml_order_id}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Product Info */}
+              <div className="p-4 rounded-lg bg-muted/50">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Produto
+                </h4>
+                <p className="font-medium">{selectedOrder.item_title}</p>
+                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                  <span>Quantidade: {selectedOrder.item_quantity}</span>
+                  <span>
+                    Valor: {selectedOrder.currency_id} {selectedOrder.unit_price.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Buyer Info */}
+              <div className="p-4 rounded-lg bg-muted/50">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Comprador
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Usuário:</span>
+                    <span className="ml-2 font-medium">{selectedOrder.buyer_nickname}</span>
+                  </div>
+                  {selectedOrder.buyer_first_name && (
+                    <div>
+                      <span className="text-muted-foreground">Nome:</span>
+                      <span className="ml-2">
+                        {selectedOrder.buyer_first_name} {selectedOrder.buyer_last_name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Shipping Address */}
+              {selectedOrder.shipping_address_line && (
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Endereço de Entrega
+                  </h4>
+                  <div className="text-sm space-y-1">
+                    {selectedOrder.shipping_receiver_name && (
+                      <p className="font-medium">{selectedOrder.shipping_receiver_name}</p>
+                    )}
+                    <p>{selectedOrder.shipping_address_line}</p>
+                    <p>
+                      {selectedOrder.shipping_address_city}, {selectedOrder.shipping_address_state}
+                    </p>
+                    <p>CEP: {selectedOrder.shipping_address_zip_code}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Tracking */}
+              {selectedOrder.tracking_number && (
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    Rastreamento
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono">{selectedOrder.tracking_number}</span>
+                    {selectedOrder.tracking_url && (
+                      <Button variant="link" size="sm" asChild>
+                        <a href={selectedOrder.tracking_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Rastrear
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 justify-end">
+                {selectedOrder.shipping_id && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePrintLabel(selectedOrder.shipping_id!)}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Imprimir Etiqueta
+                  </Button>
+                )}
+                {selectedOrder.status === 'paid' && !selectedOrder.shipped_at && (
+                  <Button
+                    onClick={() => {
+                      handleShipOrder(selectedOrder.ml_order_id);
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar Produto
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
+  );
+}
