@@ -35,12 +35,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing } from "lucide-react";
+import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing, FileDown, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CampaignROIReport } from "@/components/campaigns/CampaignROIReport";
+import { ROISimulator, SimulatorScenario } from "@/components/campaigns/ROISimulator";
 import { useCampaignNotifications } from "@/hooks/useCampaignNotifications";
+import { exportCampaignROIPDF } from "@/utils/exportCampaignROIPDF";
 
 interface CampaignHistory {
   id: string;
@@ -105,7 +107,13 @@ export default function CampaignHistoryPage() {
     }
   }, [session?.user?.email]);
 
-  // Fetch campaign history
+  // State for simulator scenarios (for PDF export)
+  const [simulatorScenarios, setSimulatorScenarios] = useState<SimulatorScenario[]>([]);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Average order value and campaign cost (configurable)
+  const averageOrderValue = 150;
+  const campaignCost = 5;
   const { data: campaigns, isLoading: campaignsLoading, refetch: refetchCampaigns } = useQuery({
     queryKey: ["campaign-history"],
     queryFn: async () => {
@@ -210,6 +218,75 @@ export default function CampaignHistoryPage() {
     },
   });
 
+  // ROI metrics for PDF export
+  const roiMetrics = {
+    totalCampaigns: campaigns?.length || 0,
+    reactivationCampaigns: campaigns?.filter(c => c.campaign_type === "reactivation").length || 0,
+    stockAlertCampaigns: campaigns?.filter(c => c.campaign_type === "stock_alert").length || 0,
+    totalReactivationRecipients: campaigns?.filter(c => c.campaign_type === "reactivation").reduce((sum, c) => sum + c.recipients_count, 0) || 0,
+    totalReactivationConverted: campaigns?.filter(c => c.campaign_type === "reactivation").reduce((sum, c) => sum + c.converted_count, 0) || 0,
+    get reactivationConversionRate() {
+      return this.totalReactivationRecipients > 0 
+        ? (this.totalReactivationConverted / this.totalReactivationRecipients) * 100 
+        : 0;
+    },
+    get estimatedReactivationRevenue() {
+      return this.totalReactivationConverted * averageOrderValue;
+    },
+    get reactivationCampaignCost() {
+      return this.totalReactivationRecipients * campaignCost;
+    },
+    get reactivationROI() {
+      return this.reactivationCampaignCost > 0 
+        ? ((this.estimatedReactivationRevenue - this.reactivationCampaignCost) / this.reactivationCampaignCost) * 100 
+        : 0;
+    },
+    get netProfit() {
+      return this.estimatedReactivationRevenue - this.reactivationCampaignCost;
+    },
+    monthlyBreakdown: (() => {
+      if (!campaigns) return [];
+      const monthlyData = campaigns.reduce((acc, campaign) => {
+        const month = format(new Date(campaign.created_at), "MMM/yy", { locale: ptBR });
+        if (!acc[month]) {
+          acc[month] = { month, revenue: 0, converted: 0, recipients: 0 };
+        }
+        if (campaign.campaign_type === "reactivation") {
+          acc[month].converted += campaign.converted_count;
+          acc[month].revenue += campaign.converted_count * averageOrderValue;
+        }
+        acc[month].recipients += campaign.recipients_count;
+        return acc;
+      }, {} as Record<string, any>);
+      return Object.values(monthlyData).slice(-6);
+    })(),
+  };
+
+  // Export PDF handler
+  const handleExportPDF = async () => {
+    if (!campaigns || campaigns.length === 0) {
+      toast.error("Nenhuma campanha para exportar");
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await exportCampaignROIPDF(
+        campaigns,
+        roiMetrics,
+        averageOrderValue,
+        campaignCost,
+        simulatorScenarios.length > 1 ? simulatorScenarios : undefined
+      );
+      toast.success("PDF exportado com sucesso!");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Erro ao exportar PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   // Stats
   const stats = {
     totalCampaigns: campaigns?.length || 0,
@@ -303,20 +380,36 @@ export default function CampaignHistoryPage() {
       )}
 
       <Tabs defaultValue="history" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Histórico
-          </TabsTrigger>
-          <TabsTrigger value="roi" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            ROI
-          </TabsTrigger>
-          <TabsTrigger value="scheduled" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Agendamentos
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico
+            </TabsTrigger>
+            <TabsTrigger value="roi" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              ROI
+            </TabsTrigger>
+            <TabsTrigger value="simulator" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Simulador
+            </TabsTrigger>
+            <TabsTrigger value="scheduled" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Agendamentos
+            </TabsTrigger>
+          </TabsList>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={pdfLoading || !campaigns?.length}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            {pdfLoading ? "Exportando..." : "Exportar PDF"}
+          </Button>
+        </div>
 
         {/* History Tab */}
         <TabsContent value="history">
@@ -412,7 +505,22 @@ export default function CampaignHistoryPage() {
 
         {/* ROI Tab */}
         <TabsContent value="roi">
-          <CampaignROIReport campaigns={campaigns || []} />
+          <CampaignROIReport 
+            campaigns={campaigns || []} 
+            averageOrderValue={averageOrderValue}
+            campaignCost={campaignCost}
+          />
+        </TabsContent>
+
+        {/* Simulator Tab */}
+        <TabsContent value="simulator">
+          <ROISimulator
+            currentConversionRate={roiMetrics.reactivationConversionRate || 3}
+            currentAverageTicket={averageOrderValue}
+            currentRecipients={roiMetrics.totalReactivationRecipients || 1000}
+            campaignCost={campaignCost}
+            onScenariosChange={setSimulatorScenarios}
+          />
         </TabsContent>
 
         {/* Scheduled Tasks Tab */}
