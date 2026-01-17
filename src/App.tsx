@@ -22,6 +22,7 @@ import Webhooks from "./pages/Webhooks";
 import ProductAnalytics from "./pages/ProductAnalytics";
 import ImportStatistics from "./pages/ImportStatistics";
 import Orders from "./pages/Orders";
+import OrderDetails from "./pages/OrderDetails";
 import OrdersQueue from "./pages/OrdersQueue";
 import OrdersCronMonitor from "./pages/OrdersCronMonitor";
 import SalesDashboard from "./pages/SalesDashboard";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/import" element={<Import />} />
               <Route path="/products" element={<Products />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/:id" element={<OrderDetails />} />
               <Route path="/orders/queue" element={<OrdersQueue />} />
               <Route path="/orders/monitor" element={<OrdersCronMonitor />} />
               <Route path="/sales" element={<SalesDashboard />} />

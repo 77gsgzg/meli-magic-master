@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/useAuth';
 import { useOrders, MLOrder } from '@/hooks/useOrders';
 import { useMercadoLivre } from '@/hooks/useMercadoLivre';
 import { useOrderPushAlerts } from '@/hooks/useOrderPushAlerts';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useShippingDelayAlerts } from '@/hooks/useShippingDelayAlerts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,8 +75,10 @@ export default function Orders() {
   const { loading: authLoading } = useRequireAuth();
   const { connection, loading: mlLoading } = useMercadoLivre();
   const { orders, loading, syncing, syncOrders, shipOrder, printLabel, getOrderStats } = useOrders();
+  const navigate = useNavigate();
 
   useOrderPushAlerts();
+  useShippingDelayAlerts();
   const push = usePushNotifications();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -288,7 +292,11 @@ export default function Orders() {
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow 
+                    key={order.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/orders/${order.ml_order_id}`)}
+                  >
                     <TableCell>
                       <div className="max-w-[250px]">
                         <p className="font-medium truncate">{order.item_title}</p>
@@ -325,11 +333,11 @@ export default function Orders() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setSelectedOrder(order)}
+                          onClick={() => navigate(`/orders/${order.ml_order_id}`)}
                         >
                           Detalhes
                         </Button>
