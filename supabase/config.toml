@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.run-scheduled-imports]
 verify_jwt = false
+
+[functions.cron-sync-orders]
+verify_jwt = false
+
+[functions.test-order-alert]
+verify_jwt = false

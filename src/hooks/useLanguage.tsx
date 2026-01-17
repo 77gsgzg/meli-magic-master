@@ -49,6 +49,7 @@ const translations: Translations = {
     "nav.shippingQueue": "Fila de Envios",
     "nav.ordersMonitor": "Monitor Pedidos",
     "nav.sales": "Vendas",
+    "nav.events": "Eventos",
     "nav.history": "Histórico",
     "nav.connectionDiag": "Diag. Conexão",
     "nav.publicationDiag": "Diag. Publicações",
