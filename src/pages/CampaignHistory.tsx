@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useAuth";
@@ -35,10 +35,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package } from "lucide-react";
+import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { CampaignROIReport } from "@/components/campaigns/CampaignROIReport";
+import { useCampaignNotifications } from "@/hooks/useCampaignNotifications";
 
 interface CampaignHistory {
   id: string;
@@ -88,12 +90,20 @@ export default function CampaignHistoryPage() {
     alert_email: "",
   });
 
+  // Campaign notifications hook
+  const { 
+    isEnabled: pushEnabled, 
+    isSupported: pushSupported, 
+    enableNotifications, 
+    disableNotifications 
+  } = useCampaignNotifications();
+
   // Set email when session loads
-  useState(() => {
+  useEffect(() => {
     if (session?.user?.email) {
       setNewTask(prev => ({ ...prev, alert_email: session.user.email || "" }));
     }
-  });
+  }, [session?.user?.email]);
 
   // Fetch campaign history
   const { data: campaigns, isLoading: campaignsLoading, refetch: refetchCampaigns } = useQuery({
@@ -261,11 +271,46 @@ export default function CampaignHistoryPage() {
         </Card>
       </div>
 
+      {/* Push Notifications Settings */}
+      {pushSupported && (
+        <Card className="glass border-border/50 mb-6">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <BellRing className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Notificações Push</p>
+                  <p className="text-sm text-muted-foreground">
+                    Receba alertas no navegador quando campanhas automáticas forem executadas
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={pushEnabled}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    enableNotifications();
+                  } else {
+                    disableNotifications();
+                  }
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="history" className="space-y-4">
         <TabsList>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             Histórico
+          </TabsTrigger>
+          <TabsTrigger value="roi" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            ROI
           </TabsTrigger>
           <TabsTrigger value="scheduled" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
@@ -363,6 +408,11 @@ export default function CampaignHistoryPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ROI Tab */}
+        <TabsContent value="roi">
+          <CampaignROIReport campaigns={campaigns || []} />
         </TabsContent>
 
         {/* Scheduled Tasks Tab */}
