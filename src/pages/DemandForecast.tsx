@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useDemandMetrics, HeatmapCell, LoyaltyBuyer, ProductDemand } from "@/hooks/useDemandMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -29,9 +32,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { RefreshCw, TrendingUp, TrendingDown, Minus, Award, Package, Clock, Sparkles, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { RefreshCw, TrendingUp, TrendingDown, Minus, Award, Package, Clock, Sparkles, AlertTriangle, Send, Bell, FileDown, Mail } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { exportDemandPDF } from "@/utils/exportDemandPDF";
 
 function formatCurrencyBRL(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -135,10 +148,18 @@ function TrendIcon({ trend }: { trend: string }) {
 }
 
 export default function DemandForecast() {
-  const { loading: authLoading } = useRequireAuth();
+  const { loading: authLoading, session } = useRequireAuth();
   const [period, setPeriod] = useState<"30" | "60" | "90">("90");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiForecast, setAiForecast] = useState<string | null>(null);
+  const [reactivationLoading, setReactivationLoading] = useState(false);
+  const [stockAlertLoading, setStockAlertLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [reactivationDialogOpen, setReactivationDialogOpen] = useState(false);
+  const [stockAlertDialogOpen, setStockAlertDialogOpen] = useState(false);
+  const [inactiveDays, setInactiveDays] = useState(30);
+  const [criticalDays, setCriticalDays] = useState(7);
+  const [alertEmail, setAlertEmail] = useState(session?.user?.email || "");
 
   const { data, isLoading, error, refetch } = useDemandMetrics(Number(period));
 
@@ -186,8 +207,107 @@ export default function DemandForecast() {
 
   const lowStockProducts = useMemo(() => {
     if (!data?.productDemand) return [];
-    return data.productDemand.filter((p) => p.daysOfStock !== null && p.daysOfStock < 7);
-  }, [data?.productDemand]);
+    return data.productDemand.filter((p) => p.daysOfStock !== null && p.daysOfStock < criticalDays);
+  }, [data?.productDemand, criticalDays]);
+
+  const inactiveBuyers = useMemo(() => {
+    if (!data?.loyaltyBuyers) return [];
+    return data.loyaltyBuyers.filter((b) => b.daysSinceLastOrder >= inactiveDays && b.email);
+  }, [data?.loyaltyBuyers, inactiveDays]);
+
+  const sendReactivationCampaign = async () => {
+    if (inactiveBuyers.length === 0) {
+      toast.error("Nenhum cliente inativo com e-mail disponível");
+      return;
+    }
+
+    setReactivationLoading(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("reactivation-campaign", {
+        body: {
+          buyers: inactiveBuyers.map(b => ({
+            nickname: b.nickname,
+            email: b.email,
+            daysSinceLastOrder: b.daysSinceLastOrder,
+            tier: b.tier,
+            loyaltyScore: b.loyaltyScore,
+            totalRevenue: b.totalRevenue,
+          })),
+        },
+      });
+
+      if (error) throw error;
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Campanha enviada: ${result.results.sent} e-mails, ${result.results.failed} falhas`);
+      setReactivationDialogOpen(false);
+    } catch (err: any) {
+      console.error("Error sending reactivation campaign:", err);
+      toast.error(err.message || "Erro ao enviar campanha");
+    } finally {
+      setReactivationLoading(false);
+    }
+  };
+
+  const sendStockAlert = async () => {
+    if (!alertEmail) {
+      toast.error("Informe um e-mail para receber o alerta");
+      return;
+    }
+
+    if (lowStockProducts.length === 0) {
+      toast.error("Nenhum produto com estoque crítico");
+      return;
+    }
+
+    setStockAlertLoading(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("stock-alert", {
+        body: {
+          products: lowStockProducts,
+          recipientEmail: alertEmail,
+          criticalDays,
+        },
+      });
+
+      if (error) throw error;
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Alerta enviado para ${alertEmail} com ${result.productCount} produtos`);
+      setStockAlertDialogOpen(false);
+    } catch (err: any) {
+      console.error("Error sending stock alert:", err);
+      toast.error(err.message || "Erro ao enviar alerta");
+    } finally {
+      setStockAlertLoading(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!data) {
+      toast.error("Nenhum dado para exportar");
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await exportDemandPDF(data, aiForecast);
+      toast.success("Relatório PDF exportado com sucesso!");
+    } catch (err: any) {
+      console.error("Error exporting PDF:", err);
+      toast.error(err.message || "Erro ao exportar PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -223,10 +343,85 @@ export default function DemandForecast() {
               Atualizar
             </Button>
           </div>
-          <Button onClick={generateAIForecast} disabled={aiLoading || isLoading}>
-            <Sparkles className="h-4 w-4 mr-2" />
-            {aiLoading ? "Gerando..." : "Gerar Previsão com IA"}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Dialog open={reactivationDialogOpen} onOpenChange={setReactivationDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isLoading}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Reativar Clientes ({inactiveBuyers.length})
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Campanha de Reativação</DialogTitle>
+                  <DialogDescription>
+                    Enviar e-mails para clientes inativos com descontos baseados no tier de fidelidade.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label>Clientes inativos há mais de (dias)</Label>
+                    <Input type="number" value={inactiveDays} onChange={(e) => setInactiveDays(Number(e.target.value))} min={7} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {inactiveBuyers.length} cliente(s) com e-mail serão contactados.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button onClick={sendReactivationCampaign} disabled={reactivationLoading || inactiveBuyers.length === 0}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    {reactivationLoading ? "Enviando..." : "Enviar Campanha"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={stockAlertDialogOpen} onOpenChange={setStockAlertDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isLoading}>
+                  <Bell className="h-4 w-4 mr-2" />
+                  Alerta Estoque ({lowStockProducts.length})
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Alerta de Estoque Crítico</DialogTitle>
+                  <DialogDescription>
+                    Enviar relatório por e-mail com produtos em estoque baixo.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label>Estoque crítico (menos de X dias)</Label>
+                    <Input type="number" value={criticalDays} onChange={(e) => setCriticalDays(Number(e.target.value))} min={1} />
+                  </div>
+                  <div>
+                    <Label>E-mail para receber alerta</Label>
+                    <Input type="email" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} placeholder="seu@email.com" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {lowStockProducts.length} produto(s) com estoque crítico.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button onClick={sendStockAlert} disabled={stockAlertLoading || lowStockProducts.length === 0}>
+                    <Bell className="h-4 w-4 mr-2" />
+                    {stockAlertLoading ? "Enviando..." : "Enviar Alerta"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={pdfLoading || isLoading || !data}>
+              <FileDown className="h-4 w-4 mr-2" />
+              {pdfLoading ? "Gerando..." : "Exportar PDF"}
+            </Button>
+
+            <Button onClick={generateAIForecast} disabled={aiLoading || isLoading}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              {aiLoading ? "Gerando..." : "Previsão IA"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

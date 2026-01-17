@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.demand-forecast]
 verify_jwt = false
+
+[functions.reactivation-campaign]
+verify_jwt = false
+
+[functions.stock-alert]
+verify_jwt = false
