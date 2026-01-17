@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useAuth";
-import { useSalesMetrics } from "@/hooks/useSalesMetrics";
+import { useSalesMetrics, DailyRevenuePoint } from "@/hooks/useSalesMetrics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
   Funnel,
   LabelList,
   Cell,
+  Legend,
 } from "recharts";
 
 function formatCurrencyBRL(value: number) {
@@ -85,6 +86,36 @@ export default function SalesDashboard() {
 
     return { revenueDelta, ordersDelta, prevRevenue, prevOrders };
   }, [data, prevData, options]);
+
+  // Comparison chart data (current vs previous period side by side)
+  const comparisonChartData = useMemo(() => {
+    if (!data?.daily || !prevData?.daily) return [];
+    
+    const days = typeof options === "number" ? options : 30;
+    const currentDays = data.daily;
+    const allPrevDays = prevData.daily;
+    
+    // Get the previous period days (exclude current period from prevData)
+    const prevDays = allPrevDays.slice(0, Math.max(0, allPrevDays.length - currentDays.length));
+    
+    // Create aligned data for comparison
+    const result: { day: number; current: number; previous: number; currentDate?: string; prevDate?: string }[] = [];
+    
+    const maxLen = Math.max(currentDays.length, prevDays.length);
+    for (let i = 0; i < maxLen; i++) {
+      const currentPoint = currentDays[i];
+      const prevPoint = prevDays[i];
+      result.push({
+        day: i + 1,
+        current: currentPoint?.revenue || 0,
+        previous: prevPoint?.revenue || 0,
+        currentDate: currentPoint?.date,
+        prevDate: prevPoint?.date,
+      });
+    }
+    
+    return result;
+  }, [data?.daily, prevData?.daily, options]);
 
   if (authLoading) {
     return (
@@ -187,21 +218,21 @@ export default function SalesDashboard() {
       <div className="grid gap-4 lg:grid-cols-3 mb-4">
         <Card className="glass border-border/50 lg:col-span-2">
           <CardHeader>
-            <CardTitle>Faturamento por dia</CardTitle>
-            <CardDescription>Soma do total_amount dos pedidos pagos</CardDescription>
+            <CardTitle>Faturamento: Atual vs Anterior</CardTitle>
+            <CardDescription>Comparação lado a lado do período selecionado</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             {isLoading ? (
               <Skeleton className="h-full w-full" />
             ) : error ? (
               <div className="text-sm text-destructive">Erro ao carregar métricas</div>
-            ) : (data?.daily?.length || 0) === 0 ? (
-              <div className="text-sm text-muted-foreground">Sem vendas no período.</div>
+            ) : comparisonChartData.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Sem dados para comparação.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data!.daily} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <LineChart data={comparisonChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" label={{ value: "Dia", position: "bottom", fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{
@@ -210,9 +241,14 @@ export default function SalesDashboard() {
                       borderRadius: 8,
                       color: "hsl(var(--foreground))",
                     }}
-                    formatter={(v: any) => formatCurrencyBRL(Number(v))}
+                    formatter={(v: any, name: string) => [formatCurrencyBRL(Number(v)), name === "current" ? "Período atual" : "Período anterior"]}
+                    labelFormatter={(day) => `Dia ${day}`}
                   />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Legend 
+                    formatter={(value) => value === "current" ? "Período atual" : "Período anterior"}
+                  />
+                  <Line type="monotone" dataKey="current" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="current" />
+                  <Line type="monotone" dataKey="previous" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="5 5" dot={false} name="previous" />
                 </LineChart>
               </ResponsiveContainer>
             )}
