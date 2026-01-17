@@ -18,10 +18,12 @@ import {
   Webhook,
   TrendingUp,
   ClipboardList,
+  ClipboardCheck,
   ShoppingBag,
   CircleDollarSign,
   Truck,
   Activity,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -31,6 +33,7 @@ const menuItems = [
   { icon: BarChart3, labelKey: "nav.metrics", path: "/metrics" },
   { icon: TrendingUp, labelKey: "nav.analytics", path: "/analytics" },
   { icon: CircleDollarSign, labelKey: "nav.sales", path: "/sales" },
+  { icon: Users, labelKey: "nav.buyers", path: "/buyers" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
@@ -38,7 +41,7 @@ const menuItems = [
   { icon: ShoppingBag, labelKey: "nav.orders", path: "/orders" },
   { icon: Truck, labelKey: "nav.shippingQueue", path: "/orders/queue" },
   { icon: Activity, labelKey: "nav.ordersMonitor", path: "/orders/monitor" },
-  { icon: ClipboardList, labelKey: "nav.events", path: "/events" },
+  { icon: ClipboardCheck, labelKey: "nav.events", path: "/events" },
   { icon: History, labelKey: "nav.history", path: "/history" },
   { icon: FileText, labelKey: "nav.reports", path: "/reports" },
   { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },
