@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.check-stale-imports]
 verify_jwt = false
+
+[functions.demand-forecast]
+verify_jwt = false
