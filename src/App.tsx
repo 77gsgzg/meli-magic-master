@@ -29,6 +29,7 @@ import SalesDashboard from "./pages/SalesDashboard";
 import OperationLogs from "./pages/OperationLogs";
 import BuyerAnalytics from "./pages/BuyerAnalytics";
 import DemandForecast from "./pages/DemandForecast";
+import CampaignHistory from "./pages/CampaignHistory";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/sales" element={<SalesDashboard />} />
               <Route path="/buyers" element={<BuyerAnalytics />} />
               <Route path="/demand" element={<DemandForecast />} />
+              <Route path="/campaigns" element={<CampaignHistory />} />
               <Route path="/events" element={<OperationLogs />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />

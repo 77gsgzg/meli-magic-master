@@ -51,6 +51,7 @@ const translations: Translations = {
     "nav.sales": "Vendas",
     "nav.buyers": "Compradores",
     "nav.demand": "Previsão Demanda",
+    "nav.campaigns": "Campanhas",
     "nav.events": "Auditoria",
     "nav.history": "Histórico",
     "nav.connectionDiag": "Diag. Conexão",
