@@ -36,6 +36,7 @@ const menuItems = [
   { icon: CircleDollarSign, labelKey: "nav.sales", path: "/sales" },
   { icon: Users, labelKey: "nav.buyers", path: "/buyers" },
   { icon: LineChart, labelKey: "nav.demand", path: "/demand" },
+  { icon: History, labelKey: "nav.campaigns", path: "/campaigns" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },

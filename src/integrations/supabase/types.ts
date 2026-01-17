@@ -82,6 +82,39 @@ export type Database = {
           },
         ]
       }
+      campaign_history: {
+        Row: {
+          campaign_type: string
+          converted_count: number
+          created_at: string
+          details: Json | null
+          id: string
+          recipients_count: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_type: string
+          converted_count?: number
+          created_at?: string
+          details?: Json | null
+          id?: string
+          recipients_count?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_type?: string
+          converted_count?: number
+          created_at?: string
+          details?: Json | null
+          id?: string
+          recipients_count?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cron_job_logs: {
         Row: {
           completed_at: string | null
@@ -753,6 +786,54 @@ export type Database = {
           user_id?: string
           webhook_secret?: string | null
           webhook_url?: string
+        }
+        Relationships: []
+      }
+      scheduled_tasks: {
+        Row: {
+          config: Json | null
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          frequency: string
+          hour_of_day: number
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          task_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          frequency?: string
+          hour_of_day?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          task_type?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

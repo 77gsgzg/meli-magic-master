@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.stock-alert]
 verify_jwt = false
+
+[functions.run-scheduled-tasks]
+verify_jwt = false
