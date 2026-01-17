@@ -28,7 +28,7 @@ import OrdersCronMonitor from "./pages/OrdersCronMonitor";
 import SalesDashboard from "./pages/SalesDashboard";
 import OperationLogs from "./pages/OperationLogs";
 import BuyerAnalytics from "./pages/BuyerAnalytics";
-
+import DemandForecast from "./pages/DemandForecast";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -55,6 +55,7 @@ const App = () => (
               <Route path="/orders/monitor" element={<OrdersCronMonitor />} />
               <Route path="/sales" element={<SalesDashboard />} />
               <Route path="/buyers" element={<BuyerAnalytics />} />
+              <Route path="/demand" element={<DemandForecast />} />
               <Route path="/events" element={<OperationLogs />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />
