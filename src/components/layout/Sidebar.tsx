@@ -38,6 +38,7 @@ const menuItems = [
   { icon: ShoppingBag, labelKey: "nav.orders", path: "/orders" },
   { icon: Truck, labelKey: "nav.shippingQueue", path: "/orders/queue" },
   { icon: Activity, labelKey: "nav.ordersMonitor", path: "/orders/monitor" },
+  { icon: Activity, labelKey: "nav.events", path: "/events" },
   { icon: History, labelKey: "nav.history", path: "/history" },
   { icon: FileText, labelKey: "nav.reports", path: "/reports" },
   { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },

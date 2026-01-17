@@ -9,6 +9,20 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Activity, Clock, Loader2, Play, RefreshCw, TriangleAlert } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -45,6 +59,13 @@ export default function OrdersCronMonitor() {
   const [loading, setLoading] = useState(true);
   const [runningManual, setRunningManual] = useState(false);
 
+  const [jobName, setJobName] = useState<string>("cron_sync_orders");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [errorsOnly, setErrorsOnly] = useState(false);
+
+  const [open, setOpen] = useState(false);
+  const [selectedCron, setSelectedCron] = useState<CronJobLog | null>(null);
+
   const [minInterval, setMinInterval] = useState(() => {
     const stored = localStorage.getItem(MANUAL_COOLDOWN_KEY);
     return stored ? parseInt(stored, 10) : 10;
@@ -77,13 +98,18 @@ export default function OrdersCronMonitor() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      let cronQuery = supabase
+        .from("cron_job_logs")
+        .select("id,job_name,started_at,completed_at,status,result,error_message")
+        .order("started_at", { ascending: false })
+        .limit(50);
+
+      if (jobName !== "all") cronQuery = cronQuery.eq("job_name", jobName);
+      if (errorsOnly) cronQuery = cronQuery.eq("status", "error");
+      else if (statusFilter !== "all") cronQuery = cronQuery.eq("status", statusFilter);
+
       const [{ data: cronData, error: cronError }, { data: alertData, error: alertError }] = await Promise.all([
-        supabase
-          .from("cron_job_logs")
-          .select("id,job_name,started_at,completed_at,status,result,error_message")
-          .eq("job_name", "cron_sync_orders")
-          .order("started_at", { ascending: false })
-          .limit(50),
+        cronQuery,
         supabase
           .from("operation_logs")
           .select("id,created_at,status,details,error_message")
@@ -103,7 +129,7 @@ export default function OrdersCronMonitor() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [jobName, statusFilter, errorsOnly]);
 
   useEffect(() => {
     fetchData();

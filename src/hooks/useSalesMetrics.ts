@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 
 export type DailyRevenuePoint = {
   date: string; // yyyy-MM-dd
@@ -16,6 +16,15 @@ export type TopMetricRow = {
   revenue: number;
 };
 
+export type WeeklyCohortPoint = {
+  week: string; // yyyy-MM-dd (start of week)
+  paid: number;
+  shipped: number;
+  delivered: number;
+  shippedRate: number | null;
+  deliveredRate: number | null;
+};
+
 export type SalesMetrics = {
   daily: DailyRevenuePoint[];
   totalRevenue: number;
@@ -26,8 +35,12 @@ export type SalesMetrics = {
   avgShipHours: number | null;
 
   avgOrderValue: number | null;
+  shipRate: number | null; // shipped/paid
+  deliveryRate: number | null; // delivered/shipped
+
   topProducts: TopMetricRow[];
   topBuyers: TopMetricRow[];
+  weeklyCohorts: WeeklyCohortPoint[];
 };
 
 export type SalesRangeOptions =
@@ -89,7 +102,10 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
       if (productsError) throw productsError;
 
       const map = new Map<string, { revenue: number; orders: number }>();
+      const byWeek = new Map<string, { paid: number; shipped: number; delivered: number }>();
+
       let totalRevenue = 0;
+      let paidOrders = 0;
 
       let shippedOrders = 0;
       let deliveredOrders = 0;
@@ -102,6 +118,8 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
         // Métricas de vendas consideram somente pedidos pagos
         if ((o.status as any) !== "paid") continue;
 
+        paidOrders++;
+
         const dayKey = format(new Date(o.date_created), "yyyy-MM-dd");
         const current = map.get(dayKey) || { revenue: 0, orders: 0 };
 
@@ -111,8 +129,19 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
         map.set(dayKey, current);
         totalRevenue += amount;
 
-        if (o.shipped_at || o.shipping_status === "shipped") shippedOrders++;
-        if (o.delivered_at || o.shipping_status === "delivered") deliveredOrders++;
+        const weekKey = format(startOfWeek(new Date(o.date_created), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        const w = byWeek.get(weekKey) || { paid: 0, shipped: 0, delivered: 0 };
+        w.paid += 1;
+
+        if (o.shipped_at || o.shipping_status === "shipped") {
+          shippedOrders++;
+          w.shipped += 1;
+        }
+        if (o.delivered_at || o.shipping_status === "delivered") {
+          deliveredOrders++;
+          w.delivered += 1;
+        }
+        byWeek.set(weekKey, w);
 
         if (o.shipped_at) {
           const created = new Date(o.date_created).getTime();
@@ -141,7 +170,7 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([date, v]) => ({ date, revenue: Number(v.revenue.toFixed(2)), orders: v.orders }));
 
-      const totalOrders = orders?.length || 0;
+      const totalOrders = paidOrders;
 
       const totalViews = (products || []).reduce((acc, p) => acc + safeNumber((p as any).views), 0);
       const conversionRate = totalViews > 0 ? totalOrders / totalViews : null;
@@ -151,6 +180,19 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
         : null;
 
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : null;
+      const shipRate = totalOrders > 0 ? shippedOrders / totalOrders : null;
+      const deliveryRate = shippedOrders > 0 ? deliveredOrders / shippedOrders : null;
+
+      const weeklyCohorts = Array.from(byWeek.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([week, v]) => ({
+          week,
+          paid: v.paid,
+          shipped: v.shipped,
+          delivered: v.delivered,
+          shippedRate: v.paid > 0 ? v.shipped / v.paid : null,
+          deliveredRate: v.shipped > 0 ? v.delivered / v.shipped : null,
+        }));
 
       const topProducts: TopMetricRow[] = Array.from(byProduct.entries())
         .map(([key, v]) => ({ key, label: v.label, orders: v.orders, revenue: Number(v.revenue.toFixed(2)) }))
@@ -171,8 +213,11 @@ export function useSalesMetrics(options: SalesRangeOptions = 30) {
         conversionRate,
         avgShipHours: avgShipHours ? Number(avgShipHours.toFixed(1)) : null,
         avgOrderValue: avgOrderValue ? Number(avgOrderValue.toFixed(2)) : null,
+        shipRate: shipRate == null ? null : Number((shipRate * 100).toFixed(1)),
+        deliveryRate: deliveryRate == null ? null : Number((deliveryRate * 100).toFixed(1)),
         topProducts,
         topBuyers,
+        weeklyCohorts,
       };
     },
   });

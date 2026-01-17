@@ -99,7 +99,7 @@ export default function SalesDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-6 mb-6">
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Receita</p>
@@ -108,7 +108,7 @@ export default function SalesDashboard() {
         </Card>
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Pedidos</p>
+            <p className="text-sm text-muted-foreground">Pedidos (pagos)</p>
             <p className="text-2xl font-bold">{data ? data.totalOrders : "—"}</p>
           </CardContent>
         </Card>
@@ -116,6 +116,18 @@ export default function SalesDashboard() {
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Ticket médio</p>
             <p className="text-2xl font-bold">{data?.avgOrderValue == null ? "—" : formatCurrencyBRL(data.avgOrderValue)}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Taxa de envio</p>
+            <p className="text-2xl font-bold">{data?.shipRate == null ? "—" : `${data.shipRate}%`}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass border-border/50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Taxa de entrega</p>
+            <p className="text-2xl font-bold">{data?.deliveryRate == null ? "—" : `${data.deliveryRate}%`}</p>
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
@@ -163,8 +175,43 @@ export default function SalesDashboard() {
 
         <Card className="glass border-border/50">
           <CardHeader>
+            <CardTitle>Curva de coortes (semanal)</CardTitle>
+            <CardDescription>Pago → Enviado → Entregue (percentuais por semana)</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[320px]">
+            {isLoading ? (
+              <Skeleton className="h-full w-full" />
+            ) : (data?.weeklyCohorts?.length || 0) === 0 ? (
+              <div className="text-sm text-muted-foreground">Sem dados.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data!.weeklyCohorts} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      color: "hsl(var(--foreground))",
+                    }}
+                    formatter={(v: any) => `${Number(v).toFixed(1)}%`}
+                  />
+                  <Line type="monotone" dataKey="shippedRate" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="deliveredRate" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 mt-4">
+        <Card className="glass border-border/50">
+          <CardHeader>
             <CardTitle>Pedidos por dia</CardTitle>
-            <CardDescription>Contagem de pedidos sincronizados</CardDescription>
+            <CardDescription>Contagem de pedidos pagos no período</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             {isLoading ? (
@@ -193,9 +240,7 @@ export default function SalesDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Top produtos (por receita)</CardTitle>
@@ -221,7 +266,9 @@ export default function SalesDashboard() {
             )}
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Top compradores (por receita)</CardTitle>
@@ -247,17 +294,17 @@ export default function SalesDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <Card className="glass border-border/50 mt-4">
-        <CardHeader>
-          <CardTitle>Observações</CardTitle>
-          <CardDescription>Dados reais e rastreáveis</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Conversão ainda usa o total de views atual do catálogo (não é por período). Se quiser conversão por período, precisamos registrar snapshots diários de views.
-        </CardContent>
-      </Card>
+        <Card className="glass border-border/50">
+          <CardHeader>
+            <CardTitle>Observações</CardTitle>
+            <CardDescription>Dados reais e rastreáveis</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Conversão ainda usa o total de views atual do catálogo (não é por período). Se quiser conversão por período, precisamos registrar snapshots diários de views.
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 }

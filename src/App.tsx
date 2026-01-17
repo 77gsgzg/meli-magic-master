@@ -25,6 +25,7 @@ import Orders from "./pages/Orders";
 import OrdersQueue from "./pages/OrdersQueue";
 import OrdersCronMonitor from "./pages/OrdersCronMonitor";
 import SalesDashboard from "./pages/SalesDashboard";
+import OperationLogs from "./pages/OperationLogs";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/orders/queue" element={<OrdersQueue />} />
               <Route path="/orders/monitor" element={<OrdersCronMonitor />} />
               <Route path="/sales" element={<SalesDashboard />} />
+              <Route path="/events" element={<OperationLogs />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/security-logs" element={<SecurityLogs />} />
