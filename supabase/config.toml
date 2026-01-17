@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.test-order-alert]
 verify_jwt = false
+
+[functions.send-delay-reminder]
+verify_jwt = false
+
+[functions.check-stale-imports]
+verify_jwt = false
