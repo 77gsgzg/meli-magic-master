@@ -22,6 +22,10 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
+  FunnelChart,
+  Funnel,
+  LabelList,
+  Cell,
 } from "recharts";
 
 function formatCurrencyBRL(value: number) {
@@ -48,7 +52,39 @@ export default function SalesDashboard() {
     return Number(preset);
   }, [preset, from, to]);
 
+  // Previous period for comparison
+  const prevOptions = useMemo(() => {
+    const days = typeof options === "number" ? options : 30;
+    return days * 2; // double the days to get previous period
+  }, [options]);
+
   const { data, isLoading, error } = useSalesMetrics(options);
+  const { data: prevData } = useSalesMetrics(prevOptions);
+
+  // Funnel data
+  const funnelData = useMemo(() => {
+    if (!data) return [];
+    return [
+      { name: "Pagos", value: data.totalOrders, fill: "hsl(var(--primary))" },
+      { name: "Enviados", value: data.shippedOrders, fill: "hsl(var(--accent))" },
+      { name: "Entregues", value: data.deliveredOrders, fill: "hsl(142 76% 36%)" },
+    ];
+  }, [data]);
+
+  // Period comparison
+  const comparison = useMemo(() => {
+    if (!data || !prevData) return null;
+    const days = typeof options === "number" ? options : 30;
+    // prevData has double the period, so we need to estimate the "previous period" portion
+    // This is a simplification - ideally we'd fetch exact date ranges
+    const prevRevenue = prevData.totalRevenue - data.totalRevenue;
+    const prevOrders = prevData.totalOrders - data.totalOrders;
+
+    const revenueDelta = prevRevenue > 0 ? ((data.totalRevenue - prevRevenue) / prevRevenue) * 100 : null;
+    const ordersDelta = prevOrders > 0 ? ((data.totalOrders - prevOrders) / prevOrders) * 100 : null;
+
+    return { revenueDelta, ordersDelta, prevRevenue, prevOrders };
+  }, [data, prevData, options]);
 
   if (authLoading) {
     return (
@@ -104,12 +140,22 @@ export default function SalesDashboard() {
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Receita</p>
             <p className="text-2xl font-bold">{data ? formatCurrencyBRL(data.totalRevenue) : "—"}</p>
+            {comparison?.revenueDelta != null && (
+              <p className={`text-xs mt-1 ${comparison.revenueDelta >= 0 ? "text-green-600" : "text-red-500"}`}>
+                {comparison.revenueDelta >= 0 ? "+" : ""}{comparison.revenueDelta.toFixed(1)}% vs anterior
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Pedidos (pagos)</p>
             <p className="text-2xl font-bold">{data ? data.totalOrders : "—"}</p>
+            {comparison?.ordersDelta != null && (
+              <p className={`text-xs mt-1 ${comparison.ordersDelta >= 0 ? "text-green-600" : "text-red-500"}`}>
+                {comparison.ordersDelta >= 0 ? "+" : ""}{comparison.ordersDelta.toFixed(1)}% vs anterior
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="glass border-border/50">
@@ -138,8 +184,8 @@ export default function SalesDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="glass border-border/50">
+      <div className="grid gap-4 lg:grid-cols-3 mb-4">
+        <Card className="glass border-border/50 lg:col-span-2">
           <CardHeader>
             <CardTitle>Faturamento por dia</CardTitle>
             <CardDescription>Soma do total_amount dos pedidos pagos</CardDescription>
@@ -175,6 +221,42 @@ export default function SalesDashboard() {
 
         <Card className="glass border-border/50">
           <CardHeader>
+            <CardTitle>Funil de conversão</CardTitle>
+            <CardDescription>Pago → Enviado → Entregue</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[320px]">
+            {isLoading ? (
+              <Skeleton className="h-full w-full" />
+            ) : funnelData.length === 0 || data?.totalOrders === 0 ? (
+              <div className="text-sm text-muted-foreground">Sem dados.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <FunnelChart>
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      color: "hsl(var(--foreground))",
+                    }}
+                  />
+                  <Funnel dataKey="value" data={funnelData} isAnimationActive>
+                    {funnelData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList position="center" fill="#fff" stroke="none" dataKey="name" fontSize={12} />
+                    <LabelList position="right" fill="hsl(var(--foreground))" stroke="none" dataKey="value" fontSize={12} />
+                  </Funnel>
+                </FunnelChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="glass border-border/50">
+          <CardHeader>
             <CardTitle>Curva de coortes (semanal)</CardTitle>
             <CardDescription>Pago → Enviado → Entregue (percentuais por semana)</CardDescription>
           </CardHeader>
@@ -198,16 +280,14 @@ export default function SalesDashboard() {
                     }}
                     formatter={(v: any) => `${Number(v).toFixed(1)}%`}
                   />
-                  <Line type="monotone" dataKey="shippedRate" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="deliveredRate" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="shippedRate" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Enviados %" />
+                  <Line type="monotone" dataKey="deliveredRate" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} name="Entregues %" />
                 </LineChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Pedidos por dia</CardTitle>
@@ -240,7 +320,9 @@ export default function SalesDashboard() {
             )}
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Top produtos (por receita)</CardTitle>
@@ -266,9 +348,7 @@ export default function SalesDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Top compradores (por receita)</CardTitle>
@@ -292,16 +372,6 @@ export default function SalesDashboard() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="glass border-border/50">
-          <CardHeader>
-            <CardTitle>Observações</CardTitle>
-            <CardDescription>Dados reais e rastreáveis</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Conversão ainda usa o total de views atual do catálogo (não é por período). Se quiser conversão por período, precisamos registrar snapshots diários de views.
           </CardContent>
         </Card>
       </div>

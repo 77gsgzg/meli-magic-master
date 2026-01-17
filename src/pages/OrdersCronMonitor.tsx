@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Drawer,
   DrawerContent,
@@ -23,11 +24,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Activity, Clock, Loader2, Play, RefreshCw, TriangleAlert } from "lucide-react";
+import { Activity, AlertTriangle, Bell, Clock, ExternalLink, Filter, Loader2, Play, RefreshCw, TriangleAlert } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useOrderAlertSettings } from "@/hooks/useOrderAlertSettings";
+import { useNavigate } from "react-router-dom";
 
 const MANUAL_COOLDOWN_KEY = "orders_cron_manual_cooldown_minutes";
 const LAST_MANUAL_RUN_KEY = "orders_cron_last_manual_run";
@@ -53,18 +63,36 @@ type OperationLog = {
 export default function OrdersCronMonitor() {
   const { loading: authLoading } = useRequireAuth();
   const { settings, update, updating } = useOrderAlertSettings();
+  const navigate = useNavigate();
 
   const [logs, setLogs] = useState<CronJobLog[]>([]);
   const [alerts, setAlerts] = useState<OperationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningManual, setRunningManual] = useState(false);
 
+  // Filters
   const [jobName, setJobName] = useState<string>("cron_sync_orders");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [errorsOnly, setErrorsOnly] = useState(false);
 
+  // Drawer
   const [open, setOpen] = useState(false);
   const [selectedCron, setSelectedCron] = useState<CronJobLog | null>(null);
+
+  // Test alert dialog
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testPayload, setTestPayload] = useState<{
+    action: string;
+    threshold_hours: number;
+    simulated_count: number;
+    note: string;
+  }>({
+    action: "shipping_delay_alert",
+    threshold_hours: settings.shipping_delay_hours,
+    simulated_count: 1,
+    note: "Teste manual disparado pelo usuário",
+  });
+  const [sendingTest, setSendingTest] = useState(false);
 
   const [minInterval, setMinInterval] = useState(() => {
     const stored = localStorage.getItem(MANUAL_COOLDOWN_KEY);
@@ -113,7 +141,7 @@ export default function OrdersCronMonitor() {
         supabase
           .from("operation_logs")
           .select("id,created_at,status,details,error_message")
-          .contains("details", { action: "shipping_delay_alert" })
+          .or("details->action.eq.shipping_delay_alert,details->action.eq.shipping_delay_alert_test")
           .order("created_at", { ascending: false })
           .limit(50),
       ]);
@@ -134,6 +162,11 @@ export default function OrdersCronMonitor() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Update testPayload threshold when settings change
+  useEffect(() => {
+    setTestPayload((prev) => ({ ...prev, threshold_hours: settings.shipping_delay_hours }));
+  }, [settings.shipping_delay_hours]);
 
   const lastRun = logs[0];
   const stats = useMemo(() => {
@@ -171,11 +204,37 @@ export default function OrdersCronMonitor() {
     }
   };
 
+  const sendTestAlert = async () => {
+    setSendingTest(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-order-alert", {
+        body: testPayload,
+      });
+      if (error) throw error;
+
+      toast.success("Alerta de teste registrado!", {
+        description: `action: ${testPayload.action}_test`,
+      });
+      setTestDialogOpen(false);
+      await fetchData();
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Erro ao disparar alerta de teste", { description: e?.message });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   const statusBadge = (s: string) => {
     if (s === "success") return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Sucesso</Badge>;
     if (s === "error") return <Badge variant="destructive">Erro</Badge>;
     if (s === "running") return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">Executando</Badge>;
+    if (s === "info") return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Info</Badge>;
     return <Badge variant="outline">{s}</Badge>;
+  };
+
+  const goToEventsWithFilter = (alertId: string) => {
+    navigate(`/events?search=${alertId}`);
   };
 
   if (authLoading) {
@@ -189,6 +248,7 @@ export default function OrdersCronMonitor() {
   return (
     <DashboardLayout title="Monitor de Pedidos" subtitle="Cron, histórico e alertas de atraso no envio">
       <div className="space-y-4">
+        {/* Stats cards */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="glass border-border/50">
             <CardContent className="pt-6">
@@ -225,6 +285,56 @@ export default function OrdersCronMonitor() {
           </Card>
         </div>
 
+        {/* Filters card */}
+        <Card className="glass border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-primary" />
+              Filtros do histórico
+            </CardTitle>
+            <CardDescription>Filtre por job, status ou somente erros.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4 items-end">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Job</p>
+              <Select value={jobName} onValueChange={setJobName}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="cron_sync_orders">cron_sync_orders</SelectItem>
+                  <SelectItem value="check-stale-imports">check-stale-imports</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Status</p>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={errorsOnly}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="success">success</SelectItem>
+                  <SelectItem value="error">error</SelectItem>
+                  <SelectItem value="running">running</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 h-10">
+              <Switch checked={errorsOnly} onCheckedChange={setErrorsOnly} id="errors-only" />
+              <Label htmlFor="errors-only" className="text-sm">Somente erros</Label>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchData} disabled={loading} className="flex-1">
+                <RefreshCw className="h-4 w-4 mr-2" />Atualizar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Manual execution */}
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -257,21 +367,20 @@ export default function OrdersCronMonitor() {
                 <p className="text-xs text-muted-foreground">Aguarde {cooldownRemaining} min para executar novamente.</p>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={fetchData} disabled={loading}>
-                <RefreshCw className="h-4 w-4 mr-2" />Atualizar
-              </Button>
-              <Button onClick={runManual} disabled={runningManual || cooldownRemaining > 0}>
-                {runningManual ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                Executar agora
-              </Button>
-            </div>
+            <Button onClick={runManual} disabled={runningManual || cooldownRemaining > 0}>
+              {runningManual ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              Executar agora
+            </Button>
           </CardContent>
         </Card>
 
+        {/* Configurable alerts + test button */}
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Alertas configuráveis</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              Alertas configuráveis
+            </CardTitle>
             <CardDescription>Atraso no envio gera eventos em operation_logs (somente dados reais).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -301,13 +410,22 @@ export default function OrdersCronMonitor() {
                 <span className="text-sm font-medium">{settings.shipping_delay_hours}h</span>
               </div>
             </div>
+
+            <div className="pt-2 border-t border-border/50">
+              <Button variant="outline" onClick={() => setTestDialogOpen(true)}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Disparar alerta de teste
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">Simula o registro de um alerta para validação, sem afetar dados reais.</p>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Cron history */}
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Histórico do cron</CardTitle>
-            <CardDescription>job_name = cron_sync_orders</CardDescription>
+            <CardDescription>Clique em uma execução para ver detalhes.</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -317,26 +435,35 @@ export default function OrdersCronMonitor() {
             ) : (
               <div className="space-y-2">
                 {logs.slice(0, 15).map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/40">
+                  <button
+                    key={l.id}
+                    type="button"
+                    className="w-full text-left flex items-center justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/40 hover:bg-background/60 transition-colors"
+                    onClick={() => {
+                      setSelectedCron(l);
+                      setOpen(true);
+                    }}
+                  >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{new Date(l.started_at).toLocaleString("pt-BR")}</p>
+                      <p className="text-sm font-medium truncate">{l.job_name} • {new Date(l.started_at).toLocaleString("pt-BR")}</p>
                       <p className="text-xs text-muted-foreground truncate">
                         {l.result?.new_orders != null ? `Novos pedidos: ${l.result.new_orders}` : ""}
                         {l.error_message ? ` • ${l.error_message}` : ""}
                       </p>
                     </div>
                     {statusBadge(l.status)}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Registered alerts */}
         <Card className="glass border-border/50">
           <CardHeader>
             <CardTitle>Alertas registrados</CardTitle>
-            <CardDescription>operation_logs.details.action = shipping_delay_alert</CardDescription>
+            <CardDescription>operation_logs.details.action = shipping_delay_alert*</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -348,19 +475,147 @@ export default function OrdersCronMonitor() {
                 {alerts.slice(0, 15).map((a) => (
                   <div key={a.id} className="p-3 rounded-lg border border-border/50 bg-background/40">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">{new Date(a.created_at).toLocaleString("pt-BR")}</p>
-                      <Badge variant="outline">{a.status}</Badge>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{new Date(a.created_at).toLocaleString("pt-BR")}</p>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {a.details?.action ? `action: ${a.details.action}` : ""}
+                          {a.details?.count != null ? ` • Pedidos: ${a.details.count}` : ""}
+                          {a.details?.threshold_hours != null ? ` • Limite: ${a.details.threshold_hours}h` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{a.status}</Badge>
+                        <Button variant="ghost" size="icon" onClick={() => goToEventsWithFilter(a.id)} title="Ver em Eventos">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {a.details?.count != null ? `Pedidos atrasados: ${a.details.count}` : ""}
-                      {a.details?.threshold_hours != null ? ` • Limite: ${a.details.threshold_hours}h` : ""}
-                    </p>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Cron detail drawer */}
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader>
+              <DrawerTitle>Detalhes da execução</DrawerTitle>
+              <DrawerDescription>
+                {selectedCron?.job_name} • {selectedCron?.status} • {selectedCron?.id}
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="px-4 pb-6 space-y-3 overflow-auto">
+              <div className="grid gap-2 md:grid-cols-3">
+                <div className="rounded-lg border border-border/50 bg-background/40 p-3">
+                  <p className="text-xs text-muted-foreground">Iniciado</p>
+                  <p className="text-sm font-medium">
+                    {selectedCron?.started_at ? new Date(selectedCron.started_at).toLocaleString("pt-BR") : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/40 p-3">
+                  <p className="text-xs text-muted-foreground">Concluído</p>
+                  <p className="text-sm font-medium">
+                    {selectedCron?.completed_at ? new Date(selectedCron.completed_at).toLocaleString("pt-BR") : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/40 p-3">
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className="text-sm font-medium">{selectedCron?.status ?? "—"}</p>
+                </div>
+              </div>
+
+              {selectedCron?.error_message && (
+                <div className="rounded-lg border border-border/50 bg-background/40 p-3">
+                  <p className="text-xs text-muted-foreground">Erro</p>
+                  <p className="text-sm">{selectedCron.error_message}</p>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-border/50 bg-background/40 p-3">
+                <p className="text-xs text-muted-foreground mb-2">Result (JSON)</p>
+                <pre className="text-xs overflow-auto whitespace-pre-wrap break-words max-h-64">
+                  {JSON.stringify(selectedCron?.result ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Test alert dialog with payload preview */}
+        <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Disparar alerta de teste</DialogTitle>
+              <DialogDescription>
+                Preencha os valores abaixo e veja o payload antes de registrar em operation_logs.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Action</Label>
+                <Input
+                  value={testPayload.action}
+                  onChange={(e) => setTestPayload((p) => ({ ...p, action: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Threshold (horas)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={testPayload.threshold_hours}
+                  onChange={(e) => setTestPayload((p) => ({ ...p, threshold_hours: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Simulated count</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={testPayload.simulated_count}
+                  onChange={(e) => setTestPayload((p) => ({ ...p, simulated_count: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Note</Label>
+                <Input
+                  value={testPayload.note}
+                  onChange={(e) => setTestPayload((p) => ({ ...p, note: e.target.value }))}
+                />
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground mb-2">Payload (preview)</p>
+                <pre className="text-xs overflow-auto whitespace-pre-wrap break-words">
+                  {JSON.stringify(
+                    {
+                      action: `${testPayload.action}_test`,
+                      threshold_hours: testPayload.threshold_hours,
+                      count: testPayload.simulated_count,
+                      note: testPayload.note,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTestDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={sendTestAlert} disabled={sendingTest}>
+                {sendingTest ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+                Registrar alerta
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
