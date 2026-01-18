@@ -35,12 +35,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing, FileDown, Calculator } from "lucide-react";
+import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing, FileDown, Calculator, CalendarDays, Target } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CampaignROIReport } from "@/components/campaigns/CampaignROIReport";
 import { ROISimulator, SimulatorScenario } from "@/components/campaigns/ROISimulator";
+import { CampaignPeriodComparison } from "@/components/campaigns/CampaignPeriodComparison";
+import { CampaignROIGoals } from "@/components/campaigns/CampaignROIGoals";
 import { useCampaignNotifications } from "@/hooks/useCampaignNotifications";
 import { exportCampaignROIPDF } from "@/utils/exportCampaignROIPDF";
 
@@ -380,8 +382,8 @@ export default function CampaignHistoryPage() {
       )}
 
       <Tabs defaultValue="history" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
               Histórico
@@ -389,6 +391,14 @@ export default function CampaignHistoryPage() {
             <TabsTrigger value="roi" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               ROI
+            </TabsTrigger>
+            <TabsTrigger value="comparison" className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Comparativo
+            </TabsTrigger>
+            <TabsTrigger value="goals" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Metas
             </TabsTrigger>
             <TabsTrigger value="simulator" className="flex items-center gap-2">
               <Calculator className="h-4 w-4" />
@@ -510,6 +520,25 @@ export default function CampaignHistoryPage() {
             averageOrderValue={averageOrderValue}
             campaignCost={campaignCost}
           />
+        </TabsContent>
+
+        {/* Comparison Tab */}
+        <TabsContent value="comparison">
+          <CampaignPeriodComparison 
+            campaigns={campaigns || []}
+            averageOrderValue={averageOrderValue}
+          />
+        </TabsContent>
+
+        {/* Goals Tab */}
+        <TabsContent value="goals">
+          {session?.user?.id && (
+            <CampaignROIGoals 
+              userId={session.user.id}
+              campaigns={campaigns || []}
+              averageOrderValue={averageOrderValue}
+            />
+          )}
         </TabsContent>
 
         {/* Simulator Tab */}
