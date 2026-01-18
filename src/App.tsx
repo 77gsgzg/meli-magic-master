@@ -30,6 +30,7 @@ import OperationLogs from "./pages/OperationLogs";
 import BuyerAnalytics from "./pages/BuyerAnalytics";
 import DemandForecast from "./pages/DemandForecast";
 import CampaignHistory from "./pages/CampaignHistory";
+import Supplier from "./pages/Supplier";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/buyers" element={<BuyerAnalytics />} />
               <Route path="/demand" element={<DemandForecast />} />
               <Route path="/campaigns" element={<CampaignHistory />} />
+              <Route path="/supplier" element={<Supplier />} />
               <Route path="/events" element={<OperationLogs />} />
               <Route path="/history" element={<History />} />
               <Route path="/settings" element={<Settings />} />

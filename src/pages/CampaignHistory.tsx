@@ -35,7 +35,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing, FileDown, Calculator, CalendarDays, Target } from "lucide-react";
+import { RefreshCw, Send, Bell, Calendar, Clock, Plus, Trash2, History, TrendingUp, Users, Package, BarChart3, BellRing, FileDown, Calculator, CalendarDays, Target, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,7 +43,9 @@ import { CampaignROIReport } from "@/components/campaigns/CampaignROIReport";
 import { ROISimulator, SimulatorScenario } from "@/components/campaigns/ROISimulator";
 import { CampaignPeriodComparison } from "@/components/campaigns/CampaignPeriodComparison";
 import { CampaignROIGoals } from "@/components/campaigns/CampaignROIGoals";
+import { CampaignConsolidatedDashboard } from "@/components/campaigns/CampaignConsolidatedDashboard";
 import { useCampaignNotifications } from "@/hooks/useCampaignNotifications";
+import { useROIGoalNotifications } from "@/hooks/useROIGoalNotifications";
 import { exportCampaignROIPDF } from "@/utils/exportCampaignROIPDF";
 
 interface CampaignHistory {
@@ -381,9 +383,13 @@ export default function CampaignHistoryPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs defaultValue="dashboard" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
               Histórico
@@ -420,6 +426,24 @@ export default function CampaignHistoryPage() {
             {pdfLoading ? "Exportando..." : "Exportar PDF"}
           </Button>
         </div>
+
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard">
+          {campaigns && campaigns.length > 0 ? (
+            <CampaignConsolidatedDashboard
+              campaigns={campaigns}
+              averageOrderValue={averageOrderValue}
+              campaignCost={campaignCost}
+            />
+          ) : (
+            <Card className="glass border-border/50">
+              <CardContent className="py-16 text-center">
+                <LayoutDashboard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Nenhuma campanha para exibir no dashboard</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         {/* History Tab */}
         <TabsContent value="history">
