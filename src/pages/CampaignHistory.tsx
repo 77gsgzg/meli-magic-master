@@ -266,6 +266,35 @@ export default function CampaignHistoryPage() {
     })(),
   };
 
+  // Period comparison data for PDF export
+  const periodComparisonData = (() => {
+    if (!campaigns || campaigns.length === 0) return [];
+    
+    const monthlyData = campaigns.reduce((acc, campaign) => {
+      const month = format(new Date(campaign.created_at), "MMM/yy", { locale: ptBR });
+      if (!acc[month]) {
+        acc[month] = { period: month, revenue: 0, conversionRate: 0, recipients: 0, converted: 0 };
+      }
+      acc[month].recipients += campaign.recipients_count;
+      acc[month].converted += campaign.converted_count;
+      acc[month].revenue += campaign.converted_count * averageOrderValue;
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Calculate conversion rates
+    Object.values(monthlyData).forEach((data: any) => {
+      data.conversionRate = data.recipients > 0 ? (data.converted / data.recipients) * 100 : 0;
+    });
+    
+    return Object.values(monthlyData).slice(-6).reverse() as Array<{
+      period: string;
+      revenue: number;
+      conversionRate: number;
+      recipients: number;
+      converted: number;
+    }>;
+  })();
+
   // Export PDF handler
   const handleExportPDF = async () => {
     if (!campaigns || campaigns.length === 0) {
@@ -280,7 +309,8 @@ export default function CampaignHistoryPage() {
         roiMetrics,
         averageOrderValue,
         campaignCost,
-        simulatorScenarios.length > 1 ? simulatorScenarios : undefined
+        simulatorScenarios.length > 1 ? simulatorScenarios : undefined,
+        periodComparisonData.length > 0 ? periodComparisonData : undefined
       );
       toast.success("PDF exportado com sucesso!");
     } catch (error) {

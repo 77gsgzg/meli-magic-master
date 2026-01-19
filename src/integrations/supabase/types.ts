@@ -861,6 +861,86 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_products: {
+        Row: {
+          created_at: string
+          currency: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_published: boolean | null
+          margin: number | null
+          ml_item_id: string | null
+          optimized_description: string | null
+          optimized_title: string | null
+          positioning: string | null
+          price: number | null
+          product_url: string | null
+          published_product_id: string | null
+          strategy: string | null
+          supplier_name: string
+          supplier_url: string | null
+          target_price: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          margin?: number | null
+          ml_item_id?: string | null
+          optimized_description?: string | null
+          optimized_title?: string | null
+          positioning?: string | null
+          price?: number | null
+          product_url?: string | null
+          published_product_id?: string | null
+          strategy?: string | null
+          supplier_name: string
+          supplier_url?: string | null
+          target_price?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          margin?: number | null
+          ml_item_id?: string | null
+          optimized_description?: string | null
+          optimized_title?: string | null
+          positioning?: string | null
+          price?: number | null
+          product_url?: string | null
+          published_product_id?: string | null
+          strategy?: string | null
+          supplier_name?: string
+          supplier_url?: string | null
+          target_price?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_products_published_product_id_fkey"
+            columns: ["published_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_goals: {
         Row: {
           comparison_operator: string
