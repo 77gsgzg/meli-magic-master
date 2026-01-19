@@ -54,12 +54,15 @@ import {
   History,
   RefreshCw,
   BarChart3,
+  PieChart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
 import { SupplierPublicationHistory } from "@/components/supplier/SupplierPublicationHistory";
 import { BulkPublishProgress } from "@/components/supplier/BulkPublishProgress";
 import { PriceSyncManager } from "@/components/supplier/PriceSyncManager";
+import { SupplierRescrapeManager } from "@/components/supplier/SupplierRescrapeManager";
+import { ProfitabilityDashboard } from "@/components/supplier/ProfitabilityDashboard";
 
 interface SupplierProduct {
   id?: string;
@@ -113,7 +116,7 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
-  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "history">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "history">("products");
 
   // Load saved products from database
   useEffect(() => {
@@ -553,18 +556,26 @@ export default function SupplierPage() {
     >
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-auto lg:inline-grid">
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Produtos</span>
           </TabsTrigger>
           <TabsTrigger value="bulk" className="gap-2">
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Publicação em Massa</span>
+            <span className="hidden sm:inline">Publicação</span>
           </TabsTrigger>
           <TabsTrigger value="sync" className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            <span className="hidden sm:inline">Sincronização</span>
+            <span className="hidden sm:inline">Sync</span>
+          </TabsTrigger>
+          <TabsTrigger value="rescrape" className="gap-2">
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline">Re-Scrape</span>
+          </TabsTrigger>
+          <TabsTrigger value="profitability" className="gap-2">
+            <PieChart className="h-4 w-4" />
+            <span className="hidden sm:inline">Rentabilidade</span>
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -869,6 +880,20 @@ export default function SupplierPage() {
 
       {activeTab === "sync" && (
         <PriceSyncManager userId={session?.user?.id || ""} />
+      )}
+
+      {activeTab === "rescrape" && (
+        <SupplierRescrapeManager 
+          onPriceChangesDetected={(changes) => {
+            if (changes.length > 0) {
+              loadSavedProducts();
+            }
+          }}
+        />
+      )}
+
+      {activeTab === "profitability" && (
+        <ProfitabilityDashboard />
       )}
 
       {activeTab === "history" && (
