@@ -861,6 +861,50 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_price_history: {
+        Row: {
+          alert_sent: boolean | null
+          created_at: string
+          detected_at: string
+          id: string
+          new_price: number
+          old_price: number
+          price_change_percent: number
+          supplier_product_id: string
+          user_id: string
+        }
+        Insert: {
+          alert_sent?: boolean | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          new_price: number
+          old_price: number
+          price_change_percent: number
+          supplier_product_id: string
+          user_id: string
+        }
+        Update: {
+          alert_sent?: boolean | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          new_price?: number
+          old_price?: number
+          price_change_percent?: number
+          supplier_product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_price_history_supplier_product_id_fkey"
+            columns: ["supplier_product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_products: {
         Row: {
           created_at: string
@@ -987,6 +1031,10 @@ export type Database = {
           notify_publish_success: boolean | null
           notify_token_refresh: boolean | null
           notify_webhook_failure: boolean | null
+          supplier_alert_email_enabled: boolean | null
+          supplier_alert_push_enabled: boolean | null
+          supplier_price_alert_enabled: boolean | null
+          supplier_price_threshold: number | null
           swipe_haptic_enabled: boolean | null
           swipe_sound_enabled: boolean | null
           timezone: string | null
@@ -1002,6 +1050,10 @@ export type Database = {
           notify_publish_success?: boolean | null
           notify_token_refresh?: boolean | null
           notify_webhook_failure?: boolean | null
+          supplier_alert_email_enabled?: boolean | null
+          supplier_alert_push_enabled?: boolean | null
+          supplier_price_alert_enabled?: boolean | null
+          supplier_price_threshold?: number | null
           swipe_haptic_enabled?: boolean | null
           swipe_sound_enabled?: boolean | null
           timezone?: string | null
@@ -1017,6 +1069,10 @@ export type Database = {
           notify_publish_success?: boolean | null
           notify_token_refresh?: boolean | null
           notify_webhook_failure?: boolean | null
+          supplier_alert_email_enabled?: boolean | null
+          supplier_alert_push_enabled?: boolean | null
+          supplier_price_alert_enabled?: boolean | null
+          supplier_price_threshold?: number | null
           swipe_haptic_enabled?: boolean | null
           swipe_sound_enabled?: boolean | null
           timezone?: string | null
