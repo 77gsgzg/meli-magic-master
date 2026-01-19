@@ -40,12 +40,21 @@ interface SimulatorScenario {
   projectedROI: number;
 }
 
+interface PeriodComparison {
+  period: string;
+  revenue: number;
+  conversionRate: number;
+  recipients: number;
+  converted: number;
+}
+
 export async function exportCampaignROIPDF(
   campaigns: CampaignHistory[],
   metrics: ROIMetrics,
   averageOrderValue: number,
   campaignCost: number,
-  simulatorScenarios?: SimulatorScenario[]
+  simulatorScenarios?: SimulatorScenario[],
+  periodComparison?: PeriodComparison[]
 ) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -255,6 +264,78 @@ export async function exportCampaignROIPDF(
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 15;
+  }
+
+  // Period Comparison Section (NEW)
+  if (periodComparison && periodComparison.length > 0) {
+    if (yPos > 180) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(41, 128, 185);
+    doc.text("Comparativo de Períodos", margin, yPos);
+
+    yPos += 8;
+    const periodData = [
+      ["Período", "Receita", "Taxa Conv.", "Destinatários", "Conversões"],
+      ...periodComparison.map((p) => [
+        p.period,
+        formatCurrency(p.revenue),
+        `${p.conversionRate.toFixed(1)}%`,
+        p.recipients.toLocaleString(),
+        p.converted.toString(),
+      ]),
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [periodData[0]],
+      body: periodData.slice(1),
+      theme: "striped",
+      headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 255, 250] },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: {
+        1: { halign: "right" },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "right" },
+      },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Period variation analysis
+    if (periodComparison.length >= 2) {
+      const current = periodComparison[0];
+      const previous = periodComparison[1];
+      
+      const revenueChange = previous.revenue > 0 
+        ? ((current.revenue - previous.revenue) / previous.revenue * 100).toFixed(1)
+        : "N/A";
+      const conversionChange = previous.conversionRate > 0
+        ? ((current.conversionRate - previous.conversionRate) / previous.conversionRate * 100).toFixed(1)
+        : "N/A";
+
+      doc.setFillColor(245, 250, 255);
+      doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 25, 3, 3, "F");
+      
+      yPos += 8;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(41, 128, 185);
+      doc.text("Variação entre períodos:", margin + 5, yPos);
+      
+      yPos += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      doc.text(`Receita: ${revenueChange}% | Conversão: ${conversionChange}%`, margin + 5, yPos);
+      
+      yPos += 15;
+    }
   }
 
   // Campaign History (last 10)
