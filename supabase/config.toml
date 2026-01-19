@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.rescrape-supplier]
 verify_jwt = false
+
+[functions.send-supplier-price-alert]
+verify_jwt = false
