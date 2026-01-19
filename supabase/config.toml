@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.scrape-supplier]
 verify_jwt = false
+
+[functions.sync-supplier-prices]
+verify_jwt = false

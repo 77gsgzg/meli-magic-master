@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -51,9 +52,14 @@ import {
   Upload,
   Trash2,
   History,
+  RefreshCw,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { SupplierPublicationHistory } from "@/components/supplier/SupplierPublicationHistory";
+import { BulkPublishProgress } from "@/components/supplier/BulkPublishProgress";
+import { PriceSyncManager } from "@/components/supplier/PriceSyncManager";
 
 interface SupplierProduct {
   id?: string;
@@ -107,6 +113,7 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "history">("products");
 
   // Load saved products from database
   useEffect(() => {
@@ -544,23 +551,47 @@ export default function SupplierPage() {
       title="Fornecedor"
       subtitle="Importe e gerencie produtos de fornecedores externos"
     >
-      {/* View Toggle */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant={viewMode === "import" ? "default" : "outline"}
-          onClick={() => setViewMode("import")}
-        >
-          <Search className="h-4 w-4 mr-2" />
-          Importar Novos
-        </Button>
-        <Button
-          variant={viewMode === "saved" ? "default" : "outline"}
-          onClick={() => setViewMode("saved")}
-        >
-          <History className="h-4 w-4 mr-2" />
-          Produtos Salvos ({savedProducts.length})
-        </Button>
-      </div>
+      {/* Tabs Navigation */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="products" className="gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Produtos</span>
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="gap-2">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Publicação em Massa</span>
+          </TabsTrigger>
+          <TabsTrigger value="sync" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Sincronização</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Histórico</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {activeTab === "products" && (
+        <>
+          {/* View Toggle */}
+          <div className="flex gap-2 mb-6">
+            <Button
+              variant={viewMode === "import" ? "default" : "outline"}
+              onClick={() => setViewMode("import")}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Importar Novos
+            </Button>
+            <Button
+              variant={viewMode === "saved" ? "default" : "outline"}
+              onClick={() => setViewMode("saved")}
+            >
+              <History className="h-4 w-4 mr-2" />
+              Produtos Salvos ({savedProducts.length})
+            </Button>
+          </div>
 
       {viewMode === "import" && (
         <>
@@ -823,6 +854,25 @@ export default function SupplierPage() {
             )}
           </CardContent>
         </Card>
+      )}
+        </>
+      )}
+
+      {activeTab === "bulk" && (
+        <BulkPublishProgress
+          products={savedProducts.filter(p => p.id && p.selected && !p.is_published).map(p => ({ ...p, id: p.id! }))}
+          userId={session?.user?.id || ""}
+          onComplete={loadSavedProducts}
+          callMLApi={callMLApi}
+        />
+      )}
+
+      {activeTab === "sync" && (
+        <PriceSyncManager userId={session?.user?.id || ""} />
+      )}
+
+      {activeTab === "history" && (
+        <SupplierPublicationHistory userId={session?.user?.id || ""} />
       )}
 
       {/* Product Edit Dialog */}
