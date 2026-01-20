@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
@@ -12,11 +12,15 @@ import {
   AlertCircle,
   CheckCircle2,
   BarChart3,
-  Percent
+  Percent,
+  FileDown,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { exportSupplierProfitabilityPDF } from "@/utils/exportSupplierProfitabilityPDF";
 import { 
   BarChart, 
   Bar, 
@@ -60,6 +64,7 @@ interface ProfitabilitySummary {
 export function ProfitabilityDashboard() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<"7d" | "30d" | "90d">("30d");
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["profitability", user?.id, period],
@@ -193,6 +198,129 @@ export function ProfitabilityDashboard() {
     ].filter(d => d.value > 0);
   }, [data?.summary]);
 
+  const handleExportPDF = async () => {
+    if (!data?.products || !data?.summary) {
+      toast.error("Nenhum dado disponível para exportar");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Fetch recommendations for the PDF
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: supplierProducts } = await supabase
+        .from("supplier_products")
+        .select("id, title, price, margin, target_price, ml_item_id")
+        .eq("user_id", user!.id)
+        .eq("is_published", true);
+
+      const { data: orders } = await supabase
+        .from("ml_orders")
+        .select("ml_item_id, total_amount, item_quantity, unit_price")
+        .eq("user_id", user!.id)
+        .eq("status", "paid")
+        .gte("date_created", thirtyDaysAgo.toISOString());
+
+      // Generate recommendations
+      const recommendations: Array<{
+        productId: string;
+        title: string;
+        currentPrice: number;
+        recommendedPrice: number;
+        supplierPrice: number;
+        currentMargin: number;
+        targetMargin: number;
+        marginDiff: number;
+        reason: string;
+        priority: "high" | "medium" | "low";
+        action: "increase" | "decrease" | "maintain";
+        potentialImpact: number;
+      }> = [];
+
+      for (const product of supplierProducts || []) {
+        if (!product.ml_item_id) continue;
+
+        const productOrders = (orders || []).filter(o => o.ml_item_id === product.ml_item_id);
+        const supplierPrice = Number(product.price) || 0;
+        const targetMargin = Number(product.margin) || 30;
+        const targetPrice = Number(product.target_price) || supplierPrice * (1 + targetMargin / 100);
+
+        if (productOrders.length === 0) continue;
+
+        const revenue = productOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+        const unitsSold = productOrders.reduce((sum, o) => sum + (o.item_quantity || 1), 0);
+        const avgSellingPrice = revenue / unitsSold;
+        const cost = supplierPrice * unitsSold;
+        const profit = revenue - cost;
+        const currentMargin = (profit / revenue) * 100;
+        const marginDiff = currentMargin - targetMargin;
+
+        if (marginDiff < -10) {
+          const priceIncrease = (targetMargin - currentMargin) / 100 * avgSellingPrice;
+          const newPrice = avgSellingPrice + priceIncrease;
+
+          recommendations.push({
+            productId: product.id,
+            title: product.title,
+            currentPrice: avgSellingPrice,
+            recommendedPrice: Math.round(newPrice * 100) / 100,
+            supplierPrice,
+            currentMargin: Math.round(currentMargin * 100) / 100,
+            targetMargin,
+            marginDiff: Math.round(marginDiff * 100) / 100,
+            reason: `Margem ${Math.abs(marginDiff).toFixed(1)}% abaixo da meta.`,
+            priority: marginDiff < -20 ? "high" : "medium",
+            action: "increase",
+            potentialImpact: priceIncrease * unitsSold * 0.8,
+          });
+        } else if (marginDiff > 15) {
+          const priceDecrease = (currentMargin - targetMargin - 5) / 100 * avgSellingPrice;
+          const newPrice = avgSellingPrice - priceDecrease;
+
+          recommendations.push({
+            productId: product.id,
+            title: product.title,
+            currentPrice: avgSellingPrice,
+            recommendedPrice: Math.round(newPrice * 100) / 100,
+            supplierPrice,
+            currentMargin: Math.round(currentMargin * 100) / 100,
+            targetMargin,
+            marginDiff: Math.round(marginDiff * 100) / 100,
+            reason: `Margem ${marginDiff.toFixed(1)}% acima da meta.`,
+            priority: "low",
+            action: "decrease",
+            potentialImpact: unitsSold * 0.3 * profit / unitsSold,
+          });
+        }
+      }
+
+      const periodLabels = {
+        "7d": "Últimos 7 dias",
+        "30d": "Últimos 30 dias",
+        "90d": "Últimos 90 dias",
+      };
+
+      await exportSupplierProfitabilityPDF({
+        products: data.products,
+        summary: data.summary,
+        recommendations: recommendations.sort((a, b) => {
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }),
+        period: periodLabels[period],
+      });
+
+      toast.success("PDF exportado com sucesso!");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Erro ao exportar PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -218,23 +346,42 @@ export function ProfitabilityDashboard() {
   return (
     <div className="space-y-6">
       {/* Header with period selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Dashboard de Rentabilidade</h2>
           <p className="text-muted-foreground">
             Compare a margem real vs esperada por produto
           </p>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7d">Últimos 7 dias</SelectItem>
-            <SelectItem value="30d">Últimos 30 dias</SelectItem>
-            <SelectItem value="90d">Últimos 90 dias</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            disabled={isExporting || !data?.products?.length}
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4 mr-2" />
+                Exportar PDF
+              </>
+            )}
+          </Button>
+          <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Últimos 7 dias</SelectItem>
+              <SelectItem value="30d">Últimos 30 dias</SelectItem>
+              <SelectItem value="90d">Últimos 90 dias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary Cards */}
