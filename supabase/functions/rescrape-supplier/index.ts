@@ -173,6 +173,17 @@ serve(async (req) => {
                   })
                   .eq('id', product.id);
 
+                // Log price change to history
+                await supabase
+                  .from('supplier_price_history')
+                  .insert({
+                    supplier_product_id: product.id,
+                    user_id: userId,
+                    old_price: oldPrice,
+                    new_price: newPrice,
+                    price_change_percent: Math.round(percentageChange * 100) / 100,
+                  });
+
                 console.log(`Price change detected for ${product.title}: ${oldPrice} -> ${newPrice} (${percentageChange.toFixed(2)}%)`);
               }
             }
@@ -193,6 +204,42 @@ serve(async (req) => {
     }
 
     console.log(`Re-scrape complete. Processed: ${processed}, Changes: ${priceChanges.length}, Errors: ${errors.length}`);
+
+    // Trigger webhook for significant price changes
+    if (priceChanges.length > 0) {
+      // Get user preferences to check threshold
+      const { data: prefs } = await supabase
+        .from('user_preferences')
+        .select('supplier_price_threshold, supplier_price_alert_enabled')
+        .eq('user_id', userId)
+        .single();
+
+      const threshold = prefs?.supplier_price_threshold || 10;
+      const significantChanges = priceChanges.filter(c => Math.abs(c.percentageChange) >= threshold);
+
+      if (significantChanges.length > 0) {
+        // Trigger webhook for external systems
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/trigger-webhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'supplier_price_change',
+              user_id: userId,
+              data: {
+                changes: significantChanges,
+                total_changes: significantChanges.length,
+                threshold_percent: threshold,
+                timestamp: new Date().toISOString(),
+              },
+            }),
+          });
+          console.log(`Webhook triggered for ${significantChanges.length} significant price changes`);
+        } catch (webhookError) {
+          console.error('Failed to trigger webhook:', webhookError);
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({
