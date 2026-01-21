@@ -170,6 +170,130 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Auto-sync action - triggered by rescrape when prices change
+    if (action === "auto_sync" && productIds?.length > 0) {
+      console.log(`[sync-supplier-prices] Auto-sync triggered for ${productIds.length} products`);
+      
+      const { data: supplierProducts, error: fetchError } = await supabase
+        .from("supplier_products")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_published", true)
+        .in("id", productIds)
+        .not("published_product_id", "is", null);
+
+      if (fetchError) throw fetchError;
+
+      let syncedCount = 0;
+      let mlUpdatedCount = 0;
+      const results: any[] = [];
+
+      for (const sp of supplierProducts || []) {
+        if (!sp.published_product_id) continue;
+
+        const basePrice = sp.price || 0;
+        const margin = sp.margin || 30;
+        const newPrice = sp.target_price || basePrice * (1 + margin / 100);
+
+        // Update local product price
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({
+            price: newPrice,
+            original_price: basePrice,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", sp.published_product_id)
+          .eq("user_id", user.id);
+
+        if (updateError) {
+          console.error(`[sync-supplier-prices] Error updating product ${sp.published_product_id}:`, updateError);
+          results.push({ id: sp.id, status: "error", error: updateError.message });
+          continue;
+        }
+
+        syncedCount++;
+
+        // If product has ML item ID, update on Mercado Livre
+        if (sp.ml_item_id) {
+          try {
+            const mlResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ml-api`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                action: 'update_item',
+                data: {
+                  item_id: sp.ml_item_id,
+                  price: newPrice,
+                },
+              }),
+            });
+
+            const mlResult = await mlResponse.json();
+            
+            if (mlResponse.ok && mlResult.id) {
+              mlUpdatedCount++;
+              results.push({ 
+                id: sp.id, 
+                status: "synced_ml", 
+                newPrice, 
+                ml_item_id: sp.ml_item_id,
+                oldPrice: sp.price 
+              });
+              console.log(`[sync-supplier-prices] ML price updated for ${sp.ml_item_id}: ${sp.price} -> ${newPrice}`);
+            } else {
+              results.push({ 
+                id: sp.id, 
+                status: "synced_local_only", 
+                newPrice,
+                ml_error: mlResult.error || 'Failed to update ML'
+              });
+              console.error(`[sync-supplier-prices] Failed to update ML price for ${sp.ml_item_id}:`, mlResult.error);
+            }
+          } catch (mlError: any) {
+            console.error(`[sync-supplier-prices] ML API error for ${sp.ml_item_id}:`, mlError);
+            results.push({ 
+              id: sp.id, 
+              status: "synced_local_only", 
+              newPrice,
+              ml_error: mlError.message 
+            });
+          }
+        } else {
+          results.push({ id: sp.id, status: "synced", newPrice });
+        }
+      }
+
+      // Log the auto-sync operation
+      await supabase.from("operation_logs").insert({
+        user_id: user.id,
+        operation_type: "sync" as const,
+        status: "success",
+        entity_type: "supplier_products",
+        details: {
+          action: "auto_sync",
+          synced_local: syncedCount,
+          synced_ml: mlUpdatedCount,
+          total: productIds.length,
+        },
+      });
+
+      console.log(`[sync-supplier-prices] Auto-sync complete. Local: ${syncedCount}, ML: ${mlUpdatedCount}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          synced: syncedCount, 
+          ml_updated: mlUpdatedCount,
+          results 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "check_price_changes") {
       // Check if supplier prices have changed (would need re-scraping in real scenario)
       const { data: supplierProducts, error: fetchError } = await supabase
