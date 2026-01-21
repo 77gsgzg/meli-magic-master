@@ -66,6 +66,7 @@ import { ProfitabilityDashboard } from "@/components/supplier/ProfitabilityDashb
 import { SupplierAlertSettings } from "@/components/supplier/SupplierAlertSettings";
 import { SupplierRescrapeScheduler } from "@/components/supplier/SupplierRescrapeScheduler";
 import { PriceRecommendations } from "@/components/supplier/PriceRecommendations";
+import { SupplierPriceHistoryChart } from "@/components/supplier/SupplierPriceHistoryChart";
 
 interface SupplierProduct {
   id?: string;
@@ -119,7 +120,7 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
-  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history">("products");
 
   // Load saved products from database
   useEffect(() => {
@@ -592,10 +593,18 @@ export default function SupplierPage() {
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Histórico</span>
           </TabsTrigger>
+          <TabsTrigger value="price-history" className="gap-2">
+            <History className="h-4 w-4" />
+            <span className="hidden sm:inline">Preços</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
       {activeTab === "recommendations" && <PriceRecommendations />}
+
+      {activeTab === "price-history" && session?.user?.id && (
+        <SupplierPriceHistoryChart userId={session.user.id} />
+      )}
 
       {activeTab === "alerts" && (
         <div className="space-y-6">

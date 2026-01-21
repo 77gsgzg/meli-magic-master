@@ -205,7 +205,7 @@ serve(async (req) => {
 
     console.log(`Re-scrape complete. Processed: ${processed}, Changes: ${priceChanges.length}, Errors: ${errors.length}`);
 
-    // Trigger webhook for significant price changes
+    // Trigger webhook for significant price changes and auto-sync ML prices
     if (priceChanges.length > 0) {
       // Get user preferences to check threshold
       const { data: prefs } = await supabase
@@ -238,6 +238,25 @@ serve(async (req) => {
         } catch (webhookError) {
           console.error('Failed to trigger webhook:', webhookError);
         }
+      }
+
+      // Auto-sync ML prices for products with price changes
+      try {
+        const productIdsToSync = priceChanges.map(c => c.productId);
+        await fetch(`${SUPABASE_URL}/functions/v1/sync-supplier-prices`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'auto_sync',
+            productIds: productIdsToSync,
+          }),
+        });
+        console.log(`Auto-sync triggered for ${productIdsToSync.length} products with price changes`);
+      } catch (syncError) {
+        console.error('Failed to trigger auto-sync:', syncError);
       }
     }
 
