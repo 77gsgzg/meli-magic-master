@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.send-supplier-price-alert]
 verify_jwt = false
+
+[functions.detect-savings-opportunities]
+verify_jwt = false
