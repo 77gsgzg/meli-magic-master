@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   LineChart,
   Line,
   XAxis,
@@ -13,7 +19,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   Area,
   AreaChart,
 } from "recharts";
@@ -22,11 +27,18 @@ import {
   TrendingDown,
   RefreshCw,
   History,
-  ChevronDown,
   AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { format, subDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import {
+  exportPriceHistoryToCSV,
+  exportPriceHistoryToExcel,
+} from "@/utils/exportSupplierPriceHistory";
 
 interface PriceHistoryEntry {
   id: string;
@@ -105,6 +117,29 @@ export function SupplierPriceHistoryChart({ userId }: SupplierPriceHistoryChartP
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const prepareExportData = () => {
+    return filteredHistory.map((entry) => {
+      const product = products.find((p) => p.id === entry.supplier_product_id);
+      return {
+        ...entry,
+        productTitle: product?.title || "Produto desconhecido",
+        supplierName: product?.supplier_name || "Fornecedor desconhecido",
+      };
+    });
+  };
+
+  const handleExportCSV = () => {
+    const data = prepareExportData();
+    exportPriceHistoryToCSV({ data, format: "csv" });
+    toast.success("CSV exportado com sucesso!");
+  };
+
+  const handleExportExcel = () => {
+    const data = prepareExportData();
+    exportPriceHistoryToExcel({ data, format: "excel" });
+    toast.success("Excel exportado com sucesso!");
   };
 
   const filteredHistory = selectedProductId === "all"
@@ -207,6 +242,24 @@ export function SupplierPriceHistoryChart({ userId }: SupplierPriceHistoryChartP
                 <SelectItem value="90d">90 dias</SelectItem>
               </SelectContent>
             </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleExportCSV} disabled={filteredHistory.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel} disabled={filteredHistory.length === 0}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </Button>
