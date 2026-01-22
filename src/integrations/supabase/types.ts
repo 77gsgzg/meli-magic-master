@@ -985,6 +985,134 @@ export type Database = {
           },
         ]
       }
+      supplier_savings_alerts: {
+        Row: {
+          channel: string
+          created_at: string
+          id: string
+          message: string | null
+          opportunity_id: string | null
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          opportunity_id?: string | null
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          opportunity_id?: string | null
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_savings_alerts_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_savings_opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_savings_opportunities: {
+        Row: {
+          cheapest_price: number
+          cheapest_supplier_name: string
+          created_at: string
+          detected_at: string
+          dismissed_at: string | null
+          expensive_price: number
+          expensive_supplier_name: string
+          group_key: string
+          id: string
+          metadata: Json | null
+          representative_title: string
+          seen_at: string | null
+          spread_amount: number
+          spread_percent: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          cheapest_price: number
+          cheapest_supplier_name: string
+          created_at?: string
+          detected_at?: string
+          dismissed_at?: string | null
+          expensive_price: number
+          expensive_supplier_name: string
+          group_key: string
+          id?: string
+          metadata?: Json | null
+          representative_title: string
+          seen_at?: string | null
+          spread_amount: number
+          spread_percent: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          cheapest_price?: number
+          cheapest_supplier_name?: string
+          created_at?: string
+          detected_at?: string
+          dismissed_at?: string | null
+          expensive_price?: number
+          expensive_supplier_name?: string
+          group_key?: string
+          id?: string
+          metadata?: Json | null
+          representative_title?: string
+          seen_at?: string | null
+          spread_amount?: number
+          spread_percent?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      supplier_savings_settings: {
+        Row: {
+          amount_threshold: number
+          created_at: string
+          enabled: boolean
+          lookback_days: number
+          max_opportunities_per_run: number
+          percent_threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_threshold?: number
+          created_at?: string
+          enabled?: boolean
+          lookback_days?: number
+          max_opportunities_per_run?: number
+          percent_threshold?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_threshold?: number
+          created_at?: string
+          enabled?: boolean
+          lookback_days?: number
+          max_opportunities_per_run?: number
+          percent_threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_goals: {
         Row: {
           comparison_operator: string
