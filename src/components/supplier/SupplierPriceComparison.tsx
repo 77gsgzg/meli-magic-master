@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import {
   BarChart,
   Bar,
@@ -22,6 +25,7 @@ import {
   TrendingDown,
   Minus,
   Scale,
+  Users,
 } from "lucide-react";
 
 interface SupplierProduct {
@@ -58,6 +62,9 @@ export function SupplierPriceComparison({ userId }: SupplierPriceComparisonProps
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [groupedProducts, setGroupedProducts] = useState<GroupedProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [supplierQuery, setSupplierQuery] = useState("");
+  const [supplierFilterOpen, setSupplierFilterOpen] = useState(false);
+  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -67,7 +74,20 @@ export function SupplierPriceComparison({ userId }: SupplierPriceComparisonProps
 
   useEffect(() => {
     groupProducts();
-  }, [products, searchTerm]);
+  }, [products, searchTerm, selectedSuppliers]);
+
+  const allSuppliers = useMemo(() => {
+    const suppliers = Array.from(new Set(products.map((p) => p.supplier_name))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return suppliers;
+  }, [products]);
+
+  const visibleSuppliers = useMemo(() => {
+    const q = supplierQuery.trim().toLowerCase();
+    if (!q) return allSuppliers;
+    return allSuppliers.filter((s) => s.toLowerCase().includes(q));
+  }, [allSuppliers, supplierQuery]);
 
   const loadProducts = async () => {
     try {
@@ -106,13 +126,17 @@ export function SupplierPriceComparison({ userId }: SupplierPriceComparisonProps
   };
 
   const groupProducts = () => {
-    const filtered = searchTerm
+    const textFiltered = searchTerm
       ? products.filter(
           (p) =>
             p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
         )
       : products;
+
+    const filtered = selectedSuppliers.length
+      ? textFiltered.filter((p) => selectedSuppliers.includes(p.supplier_name))
+      : textFiltered;
 
     const groups = new Map<string, SupplierProduct[]>();
 
@@ -168,6 +192,18 @@ export function SupplierPriceComparison({ userId }: SupplierPriceComparisonProps
     }));
   };
 
+  const toggleSupplier = (supplierName: string, checked: boolean) => {
+    setSelectedSuppliers((prev) => {
+      if (checked) return Array.from(new Set([...prev, supplierName]));
+      return prev.filter((s) => s !== supplierName);
+    });
+  };
+
+  const clearSupplierFilter = () => {
+    setSelectedSuppliers([]);
+    setSupplierQuery("");
+  };
+
   if (loading) {
     return (
       <Card className="glass border-border/50">
@@ -205,6 +241,76 @@ export function SupplierPriceComparison({ userId }: SupplierPriceComparisonProps
                 className="pl-9 w-[200px]"
               />
             </div>
+
+            <Popover open={supplierFilterOpen} onOpenChange={setSupplierFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Fornecedores</span>
+                  {selectedSuppliers.length > 0 && (
+                    <Badge variant="secondary">{selectedSuppliers.length}</Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[320px] p-3" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Filtrar por fornecedor</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSupplierFilter}
+                      disabled={selectedSuppliers.length === 0 && supplierQuery.length === 0}
+                    >
+                      Limpar
+                    </Button>
+                  </div>
+
+                  <Input
+                    value={supplierQuery}
+                    onChange={(e) => setSupplierQuery(e.target.value)}
+                    placeholder="Buscar fornecedor..."
+                  />
+
+                  <Separator />
+
+                  <div className="max-h-56 overflow-y-auto space-y-2">
+                    {visibleSuppliers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nenhum fornecedor encontrado.</p>
+                    ) : (
+                      visibleSuppliers.map((name) => {
+                        const checked = selectedSuppliers.includes(name);
+                        return (
+                          <label key={name} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => toggleSupplier(name, Boolean(v))}
+                            />
+                            <span className="truncate" title={name}>
+                              {name}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {selectedSuppliers.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedSuppliers.slice(0, 6).map((s) => (
+                        <Badge key={s} variant="secondary" className="max-w-full truncate">
+                          {s}
+                        </Badge>
+                      ))}
+                      {selectedSuppliers.length > 6 && (
+                        <Badge variant="secondary">+{selectedSuppliers.length - 6}</Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </Button>
