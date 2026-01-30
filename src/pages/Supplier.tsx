@@ -56,6 +56,7 @@ import {
   BarChart3,
   PieChart,
   Scale,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
@@ -69,6 +70,7 @@ import { SupplierRescrapeScheduler } from "@/components/supplier/SupplierRescrap
 import { PriceRecommendations } from "@/components/supplier/PriceRecommendations";
 import { SupplierPriceHistoryChart } from "@/components/supplier/SupplierPriceHistoryChart";
 import { SupplierPriceComparison } from "@/components/supplier/SupplierPriceComparison";
+import { SupplierLocationSearch } from "@/components/supplier/SupplierLocationSearch";
 import { useSupplierPriceRealtime } from "@/hooks/useSupplierPriceRealtime";
 
 interface SupplierProduct {
@@ -123,7 +125,7 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
-  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison" | "location">("products");
 
   // Real-time price change notifications
   useSupplierPriceRealtime(session?.user?.id, 10, true);
@@ -566,7 +568,7 @@ export default function SupplierPage() {
     >
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-11 lg:w-auto lg:inline-grid">
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Produtos</span>
@@ -607,6 +609,10 @@ export default function SupplierPage() {
             <Scale className="h-4 w-4" />
             <span className="hidden sm:inline">Comparativo</span>
           </TabsTrigger>
+          <TabsTrigger value="location" className="gap-2">
+            <MapPin className="h-4 w-4" />
+            <span className="hidden sm:inline">Localização</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -618,6 +624,10 @@ export default function SupplierPage() {
 
       {activeTab === "comparison" && session?.user?.id && (
         <SupplierPriceComparison userId={session.user.id} />
+      )}
+
+      {activeTab === "location" && (
+        <SupplierLocationSearch />
       )}
 
       {activeTab === "alerts" && (
