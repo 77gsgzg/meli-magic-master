@@ -151,7 +151,9 @@ export type Database = {
       discovered_suppliers: {
         Row: {
           address: string | null
+          alert_new_products: boolean | null
           business_type: string | null
+          catalog_url: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -159,11 +161,14 @@ export type Database = {
           economic_profile: string | null
           id: string
           is_added_to_suppliers: boolean | null
+          is_favorite: boolean | null
+          last_product_check_at: string | null
           latitude: number | null
           longitude: number | null
           name: string
           phone: string | null
           place_id: string | null
+          product_count: number | null
           raw_data: Json | null
           source: string
           state: string | null
@@ -173,7 +178,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          alert_new_products?: boolean | null
           business_type?: string | null
+          catalog_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -181,11 +188,14 @@ export type Database = {
           economic_profile?: string | null
           id?: string
           is_added_to_suppliers?: boolean | null
+          is_favorite?: boolean | null
+          last_product_check_at?: string | null
           latitude?: number | null
           longitude?: number | null
           name: string
           phone?: string | null
           place_id?: string | null
+          product_count?: number | null
           raw_data?: Json | null
           source?: string
           state?: string | null
@@ -195,7 +205,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          alert_new_products?: boolean | null
           business_type?: string | null
+          catalog_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -203,11 +215,14 @@ export type Database = {
           economic_profile?: string | null
           id?: string
           is_added_to_suppliers?: boolean | null
+          is_favorite?: boolean | null
+          last_product_check_at?: string | null
           latitude?: number | null
           longitude?: number | null
           name?: string
           phone?: string | null
           place_id?: string | null
+          product_count?: number | null
           raw_data?: Json | null
           source?: string
           state?: string | null

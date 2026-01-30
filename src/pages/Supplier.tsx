@@ -71,6 +71,7 @@ import { PriceRecommendations } from "@/components/supplier/PriceRecommendations
 import { SupplierPriceHistoryChart } from "@/components/supplier/SupplierPriceHistoryChart";
 import { SupplierPriceComparison } from "@/components/supplier/SupplierPriceComparison";
 import { SupplierLocationSearch } from "@/components/supplier/SupplierLocationSearch";
+import { SupplierFavorites } from "@/components/supplier/SupplierFavorites";
 import { useSupplierPriceRealtime } from "@/hooks/useSupplierPriceRealtime";
 
 interface SupplierProduct {
@@ -125,7 +126,7 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
-  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison" | "location">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison" | "location" | "favorites">("products");
 
   // Real-time price change notifications
   useSupplierPriceRealtime(session?.user?.id, 10, true);
@@ -613,6 +614,10 @@ export default function SupplierPage() {
             <MapPin className="h-4 w-4" />
             <span className="hidden sm:inline">Localização</span>
           </TabsTrigger>
+          <TabsTrigger value="favorites" className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Favoritos</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -628,6 +633,10 @@ export default function SupplierPage() {
 
       {activeTab === "location" && (
         <SupplierLocationSearch />
+      )}
+
+      {activeTab === "favorites" && (
+        <SupplierFavorites />
       )}
 
       {activeTab === "alerts" && (

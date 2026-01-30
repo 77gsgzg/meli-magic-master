@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export interface DiscoveredSupplier {
+  id?: string;
   place_id: string;
   name: string;
   address: string | null;
@@ -19,11 +20,18 @@ export interface DiscoveredSupplier {
   distance_km: number | null;
   source: 'google_places' | 'local_database';
   raw_data: any;
+  is_favorite?: boolean;
+  catalog_url?: string | null;
+  alert_new_products?: boolean;
+  product_count?: number;
+  last_product_check_at?: string | null;
 }
 
 export interface SearchLocation {
   lat: number;
   lng: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface SearchParams {
