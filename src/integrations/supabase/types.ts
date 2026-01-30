@@ -148,6 +148,75 @@ export type Database = {
         }
         Relationships: []
       }
+      discovered_suppliers: {
+        Row: {
+          address: string | null
+          business_type: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          distance_km: number | null
+          economic_profile: string | null
+          id: string
+          is_added_to_suppliers: boolean | null
+          latitude: number | null
+          longitude: number | null
+          name: string
+          phone: string | null
+          place_id: string | null
+          raw_data: Json | null
+          source: string
+          state: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          distance_km?: number | null
+          economic_profile?: string | null
+          id?: string
+          is_added_to_suppliers?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          phone?: string | null
+          place_id?: string | null
+          raw_data?: Json | null
+          source?: string
+          state?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          distance_km?: number | null
+          economic_profile?: string | null
+          id?: string
+          is_added_to_suppliers?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          phone?: string | null
+          place_id?: string | null
+          raw_data?: Json | null
+          source?: string
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       goal_alerts: {
         Row: {
           acknowledged: boolean | null
