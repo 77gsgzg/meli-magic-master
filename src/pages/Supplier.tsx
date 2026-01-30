@@ -57,6 +57,8 @@ import {
   PieChart,
   Scale,
   MapPin,
+  Star,
+  BellRing,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
@@ -72,7 +74,10 @@ import { SupplierPriceHistoryChart } from "@/components/supplier/SupplierPriceHi
 import { SupplierPriceComparison } from "@/components/supplier/SupplierPriceComparison";
 import { SupplierLocationSearch } from "@/components/supplier/SupplierLocationSearch";
 import { SupplierFavorites } from "@/components/supplier/SupplierFavorites";
+import { FavoritesPriceComparison } from "@/components/supplier/FavoritesPriceComparison";
+import { FavoriteNotificationSettings } from "@/components/supplier/FavoriteNotificationSettings";
 import { useSupplierPriceRealtime } from "@/hooks/useSupplierPriceRealtime";
+import { useFavoriteSupplierNotifications } from "@/hooks/useFavoriteSupplierNotifications";
 
 interface SupplierProduct {
   id?: string;
@@ -126,10 +131,13 @@ export default function SupplierPage() {
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [viewMode, setViewMode] = useState<"import" | "saved">("import");
-  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison" | "location" | "favorites">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "bulk" | "sync" | "rescrape" | "profitability" | "recommendations" | "alerts" | "history" | "price-history" | "comparison" | "location" | "favorites" | "favorites-comparison" | "notifications">("products");
 
   // Real-time price change notifications
   useSupplierPriceRealtime(session?.user?.id, 10, true);
+  
+  // Favorite supplier notifications (new products and price changes)
+  useFavoriteSupplierNotifications(session?.user?.id, 5, true);
 
   // Load saved products from database
   useEffect(() => {
@@ -569,7 +577,7 @@ export default function SupplierPage() {
     >
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-11 lg:w-auto lg:inline-grid">
+        <TabsList className="flex flex-wrap gap-1 h-auto p-1">
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Produtos</span>
@@ -615,8 +623,16 @@ export default function SupplierPage() {
             <span className="hidden sm:inline">Localização</span>
           </TabsTrigger>
           <TabsTrigger value="favorites" className="gap-2">
-            <Store className="h-4 w-4" />
+            <Star className="h-4 w-4" />
             <span className="hidden sm:inline">Favoritos</span>
+          </TabsTrigger>
+          <TabsTrigger value="favorites-comparison" className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Comp. Favoritos</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <BellRing className="h-4 w-4" />
+            <span className="hidden sm:inline">Notificações</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -637,6 +653,14 @@ export default function SupplierPage() {
 
       {activeTab === "favorites" && (
         <SupplierFavorites />
+      )}
+
+      {activeTab === "favorites-comparison" && (
+        <FavoritesPriceComparison />
+      )}
+
+      {activeTab === "notifications" && (
+        <FavoriteNotificationSettings />
       )}
 
       {activeTab === "alerts" && (
