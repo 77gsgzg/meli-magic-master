@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MapPin, Search, Navigation, Building2, Factory, Truck, Wheat, Cpu, Shirt, UtensilsCrossed, HardHat, Plus, ExternalLink, Phone, Globe, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Search, Navigation, Building2, Factory, Truck, Wheat, Cpu, Shirt, UtensilsCrossed, HardHat, Plus, ExternalLink, Phone, Globe, Loader2, Star, Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSupplierLocationSearch, DiscoveredSupplier } from '@/hooks/useSupplierLocationSearch';
 import { SupplierLocationMap } from './SupplierLocationMap';
-
+import { SupplierGoogleMap } from './SupplierGoogleMap';
+import { supabase } from '@/integrations/supabase/client';
 const economicProfiles = [
   { value: 'industrial', label: 'Industrial', icon: Factory },
   { value: 'comercial', label: 'Comercial', icon: Building2 },
@@ -43,8 +44,45 @@ export function SupplierLocationSearch() {
   const [economicProfile, setEconomicProfile] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [radiusKm, setRadiusKm] = useState(50);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'map' | 'google-map'>('list');
   const [addingSupplier, setAddingSupplier] = useState<string | null>(null);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  // Load Google Maps API key from secrets
+  useEffect(() => {
+    const loadApiKey = async () => {
+      // The API key is set in Supabase secrets, we'll pass it through the edge function
+      // For client-side Google Maps, we need to expose it securely
+      try {
+        const { data } = await supabase.functions.invoke('search-suppliers-location', {
+          body: { action: 'get-maps-key' }
+        });
+        if (data?.googleMapsApiKey) {
+          setGoogleMapsApiKey(data.googleMapsApiKey);
+        }
+      } catch (error) {
+        console.log('Google Maps API key not available');
+      }
+    };
+    loadApiKey();
+    loadFavorites();
+  }, []);
+
+  const loadFavorites = async () => {
+    try {
+      const { data } = await supabase
+        .from('discovered_suppliers')
+        .select('place_id')
+        .eq('is_favorite', true);
+      
+      if (data) {
+        setFavoriteIds(new Set(data.map(d => d.place_id).filter(Boolean) as string[]));
+      }
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    }
+  };
 
   const handleLocationSearch = async () => {
     await searchByCurrentLocation({
@@ -67,6 +105,68 @@ export function SupplierLocationSearch() {
     setAddingSupplier(supplier.place_id);
     await addToSuppliers(supplier);
     setAddingSupplier(null);
+  };
+
+  const handleToggleFavorite = async (supplier: DiscoveredSupplier) => {
+    try {
+      const isFavorite = favoriteIds.has(supplier.place_id);
+      
+      // First ensure the supplier exists in the database
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { data: existing } = await supabase
+        .from('discovered_suppliers')
+        .select('id')
+        .eq('place_id', supplier.place_id)
+        .eq('user_id', user.user.id)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing
+        await supabase
+          .from('discovered_suppliers')
+          .update({ is_favorite: !isFavorite })
+          .eq('id', existing.id);
+      } else {
+        // Insert new with favorite flag
+        await supabase
+          .from('discovered_suppliers')
+          .insert({
+            user_id: user.user.id,
+            name: supplier.name,
+            address: supplier.address,
+            city: supplier.city,
+            state: supplier.state,
+            country: supplier.country,
+            latitude: supplier.latitude,
+            longitude: supplier.longitude,
+            phone: supplier.phone,
+            website: supplier.website,
+            place_id: supplier.place_id,
+            business_type: supplier.business_type,
+            economic_profile: supplier.economic_profile,
+            distance_km: supplier.distance_km,
+            source: supplier.source,
+            raw_data: supplier.raw_data,
+            is_favorite: true,
+            is_added_to_suppliers: true
+          } as any);
+      }
+
+      // Update local state
+      if (isFavorite) {
+        setFavoriteIds(prev => {
+          const next = new Set(prev);
+          next.delete(supplier.place_id);
+          return next;
+        });
+      } else {
+        setFavoriteIds(prev => new Set([...prev, supplier.place_id]));
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
   };
 
   return (
@@ -232,8 +332,17 @@ export function SupplierLocationSearch() {
                   size="sm"
                   onClick={() => setViewMode('map')}
                 >
-                  Mapa
+                  Mapa Simples
                 </Button>
+                {googleMapsApiKey && (
+                  <Button
+                    variant={viewMode === 'google-map' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('google-map')}
+                  >
+                    Google Maps
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={clearResults}>
                   Limpar
                 </Button>
@@ -247,6 +356,17 @@ export function SupplierLocationSearch() {
                 <p>{error}</p>
                 <p className="text-sm mt-2">Tente expandir o raio de busca ou buscar em outra cidade</p>
               </div>
+            ) : viewMode === 'google-map' && googleMapsApiKey ? (
+              <SupplierGoogleMap
+                suppliers={suppliers.map(s => ({
+                  ...s,
+                  is_favorite: favoriteIds.has(s.place_id)
+                }))}
+                searchLocation={searchLocation}
+                onAddSupplier={handleAddSupplier}
+                onToggleFavorite={handleToggleFavorite}
+                googleMapsApiKey={googleMapsApiKey}
+              />
             ) : viewMode === 'map' ? (
               <SupplierLocationMap
                 suppliers={suppliers}
@@ -260,7 +380,9 @@ export function SupplierLocationSearch() {
                     key={supplier.place_id}
                     supplier={supplier}
                     onAdd={handleAddSupplier}
+                    onToggleFavorite={handleToggleFavorite}
                     isAdding={addingSupplier === supplier.place_id}
+                    isFavorite={favoriteIds.has(supplier.place_id)}
                   />
                 ))}
               </div>
@@ -275,10 +397,12 @@ export function SupplierLocationSearch() {
 interface SupplierCardProps {
   supplier: DiscoveredSupplier;
   onAdd: (supplier: DiscoveredSupplier) => void;
+  onToggleFavorite: (supplier: DiscoveredSupplier) => void;
   isAdding: boolean;
+  isFavorite: boolean;
 }
 
-function SupplierCard({ supplier, onAdd, isAdding }: SupplierCardProps) {
+function SupplierCard({ supplier, onAdd, onToggleFavorite, isAdding, isFavorite }: SupplierCardProps) {
   return (
     <div className="flex items-start justify-between p-4 rounded-lg border bg-card/50 hover:bg-card/80 transition-colors">
       <div className="space-y-2 flex-1">
@@ -341,19 +465,28 @@ function SupplierCard({ supplier, onAdd, isAdding }: SupplierCardProps) {
         )}
       </div>
       
-      <Button
-        size="sm"
-        onClick={() => onAdd(supplier)}
-        disabled={isAdding}
-        className="ml-4"
-      >
-        {isAdding ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Plus className="h-4 w-4 mr-1" />
-        )}
-        Adicionar
-      </Button>
+      <div className="flex items-center gap-2 ml-4">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onToggleFavorite(supplier)}
+          className={isFavorite ? 'text-yellow-500' : 'text-muted-foreground'}
+        >
+          <Star className={`h-4 w-4 ${isFavorite ? 'fill-yellow-500' : ''}`} />
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onAdd(supplier)}
+          disabled={isAdding}
+        >
+          {isAdding ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 mr-1" />
+          )}
+          Adicionar
+        </Button>
+      </div>
     </div>
   );
 }
