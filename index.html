@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0c0f" />
+    <meta name="color-scheme" content="dark light" />
     <title>ML Manager - Automatize suas publicações no Mercado Livre com IA</title>
     <meta name="description" content="Sistema inteligente para criar, gerenciar e publicar produtos automaticamente no Mercado Livre. Otimização com IA, integração OAuth e publicação em um clique." />
     <meta name="keywords" content="mercado livre, automação, IA, produtos, e-commerce, publicação automática" />
@@ -17,6 +19,20 @@
     <meta name="twitter:description" content="Sistema inteligente para criar, gerenciar e publicar produtos automaticamente no Mercado Livre." />
     
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    
+    <!-- Prevent flash of unstyled content -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('ml-manager-theme') || 'dark';
+        if (theme === 'system') {
+          document.documentElement.classList.add(
+            window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          );
+        } else {
+          document.documentElement.classList.add(theme);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
