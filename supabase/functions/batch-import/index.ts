@@ -49,6 +49,36 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
+
+    // Rate limiting: 10 batch imports per minute per user
+    const RATE_LIMIT_WINDOW = 60000; // 1 minute
+    const RATE_LIMIT_MAX = 10;
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW);
+    
+    const { data: rateData } = await supabase
+      .from('rate_limit_tracking')
+      .select('request_count')
+      .eq('user_id', userId)
+      .eq('endpoint', 'batch-import')
+      .gte('window_start', windowStart.toISOString())
+      .single();
+
+    if (rateData && rateData.request_count >= RATE_LIMIT_MAX) {
+      console.warn(`Rate limit exceeded for user ${userId} on batch-import`);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit exceeded. Please wait before trying again.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update rate limit counter
+    await supabase.from('rate_limit_tracking').upsert({
+      user_id: userId,
+      endpoint: 'batch-import',
+      request_count: (rateData?.request_count || 0) + 1,
+      window_start: rateData ? undefined : new Date().toISOString(),
+    }, { onConflict: 'user_id,endpoint' });
+
     const body = await req.json();
     const { urls, resume_log_id, save_progress = true } = body;
 
