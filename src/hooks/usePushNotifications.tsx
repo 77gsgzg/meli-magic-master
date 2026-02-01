@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
 interface PushNotificationState {
@@ -14,6 +14,10 @@ export function usePushNotifications() {
     isEnabled: false,
   });
 
+  // Use refs to avoid recreating callbacks when state changes
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   useEffect(() => {
     const isSupported = "Notification" in window;
     const storedEnabled = localStorage.getItem("push_notifications_enabled") === "true";
@@ -26,7 +30,7 @@ export function usePushNotifications() {
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (!state.isSupported) {
+    if (!stateRef.current.isSupported) {
       toast.error("Notificações push não são suportadas neste navegador");
       return false;
     }
@@ -54,7 +58,7 @@ export function usePushNotifications() {
       toast.error("Erro ao solicitar permissão para notificações");
       return false;
     }
-  }, [state.isSupported]);
+  }, []);
 
   const disableNotifications = useCallback(() => {
     localStorage.setItem("push_notifications_enabled", "false");
@@ -66,7 +70,7 @@ export function usePushNotifications() {
   }, []);
 
   const enableNotifications = useCallback(async () => {
-    if (state.permission === "granted") {
+    if (stateRef.current.permission === "granted") {
       localStorage.setItem("push_notifications_enabled", "true");
       setState(prev => ({
         ...prev,
@@ -77,10 +81,10 @@ export function usePushNotifications() {
     } else {
       return await requestPermission();
     }
-  }, [state.permission, requestPermission]);
+  }, [requestPermission]);
 
   const sendNotification = useCallback((title: string, options?: NotificationOptions) => {
-    if (!state.isEnabled || state.permission !== "granted") {
+    if (!stateRef.current.isEnabled || stateRef.current.permission !== "granted") {
       return null;
     }
 
@@ -101,7 +105,7 @@ export function usePushNotifications() {
       console.error("Error sending notification:", error);
       return null;
     }
-  }, [state.isEnabled, state.permission]);
+  }, []);
 
   return {
     ...state,
