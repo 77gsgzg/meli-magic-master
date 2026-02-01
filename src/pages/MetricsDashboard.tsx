@@ -98,6 +98,21 @@ export default function MetricsDashboard() {
   const [chartsTab, setChartsTab] = useState<"overview" | "operations" | "hourly" | "tokens">("overview");
   const [compactCharts, setCompactCharts] = useState<boolean>(() => isMobile);
 
+  // Swipe hooks must be called at the top level, not inside render functions
+  const swipePrefs = useSwipePreferences();
+  const { handlers: chartsSwipeHandlers, swipeDirection: chartsSwipeDirection } = useSwipeTabs({
+    tabs: ["overview", "operations", "hourly", "tokens"] as const,
+    value: chartsTab,
+    onValueChange: (v) => setChartsTab(v),
+    enabled: isMobile,
+    hapticEnabled: swipePrefs.hapticEnabled,
+    soundEnabled: swipePrefs.soundEnabled,
+  });
+
+  // Chart heights based on compact mode
+  const hSmall = compactCharts ? 200 : 250;
+  const hMedium = compactCharts ? 240 : 300;
+
   const loadData = useCallback(async () => {
     if (!user) return;
 
@@ -679,22 +694,7 @@ export default function MetricsDashboard() {
           </Card>
 
           {/* Charts Section */}
-          {(() => {
-            const swipePrefs = useSwipePreferences();
-            const { handlers: swipeHandlers, swipeDirection } = useSwipeTabs({
-              tabs: ["overview", "operations", "hourly", "tokens"] as const,
-              value: chartsTab,
-              onValueChange: (v) => setChartsTab(v),
-              enabled: isMobile,
-              hapticEnabled: swipePrefs.hapticEnabled,
-              soundEnabled: swipePrefs.soundEnabled,
-            });
-
-            const hSmall = compactCharts ? 200 : 250;
-            const hMedium = compactCharts ? 240 : 300;
-
-            return (
-              <Tabs value={chartsTab} onValueChange={(v) => setChartsTab(v as typeof chartsTab)} className="space-y-4" {...swipeHandlers}>
+          <Tabs value={chartsTab} onValueChange={(v) => setChartsTab(v as typeof chartsTab)} className="space-y-4" {...chartsSwipeHandlers}>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <TabsList className="w-full md:w-auto flex flex-wrap h-auto gap-1 p-1">
                     <TabsTrigger value="overview" className="flex-1 md:flex-none text-xs md:text-sm">Visão Geral</TabsTrigger>
@@ -723,7 +723,7 @@ export default function MetricsDashboard() {
                   />
                 )}
 
-                <TabsContent value="overview" className="space-y-4" animated swipeDirection={swipeDirection}>
+                <TabsContent value="overview" className="space-y-4" animated swipeDirection={chartsSwipeDirection}>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {/* Daily Trend */}
                     <Card variant="glass">
@@ -834,7 +834,7 @@ export default function MetricsDashboard() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="operations" className="space-y-4" animated swipeDirection={swipeDirection}>
+                <TabsContent value="operations" className="space-y-4" animated swipeDirection={chartsSwipeDirection}>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -890,7 +890,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="hourly" className="space-y-4" animated swipeDirection={swipeDirection}>
+                <TabsContent value="hourly" className="space-y-4" animated swipeDirection={chartsSwipeDirection}>
                   <Card variant="glass">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -943,7 +943,7 @@ export default function MetricsDashboard() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="tokens" className="space-y-4" animated swipeDirection={swipeDirection}>
+                <TabsContent value="tokens" className="space-y-4" animated swipeDirection={chartsSwipeDirection}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <Card variant="glass">
                       <CardHeader className="pb-2">
@@ -1039,8 +1039,6 @@ export default function MetricsDashboard() {
                   </div>
                 </TabsContent>
               </Tabs>
-            );
-          })()}
           {/* Performance Stats */}
           <Card variant="glass">
             <CardHeader className="pb-2">
