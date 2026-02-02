@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AnimatedCard, AnimatedCardContent, AnimatedCardHeader, AnimatedCardTitle, AnimatedCardDescription } from "@/components/ui/animated-card";
 import { Textarea } from "@/components/ui/textarea";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -329,48 +330,48 @@ export function BatchImport() {
   // Not connected state
   if (!connection.connected && step === 'idle') {
     return (
-      <Card variant="glass" className="animate-fade-in overflow-hidden relative">
+      <AnimatedCard variant="glass" enableHover enableGlow className="overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-warning/5 via-transparent to-transparent" />
-        <CardHeader className="relative">
+        <AnimatedCardHeader className="relative">
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
               <Layers className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <CardTitle className="text-lg">Importação em Lote</CardTitle>
-              <CardDescription>Conecte o Mercado Livre para importar</CardDescription>
+              <AnimatedCardTitle className="text-lg">Importação em Lote</AnimatedCardTitle>
+              <AnimatedCardDescription>Conecte o Mercado Livre para importar</AnimatedCardDescription>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="relative">
-          <Button 
+        </AnimatedCardHeader>
+        <AnimatedCardContent className="relative">
+          <AnimatedButton 
             className="w-full" 
             variant="outline"
             onClick={() => navigate("/mercado-livre")}
           >
             Conectar Mercado Livre
-          </Button>
-        </CardContent>
-      </Card>
+          </AnimatedButton>
+        </AnimatedCardContent>
+      </AnimatedCard>
     );
   }
 
   return (
-    <Card variant="glass" className="animate-fade-in overflow-hidden relative">
+    <AnimatedCard variant="glass" enableHover enableGlow className="overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 via-transparent to-transparent" />
-      <CardHeader className="relative">
+      <AnimatedCardHeader className="relative">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
             <Layers className="h-5 w-5 text-secondary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-lg">Importação em Lote</CardTitle>
-            <CardDescription>
+            <AnimatedCardTitle className="text-lg">Importação em Lote</AnimatedCardTitle>
+            <AnimatedCardDescription>
               {step === 'idle' && `Publique até 20 produtos de uma vez`}
               {step === 'processing' && "Processando URLs..."}
               {step === 'paused' && "Importação pausada"}
               {step === 'complete' && "Importação concluída!"}
-            </CardDescription>
+            </AnimatedCardDescription>
           </div>
           {connection.connected && step === 'idle' && (
             <Badge variant="success" className="ml-auto">
@@ -378,9 +379,9 @@ export function BatchImport() {
             </Badge>
           )}
         </div>
-      </CardHeader>
+      </AnimatedCardHeader>
       
-      <CardContent className="relative space-y-4">
+      <AnimatedCardContent className="relative space-y-4">
         {/* Idle State - Input with Validation */}
         {step === 'idle' && (
           <>
@@ -458,7 +459,7 @@ export function BatchImport() {
               )}
             </div>
 
-            <Button
+            <AnimatedButton
               className="w-full gap-2"
               size="lg"
               onClick={handleBatchImport}
@@ -467,7 +468,7 @@ export function BatchImport() {
               <Play className="h-5 w-5" />
               Iniciar Importação em Lote
               {validUrls.length > 0 && ` (${validUrls.length})`}
-            </Button>
+            </AnimatedButton>
 
             <p className="text-xs text-center text-muted-foreground">
               Cada produto será extraído, otimizado e publicado automaticamente
@@ -499,7 +500,7 @@ export function BatchImport() {
             </div>
             
             {/* Pause Button */}
-            <Button
+            <AnimatedButton
               variant="outline"
               className="w-full gap-2"
               onClick={handlePause}
@@ -516,7 +517,7 @@ export function BatchImport() {
                   Pausar Importação
                 </>
               )}
-            </Button>
+            </AnimatedButton>
             
             <p className="text-xs text-center text-muted-foreground">
               O progresso será salvo automaticamente
@@ -554,21 +555,21 @@ export function BatchImport() {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button
+              <AnimatedButton
                 className="flex-1 gap-2"
                 onClick={handleResume}
               >
                 <Play className="h-4 w-4" />
                 Retomar
-              </Button>
-              <Button
+              </AnimatedButton>
+              <AnimatedButton
                 variant="outline"
                 className="gap-2"
                 onClick={handleReset}
               >
                 <RotateCcw className="h-4 w-4" />
                 Descartar
-              </Button>
+              </AnimatedButton>
             </div>
 
             <p className="text-xs text-center text-muted-foreground">
@@ -606,14 +607,14 @@ export function BatchImport() {
                       <div className="flex items-center gap-2">
                         {getStatusBadge(item.status)}
                         {item.ml_permalink && (
-                          <Button
+                          <AnimatedButton
                             variant="ghost"
                             size="sm"
                             className="h-5 px-1.5"
                             onClick={() => window.open(item.ml_permalink, '_blank')}
                           >
                             <ExternalLink className="h-3 w-3" />
-                          </Button>
+                          </AnimatedButton>
                         )}
                       </div>
                       {item.title ? (
@@ -640,13 +641,13 @@ export function BatchImport() {
 
             {/* Actions */}
             <div className="flex flex-col gap-2">
-              <Button 
+              <AnimatedButton 
                 className="w-full gap-2"
                 onClick={handleReset}
               >
                 <RotateCcw className="h-4 w-4" />
                 Nova Importação
-              </Button>
+              </AnimatedButton>
             </div>
 
             <p className="text-xs text-center text-muted-foreground">
@@ -654,7 +655,7 @@ export function BatchImport() {
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </AnimatedCardContent>
+    </AnimatedCard>
   );
 }

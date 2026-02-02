@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AnimatedCard, AnimatedCardContent, AnimatedCardHeader, AnimatedCardTitle, AnimatedCardDescription } from "@/components/ui/animated-card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -69,7 +69,6 @@ export function QuickImport() {
     setResult(null);
 
     try {
-      // Simulate progress steps
       const progressSteps = [
         { progress: 25, text: "Extraindo dados do produto..." },
         { progress: 50, text: "Otimizando com IA..." },
@@ -133,48 +132,48 @@ export function QuickImport() {
   // Not connected state
   if (!connection.connected && step === 'idle') {
     return (
-      <Card variant="glass" className="animate-fade-in overflow-hidden relative">
+      <AnimatedCard variant="glass" enableHover enableGlow className="overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-warning/5 via-transparent to-transparent" />
-        <CardHeader className="relative">
+        <AnimatedCardHeader className="relative">
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
               <Zap className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <CardTitle className="text-lg">Publicação Automática</CardTitle>
-              <CardDescription>Conecte o Mercado Livre para publicar</CardDescription>
+              <AnimatedCardTitle className="text-lg">Publicação Automática</AnimatedCardTitle>
+              <AnimatedCardDescription>Conecte o Mercado Livre para publicar</AnimatedCardDescription>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="relative">
-          <Button 
+        </AnimatedCardHeader>
+        <AnimatedCardContent className="relative">
+          <AnimatedButton 
             className="w-full" 
             variant="outline"
             onClick={() => navigate("/mercado-livre")}
           >
             Conectar Mercado Livre
-          </Button>
-        </CardContent>
-      </Card>
+          </AnimatedButton>
+        </AnimatedCardContent>
+      </AnimatedCard>
     );
   }
 
   return (
-    <Card variant="glass" className="animate-fade-in overflow-hidden relative">
+    <AnimatedCard variant="glass" enableHover enableGlow className="overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-      <CardHeader className="relative">
+      <AnimatedCardHeader className="relative">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg">Publicação Automática</CardTitle>
-            <CardDescription>
+            <AnimatedCardTitle className="text-lg">Publicação Automática</AnimatedCardTitle>
+            <AnimatedCardDescription>
               {step === 'idle' && "Cole o link → Publicação direta"}
               {step === 'processing' && "Processando..."}
               {step === 'success' && "Publicado com sucesso!"}
               {step === 'error' && "Erro na publicação"}
-            </CardDescription>
+            </AnimatedCardDescription>
           </div>
           {connection.connected && step === 'idle' && (
             <Badge variant="success" className="ml-auto">
@@ -182,9 +181,9 @@ export function QuickImport() {
             </Badge>
           )}
         </div>
-      </CardHeader>
+      </AnimatedCardHeader>
       
-      <CardContent className="relative space-y-4">
+      <AnimatedCardContent className="relative space-y-4">
         {/* Idle State - Input */}
         {step === 'idle' && (
           <>
@@ -199,7 +198,7 @@ export function QuickImport() {
                 onKeyDown={(e) => e.key === 'Enter' && handleAutoPublish()}
               />
             </div>
-            <Button
+            <AnimatedButton
               className="w-full"
               size="lg"
               onClick={handleAutoPublish}
@@ -207,7 +206,7 @@ export function QuickImport() {
             >
               <Sparkles className="h-5 w-5" />
               Publicar Automaticamente
-            </Button>
+            </AnimatedButton>
             <p className="text-xs text-center text-muted-foreground">
               Extração + Otimização IA + Publicação direta no Mercado Livre
             </p>
@@ -262,22 +261,22 @@ export function QuickImport() {
             </div>
             <div className="flex flex-col gap-2">
               {result.ml_permalink && (
-                <Button 
+                <AnimatedButton 
                   variant="outline" 
                   className="w-full gap-2"
                   onClick={() => window.open(result.ml_permalink, '_blank')}
                 >
                   <ExternalLink className="h-4 w-4" />
                   Ver no Mercado Livre
-                </Button>
+                </AnimatedButton>
               )}
-              <Button 
+              <AnimatedButton 
                 className="w-full gap-2"
                 onClick={handleReset}
               >
                 <RotateCcw className="h-4 w-4" />
                 Publicar Outro Produto
-              </Button>
+              </AnimatedButton>
             </div>
             <p className="text-xs text-center text-muted-foreground">
               ID: {result.ml_item_id} • {result.images_count} imagens
@@ -305,7 +304,7 @@ export function QuickImport() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Button 
+              <AnimatedButton 
                 className="w-full gap-2"
                 onClick={() => {
                   setStep('idle');
@@ -315,18 +314,18 @@ export function QuickImport() {
               >
                 <RotateCcw className="h-4 w-4" />
                 Tentar Novamente
-              </Button>
-              <Button 
+              </AnimatedButton>
+              <AnimatedButton 
                 variant="outline"
                 className="w-full"
                 onClick={handleReset}
               >
                 Novo Link
-              </Button>
+              </AnimatedButton>
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </AnimatedCardContent>
+    </AnimatedCard>
   );
 }
