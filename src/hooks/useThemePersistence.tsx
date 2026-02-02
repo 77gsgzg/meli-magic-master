@@ -3,8 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 
-// Extend user_preferences to include theme (we'll use local storage as fallback)
-const THEME_STORAGE_KEY = "ml-manager-theme";
+type ThemeType = "light" | "dark" | "system";
 
 export function useThemePersistence() {
   const { session } = useAuth();
@@ -16,22 +15,25 @@ export function useThemePersistence() {
 
     const loadThemeFromBackend = async () => {
       try {
-        const { data } = await supabase
+        // Use a raw query to select the theme column to avoid type issues
+        const { data, error } = await supabase
           .from("user_preferences")
-          .select("timezone")
+          .select("*")
           .eq("user_id", session.user.id)
           .single();
 
-        // We're using timezone field to store theme for now (hack)
-        // In a real app, you'd add a theme column
-        if (data?.timezone?.startsWith("theme:")) {
-          const savedTheme = data.timezone.replace("theme:", "") as "light" | "dark" | "system";
-          if (["light", "dark", "system"].includes(savedTheme)) {
-            setTheme(savedTheme);
-          }
+        if (error) {
+          console.warn("Could not load theme preference:", error.message);
+          return;
+        }
+
+        // Access theme from data (column might not be in types yet)
+        const savedTheme = (data as Record<string, unknown>)?.theme;
+        if (savedTheme && typeof savedTheme === 'string' && ["light", "dark", "system"].includes(savedTheme)) {
+          setTheme(savedTheme as ThemeType);
         }
       } catch {
-        // No preferences yet, use local storage
+        // No preferences yet, use local storage default
       }
     };
 
@@ -39,17 +41,21 @@ export function useThemePersistence() {
   }, [session?.user?.id, setTheme]);
 
   // Save theme to backend when it changes
-  const saveThemeToBackend = useCallback(async (newTheme: "light" | "dark" | "system") => {
+  const saveThemeToBackend = useCallback(async (newTheme: ThemeType) => {
     if (!session?.user?.id) return;
 
     try {
+      // Use type assertion to add theme column
+      const payload = {
+        user_id: session.user.id,
+        updated_at: new Date().toISOString(),
+      } as Record<string, unknown>;
+      
+      payload.theme = newTheme;
+
       await supabase
         .from("user_preferences")
-        .upsert({
-          user_id: session.user.id,
-          timezone: `theme:${newTheme}`,
-          updated_at: new Date().toISOString(),
-        }, {
+        .upsert(payload as never, {
           onConflict: "user_id",
         });
     } catch (error) {
@@ -58,7 +64,7 @@ export function useThemePersistence() {
   }, [session?.user?.id]);
 
   // Override setTheme to also persist to backend
-  const setThemeWithPersistence = useCallback((newTheme: "light" | "dark" | "system") => {
+  const setThemeWithPersistence = useCallback((newTheme: ThemeType) => {
     setTheme(newTheme);
     saveThemeToBackend(newTheme);
   }, [setTheme, saveThemeToBackend]);

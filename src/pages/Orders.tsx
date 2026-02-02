@@ -8,7 +8,9 @@ import { useOrderPushAlerts } from '@/hooks/useOrderPushAlerts';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useShippingDelayAlerts } from '@/hooks/useShippingDelayAlerts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AnimatedCard, AnimatedCardContent } from '@/components/ui/animated-card';
 import { Button } from '@/components/ui/button';
+import { AnimatedButton } from '@/components/ui/animated-button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -152,8 +154,8 @@ export default function Orders() {
     >
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <Card className="glass border-border/50">
-          <CardContent className="pt-6">
+        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+          <AnimatedCardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total de Pedidos</p>
@@ -161,11 +163,11 @@ export default function Orders() {
               </div>
               <ShoppingBag className="h-8 w-8 text-primary opacity-50" />
             </div>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card className="glass border-border/50">
-          <CardContent className="pt-6">
+        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+          <AnimatedCardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Aguardando Envio</p>
@@ -173,11 +175,11 @@ export default function Orders() {
               </div>
               <Clock className="h-8 w-8 text-yellow-600 opacity-50" />
             </div>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card className="glass border-border/50">
-          <CardContent className="pt-6">
+        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+          <AnimatedCardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Enviados</p>
@@ -185,11 +187,11 @@ export default function Orders() {
               </div>
               <Truck className="h-8 w-8 text-blue-600 opacity-50" />
             </div>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card className="glass border-border/50">
-          <CardContent className="pt-6">
+        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+          <AnimatedCardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Entregues</p>
@@ -197,8 +199,8 @@ export default function Orders() {
               </div>
               <CheckCircle className="h-8 w-8 text-emerald-600 opacity-50" />
             </div>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
       </div>
 
       {/* Filters and Actions */}
@@ -239,14 +241,14 @@ export default function Orders() {
                 </Button>
               )}
 
-              <Button onClick={syncOrders} disabled={syncing}>
+              <AnimatedButton onClick={syncOrders} disabled={syncing} enableGlow>
                 {syncing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <RefreshCw className="h-4 w-4 mr-2" />
                 )}
                 Sincronizar Pedidos
-              </Button>
+              </AnimatedButton>
             </div>
           </div>
         </CardContent>

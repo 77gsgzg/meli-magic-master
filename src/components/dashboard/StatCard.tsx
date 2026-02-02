@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedCard, AnimatedCardContent } from "@/components/ui/animated-card";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
@@ -13,8 +13,14 @@ interface StatCardProps {
 
 export function StatCard({ title, value, change, icon, trend = "neutral" }: StatCardProps) {
   return (
-    <Card variant="stat" className="animate-fade-in overflow-hidden">
-      <CardContent className="p-4 sm:p-5 lg:p-6">
+    <AnimatedCard 
+      variant="stat" 
+      enableHover={true}
+      enableGlow={true}
+      enableTap={true}
+      className="overflow-hidden"
+    >
+      <AnimatedCardContent className="p-4 sm:p-5 lg:p-6 pt-4 sm:pt-5 lg:pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1.5 sm:space-y-2 min-w-0 flex-1">
             <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">
@@ -51,7 +57,7 @@ export function StatCard({ title, value, change, icon, trend = "neutral" }: Stat
             {icon}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </AnimatedCardContent>
+    </AnimatedCard>
   );
 }
