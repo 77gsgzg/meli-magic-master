@@ -53,8 +53,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
+    
+    // Add transitioning class for smooth animation
+    root.classList.add("transitioning");
+    
     root.classList.remove("light", "dark");
     root.classList.add(resolvedTheme);
+    
+    // Remove transitioning class after animation completes
+    const timeout = setTimeout(() => {
+      root.classList.remove("transitioning");
+    }, 300);
+    
+    return () => clearTimeout(timeout);
   }, [resolvedTheme]);
 
   const setTheme = (newTheme: Theme) => {
