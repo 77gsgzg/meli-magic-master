@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { EmptyOrders } from '@/components/ui/empty-state';
 import {
   Select,
   SelectContent,
@@ -267,17 +268,7 @@ export default function Orders() {
               ))}
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Package className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                {orders.length === 0 ? 'Nenhum pedido encontrado' : 'Nenhum resultado'}
-              </h3>
-              <p className="text-muted-foreground max-w-md">
-                {orders.length === 0
-                  ? 'Quando você tiver vendas no Mercado Livre, elas aparecerão aqui. Clique em "Sincronizar Pedidos" para atualizar.'
-                  : 'Tente ajustar os filtros de busca.'}
-              </p>
-            </div>
+            <EmptyOrders onAction={orders.length === 0 ? syncOrders : undefined} />
           ) : (
             <Table>
               <TableHeader>

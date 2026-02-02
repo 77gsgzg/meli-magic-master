@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyProducts } from "@/components/ui/empty-state";
 import { SwipeIndicator } from "@/components/ui/SwipeIndicator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
@@ -61,6 +63,7 @@ export default function Products() {
   const { products, loading, deleteProduct, updateProduct, fetchProducts } = useProducts();
   const { optimizeProduct, loading: optimizing } = useAIOptimize();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProductStatus>("all");
@@ -334,22 +337,7 @@ export default function Products() {
 
         {/* Products Table */}
         {filteredProducts.length === 0 ? (
-          <Card variant="glass">
-            <CardContent className="py-12">
-              <div className="flex flex-col items-center justify-center text-center">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  {products.length === 0 ? "Nenhum produto ainda" : "Nenhum produto encontrado"}
-                </h3>
-                <p className="text-muted-foreground">
-                  {products.length === 0 
-                    ? "Importe seu primeiro produto para começar"
-                    : "Tente ajustar os filtros de busca"
-                  }
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyProducts onAction={products.length === 0 ? () => navigate('/import') : undefined} />
         ) : (
           <Card variant="glass">
             <CardContent className="p-0">
