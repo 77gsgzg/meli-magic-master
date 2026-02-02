@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedCard, AnimatedCardContent } from "@/components/ui/animated-card";
+import { 
+  AnimatedTable,
+  AnimatedTableHeader,
+  AnimatedTableBody,
+  AnimatedTableRow,
+  AnimatedTableHead,
+  AnimatedTableCell,
+} from "@/components/ui/animated-table";
+import { StaggerContainer, StaggerItem } from "@/components/ui/motion-wrapper";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AnimatedButton } from "@/components/ui/animated-button";
@@ -343,8 +352,8 @@ export default function Products() {
         ) : (
           <Card variant="glass">
             <CardContent className="p-0">
-              {/* Mobile Card View */}
-              <div className="block md:hidden divide-y divide-border/30">
+              {/* Mobile Card View with Stagger */}
+              <StaggerContainer className="block md:hidden divide-y divide-border/30">
                 {paginatedProducts.map((product) => {
                   const imageUrl = getFirstImage(product.images);
                   const status = statusMap[product.status || 'draft'] || statusMap.draft;
@@ -352,7 +361,7 @@ export default function Products() {
                   const isDeleting = deletingId === product.id;
                   
                   return (
-                    <div
+                    <StaggerItem
                       key={product.id}
                       className={`p-4 ${isDeleting || isOptimizing ? 'opacity-50' : ''}`}
                     >
@@ -450,37 +459,37 @@ export default function Products() {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </StaggerItem>
                   );
                 })}
-              </div>
+              </StaggerContainer>
 
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
+                <AnimatedTable>
+                  <AnimatedTableHeader>
                     <tr className="border-b border-border/50">
-                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      <AnimatedTableHead className="px-6 py-4">
                         Produto
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      </AnimatedTableHead>
+                      <AnimatedTableHead className="px-6 py-4">
                         Status
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      </AnimatedTableHead>
+                      <AnimatedTableHead className="px-6 py-4">
                         Preço
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      </AnimatedTableHead>
+                      <AnimatedTableHead className="px-6 py-4">
                         Estoque
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      </AnimatedTableHead>
+                      <AnimatedTableHead className="px-6 py-4">
                         Métricas
-                      </th>
-                      <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                      </AnimatedTableHead>
+                      <AnimatedTableHead className="px-6 py-4 text-right">
                         Ações
-                      </th>
+                      </AnimatedTableHead>
                     </tr>
-                  </thead>
-                  <tbody>
+                  </AnimatedTableHeader>
+                  <AnimatedTableBody>
                     {paginatedProducts.map((product) => {
                       const imageUrl = getFirstImage(product.images);
                       const status = statusMap[product.status || 'draft'] || statusMap.draft;
@@ -488,13 +497,12 @@ export default function Products() {
                       const isDeleting = deletingId === product.id;
                       
                       return (
-                        <tr
+                        <AnimatedTableRow
                           key={product.id}
-                          className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${
-                            isDeleting || isOptimizing ? 'opacity-50' : ''
-                          }`}
+                          enableHover={!isDeleting && !isOptimizing}
+                          className={isDeleting || isOptimizing ? 'opacity-50' : ''}
                         >
-                          <td className="px-6 py-4">
+                          <AnimatedTableCell className="px-6 py-4">
                             <div className="flex items-center gap-4">
                               {imageUrl ? (
                                 <img
@@ -529,8 +537,8 @@ export default function Products() {
                                 </p>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
+                          </AnimatedTableCell>
+                          <AnimatedTableCell className="px-6 py-4">
                             <Badge variant={status.variant}>
                               {status.label}
                             </Badge>
@@ -539,13 +547,13 @@ export default function Products() {
                                 {product.error_message}
                               </p>
                             )}
-                          </td>
-                          <td className="px-6 py-4">
+                          </AnimatedTableCell>
+                          <AnimatedTableCell className="px-6 py-4">
                             <span className="font-medium text-foreground">
                               {formatPrice(product.price, product.currency)}
                             </span>
-                          </td>
-                          <td className="px-6 py-4">
+                          </AnimatedTableCell>
+                          <AnimatedTableCell className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <Package className="h-4 w-4 text-muted-foreground" />
                               <span
@@ -558,8 +566,8 @@ export default function Products() {
                                 {product.available_quantity || 0} un.
                               </span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
+                          </AnimatedTableCell>
+                          <AnimatedTableCell className="px-6 py-4">
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Eye className="h-4 w-4" />
@@ -570,8 +578,8 @@ export default function Products() {
                                 {product.sales || 0}
                               </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
+                          </AnimatedTableCell>
+                          <AnimatedTableCell className="px-6 py-4 text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -611,12 +619,12 @@ export default function Products() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </td>
-                        </tr>
+                          </AnimatedTableCell>
+                        </AnimatedTableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </AnimatedTableBody>
+                </AnimatedTable>
               </div>
 
               {/* Pagination */}

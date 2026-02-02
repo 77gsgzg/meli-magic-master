@@ -15,6 +15,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { EmptyOrders } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/motion-wrapper';
+import {
+  AnimatedTable,
+  AnimatedTableHeader,
+  AnimatedTableBody,
+  AnimatedTableRow,
+  AnimatedTableHead,
+  AnimatedTableCell,
+} from '@/components/ui/animated-table';
 import {
   Select,
   SelectContent,
@@ -22,14 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -152,56 +153,64 @@ export default function Orders() {
       title="Pedidos" 
       subtitle="Gerencie vendas e envios do Mercado Livre"
     >
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
-          <AnimatedCardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total de Pedidos</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+      {/* Stats Cards with Stagger Animation */}
+      <StaggerContainer className="grid gap-4 md:grid-cols-4 mb-6">
+        <StaggerItem>
+          <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+            <AnimatedCardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Pedidos</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                </div>
+                <ShoppingBag className="h-8 w-8 text-primary opacity-50" />
               </div>
-              <ShoppingBag className="h-8 w-8 text-primary opacity-50" />
-            </div>
-          </AnimatedCardContent>
-        </AnimatedCard>
+            </AnimatedCardContent>
+          </AnimatedCard>
+        </StaggerItem>
 
-        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
-          <AnimatedCardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Aguardando Envio</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+        <StaggerItem>
+          <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+            <AnimatedCardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Aguardando Envio</p>
+                  <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+                </div>
+                <Clock className="h-8 w-8 text-yellow-600 opacity-50" />
               </div>
-              <Clock className="h-8 w-8 text-yellow-600 opacity-50" />
-            </div>
-          </AnimatedCardContent>
-        </AnimatedCard>
+            </AnimatedCardContent>
+          </AnimatedCard>
+        </StaggerItem>
 
-        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
-          <AnimatedCardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Enviados</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.shipped}</p>
+        <StaggerItem>
+          <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+            <AnimatedCardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Enviados</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.shipped}</p>
+                </div>
+                <Truck className="h-8 w-8 text-blue-600 opacity-50" />
               </div>
-              <Truck className="h-8 w-8 text-blue-600 opacity-50" />
-            </div>
-          </AnimatedCardContent>
-        </AnimatedCard>
+            </AnimatedCardContent>
+          </AnimatedCard>
+        </StaggerItem>
 
-        <AnimatedCard variant="glass" enableHover enableGlow enableTap>
-          <AnimatedCardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Entregues</p>
-                <p className="text-2xl font-bold text-emerald-600">{stats.delivered}</p>
+        <StaggerItem>
+          <AnimatedCard variant="glass" enableHover enableGlow enableTap>
+            <AnimatedCardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Entregues</p>
+                  <p className="text-2xl font-bold text-emerald-600">{stats.delivered}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-emerald-600 opacity-50" />
               </div>
-              <CheckCircle className="h-8 w-8 text-emerald-600 opacity-50" />
-            </div>
-          </AnimatedCardContent>
-        </AnimatedCard>
-      </div>
+            </AnimatedCardContent>
+          </AnimatedCard>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Filters and Actions */}
       <Card className="glass border-border/50 mb-6">
@@ -272,60 +281,61 @@ export default function Orders() {
           ) : filteredOrders.length === 0 ? (
             <EmptyOrders onAction={orders.length === 0 ? syncOrders : undefined} />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Comprador</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <AnimatedTable>
+              <AnimatedTableHeader>
+                <tr className="border-b border-border/50">
+                  <AnimatedTableHead className="px-4 py-3">Produto</AnimatedTableHead>
+                  <AnimatedTableHead className="px-4 py-3">Comprador</AnimatedTableHead>
+                  <AnimatedTableHead className="px-4 py-3">Valor</AnimatedTableHead>
+                  <AnimatedTableHead className="px-4 py-3">Status</AnimatedTableHead>
+                  <AnimatedTableHead className="px-4 py-3">Data</AnimatedTableHead>
+                  <AnimatedTableHead className="px-4 py-3 text-right">Ações</AnimatedTableHead>
+                </tr>
+              </AnimatedTableHeader>
+              <AnimatedTableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow 
+                  <AnimatedTableRow 
                     key={order.id} 
-                    className="cursor-pointer hover:bg-muted/50"
+                    enableHover
+                    enableTap
                     onClick={() => navigate(`/orders/${order.ml_order_id}`)}
                   >
-                    <TableCell>
+                    <AnimatedTableCell className="px-4 py-3">
                       <div className="max-w-[250px]">
                         <p className="font-medium truncate">{order.item_title}</p>
                         <p className="text-xs text-muted-foreground">
                           Qtd: {order.item_quantity} • ID: {order.ml_order_id}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </AnimatedTableCell>
+                    <AnimatedTableCell className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span>{order.buyer_nickname}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </AnimatedTableCell>
+                    <AnimatedTableCell className="px-4 py-3">
                       <span className="font-medium">
                         {order.currency_id} {order.total_amount?.toFixed(2) || order.unit_price.toFixed(2)}
                       </span>
-                    </TableCell>
-                    <TableCell>
+                    </AnimatedTableCell>
+                    <AnimatedTableCell className="px-4 py-3">
                       <Badge 
                         variant="outline" 
                         className={statusColors[order.shipping_status || order.status] || statusColors.pending}
                       >
                         {statusLabels[order.shipping_status || order.status] || order.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </AnimatedTableCell>
+                    <AnimatedTableCell className="px-4 py-3">
                       <div className="text-sm">
                         <p>{format(new Date(order.date_created), 'dd/MM/yyyy', { locale: ptBR })}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(order.date_created), { addSuffix: true, locale: ptBR })}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </AnimatedTableCell>
+                    <AnimatedTableCell className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="outline"
@@ -360,11 +370,11 @@ export default function Orders() {
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </AnimatedTableCell>
+                  </AnimatedTableRow>
                 ))}
-              </TableBody>
-            </Table>
+              </AnimatedTableBody>
+            </AnimatedTable>
           )}
         </CardContent>
       </Card>

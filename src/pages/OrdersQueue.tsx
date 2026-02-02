@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StaggerContainer, StaggerItem } from "@/components/ui/motion-wrapper";
 import { toast } from "sonner";
 import { Loader2, Printer, Send, Truck } from "lucide-react";
 
@@ -125,9 +126,9 @@ export default function OrdersQueue() {
                 </div>
               </div>
 
-              <div className="divide-y divide-border rounded-lg border border-border/50 overflow-hidden">
+              <StaggerContainer className="divide-y divide-border rounded-lg border border-border/50 overflow-hidden">
                 {pending.map((o) => (
-                  <div key={o.id} className="flex items-start gap-3 p-3 bg-background/40">
+                  <StaggerItem key={o.id} className="flex items-start gap-3 p-3 bg-background/40">
                     <Checkbox
                       className="mt-1"
                       checked={!!selected[o.ml_order_id]}
@@ -154,9 +155,9 @@ export default function OrdersQueue() {
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </StaggerItem>
                 ))}
-              </div>
+              </StaggerContainer>
             </div>
           )}
         </CardContent>
