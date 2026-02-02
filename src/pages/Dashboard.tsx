@@ -10,6 +10,7 @@ import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivr
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StaggerContainer, StaggerItem } from "@/components/ui/motion-wrapper";
 
 export default function Dashboard() {
   const { products, loading, getProductStats } = useProducts();
@@ -53,38 +54,48 @@ export default function Dashboard() {
       subtitle="Gerencie seus produtos do Mercado Livre"
     >
       <div className="space-y-4 md:space-y-6">
-        {/* Stats Grid */}
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <StatCard
-            title="Total de Produtos"
-            value={stats.total}
-            icon={<Package className="h-5 w-5 md:h-6 md:w-6" />}
-          />
-          <StatCard
-            title="Publicados"
-            value={stats.published}
-            trend="up"
-            icon={<CheckCircle className="h-5 w-5 md:h-6 md:w-6" />}
-          />
-          <StatCard
-            title="Taxa de Sucesso"
-            value={`${successRate}%`}
-            trend={successRate >= 80 ? "up" : "down"}
-            icon={<TrendingUp className="h-5 w-5 md:h-6 md:w-6" />}
-          />
-          <StatCard
-            title="Vendas Totais"
-            value={totalSales}
-            trend="up"
-            icon={<ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />}
-          />
-          <StatCard
-            title="Erros"
-            value={stats.errors}
-            trend={stats.errors > 0 ? "down" : "up"}
-            icon={<AlertCircle className="h-5 w-5 md:h-6 md:w-6" />}
-          />
-        </div>
+        {/* Stats Grid with Stagger Animation */}
+        <StaggerContainer className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <StaggerItem>
+            <StatCard
+              title="Total de Produtos"
+              value={stats.total}
+              icon={<Package className="h-5 w-5 md:h-6 md:w-6" />}
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard
+              title="Publicados"
+              value={stats.published}
+              trend="up"
+              icon={<CheckCircle className="h-5 w-5 md:h-6 md:w-6" />}
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard
+              title="Taxa de Sucesso"
+              value={`${successRate}%`}
+              trend={successRate >= 80 ? "up" : "down"}
+              icon={<TrendingUp className="h-5 w-5 md:h-6 md:w-6" />}
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard
+              title="Vendas Totais"
+              value={totalSales}
+              trend="up"
+              icon={<ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />}
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <StatCard
+              title="Erros"
+              value={stats.errors}
+              trend={stats.errors > 0 ? "down" : "up"}
+              icon={<AlertCircle className="h-5 w-5 md:h-6 md:w-6" />}
+            />
+          </StaggerItem>
+        </StaggerContainer>
 
         {/* Main Content */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
