@@ -1249,6 +1249,7 @@ export type Database = {
           supplier_price_threshold: number | null
           swipe_haptic_enabled: boolean | null
           swipe_sound_enabled: boolean | null
+          theme: string | null
           timezone: string | null
           updated_at: string
           user_id: string
@@ -1268,6 +1269,7 @@ export type Database = {
           supplier_price_threshold?: number | null
           swipe_haptic_enabled?: boolean | null
           swipe_sound_enabled?: boolean | null
+          theme?: string | null
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -1287,6 +1289,7 @@ export type Database = {
           supplier_price_threshold?: number | null
           swipe_haptic_enabled?: boolean | null
           swipe_sound_enabled?: boolean | null
+          theme?: string | null
           timezone?: string | null
           updated_at?: string
           user_id?: string
