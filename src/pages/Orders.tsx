@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnimatedCard, AnimatedCardContent } from '@/components/ui/animated-card';
 import { Button } from '@/components/ui/button';
 import { AnimatedButton } from '@/components/ui/animated-button';
-import { Badge } from '@/components/ui/badge';
+import { AnimatedBadge } from '@/components/ui/animated-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { EmptyOrders } from '@/components/ui/empty-state';
@@ -320,12 +320,13 @@ export default function Orders() {
                       </span>
                     </AnimatedTableCell>
                     <AnimatedTableCell className="px-4 py-3">
-                      <Badge 
-                        variant="outline" 
+                      <AnimatedBadge 
+                        variant={order.status === 'cancelled' ? 'destructive' : order.status === 'pending' ? 'warning' : 'outline'}
+                        animation={order.status === 'cancelled' ? 'pulse' : order.status === 'pending' ? 'bounce' : 'none'}
                         className={statusColors[order.shipping_status || order.status] || statusColors.pending}
                       >
                         {statusLabels[order.shipping_status || order.status] || order.status}
-                      </Badge>
+                      </AnimatedBadge>
                     </AnimatedTableCell>
                     <AnimatedTableCell className="px-4 py-3">
                       <div className="text-sm">

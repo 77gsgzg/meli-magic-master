@@ -1,6 +1,6 @@
 import { MLOrder } from '@/hooks/useOrders';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { AnimatedBadge } from '@/components/ui/animated-badge';
 import { Button } from '@/components/ui/button';
 import { Package, User, MapPin, Truck, Send, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -79,12 +79,13 @@ export function OrderCard({ order, onShip, onViewDetails, isShipping }: OrderCar
 
           {/* Status & Actions */}
           <div className="flex items-center gap-3">
-            <Badge 
-              variant="outline" 
+            <AnimatedBadge 
+              variant={order.status === 'cancelled' ? 'destructive' : order.status === 'pending' ? 'warning' : 'outline'}
+              animation={order.status === 'cancelled' ? 'pulse' : order.status === 'pending' ? 'bounce' : 'none'}
               className={statusColors[order.shipping_status || order.status] || statusColors.pending}
             >
               {statusLabels[order.shipping_status || order.status] || order.status}
-            </Badge>
+            </AnimatedBadge>
 
             <div className="text-sm text-muted-foreground">
               {format(new Date(order.date_created), 'dd/MM', { locale: ptBR })}
