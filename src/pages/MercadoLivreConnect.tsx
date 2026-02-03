@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useMercadoLivre } from "@/hooks/useMercadoLivre";
+import { useMercadoLivreOAuth, ML_OAUTH_CONFIG } from "@/hooks/useMercadoLivreOAuth";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -24,52 +25,33 @@ export default function MercadoLivreConnect() {
   const {
     connection,
     loading: mlLoading,
-    getAuthUrl,
-    handleCallback,
     disconnect,
     refreshToken,
     checkConnection,
   } = useMercadoLivre();
+  
+  const { startAuth, isProcessingCallback } = useMercadoLivreOAuth();
   
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [callbackProcessed, setCallbackProcessed] = useState(false);
 
-  // Handle OAuth callback
+  // Verifica se está processando callback na URL atual
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code && !callbackProcessed) {
-      setCallbackProcessed(true);
-      handleOAuthCallback(code);
+    if (code) {
+      setIsConnecting(true);
     }
-  }, [searchParams, callbackProcessed]);
-
-  const handleOAuthCallback = async (code: string) => {
-    setIsConnecting(true);
-    try {
-      const redirectUri = `${window.location.origin}/mercado-livre`;
-      const success = await handleCallback(code, redirectUri);
-      if (success) {
-        // Clean URL
-        window.history.replaceState({}, document.title, "/mercado-livre");
-        await checkConnection();
-      }
-    } finally {
-      setIsConnecting(false);
-    }
-  };
+  }, [searchParams]);
 
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const redirectUri = `${window.location.origin}/mercado-livre`;
-      const authUrl = await getAuthUrl(redirectUri);
-      if (authUrl) {
-        window.location.href = authUrl;
-      } else {
+      // Usa o novo hook que sempre redireciona para o domínio raiz
+      const success = await startAuth();
+      if (!success) {
         setIsConnecting(false);
       }
     } catch (error) {

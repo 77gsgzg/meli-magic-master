@@ -49,13 +49,6 @@ export function useMercadoLivre() {
     }
 
     try {
-      // Legacy invoke mantido apenas para compatibilidade, pode ser removido futuramente
-      await supabase.functions.invoke('ml-oauth', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: {},
-        method: 'GET',
-      });
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=status`,
         {
