@@ -3,8 +3,14 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMercadoLivre } from './useMercadoLivre';
 import { toast } from 'sonner';
 
-// Domínio raiz fixo para OAuth - nunca muda
-const ROOT_DOMAIN = 'https://gwjtwht.lovable.app';
+// Detecta automaticamente o domínio atual
+const getOrigin = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'https://gwjtwht.lovable.app'; // Fallback para SSR
+};
+
 const OAUTH_CALLBACK_PATH = '/';
 
 /**
@@ -55,8 +61,8 @@ export function useMercadoLivreOAuth() {
         return;
       }
 
-      // Sempre usa o domínio raiz como redirect_uri
-      const redirectUri = ROOT_DOMAIN + OAUTH_CALLBACK_PATH;
+      // Usa o domínio atual como redirect_uri
+      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
       const success = await handleCallback(code, redirectUri);
       
       if (success) {
@@ -96,7 +102,9 @@ export function useMercadoLivreOAuth() {
   const startAuth = useCallback(async () => {
     try {
       const state = generateState();
-      const redirectUri = ROOT_DOMAIN + OAUTH_CALLBACK_PATH;
+      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
+      
+      console.log('[ML OAuth] Iniciando auth com redirect_uri:', redirectUri);
       
       const authUrl = await getAuthUrl(redirectUri);
       
@@ -107,6 +115,7 @@ export function useMercadoLivreOAuth() {
           url.searchParams.set('state', state);
         }
         
+        console.log('[ML OAuth] Redirecionando para:', url.toString());
         window.location.href = url.toString();
         return true;
       }
@@ -150,7 +159,6 @@ export function useMercadoLivreOAuth() {
  * Constantes exportadas para uso em outros componentes
  */
 export const ML_OAUTH_CONFIG = {
-  ROOT_DOMAIN,
   CALLBACK_PATH: OAUTH_CALLBACK_PATH,
-  getRedirectUri: () => ROOT_DOMAIN + OAUTH_CALLBACK_PATH,
+  getRedirectUri: () => getOrigin() + OAUTH_CALLBACK_PATH,
 };
