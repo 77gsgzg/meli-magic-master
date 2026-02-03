@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedBadge } from "@/components/ui/animated-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyProducts } from "@/components/ui/empty-state";
@@ -390,9 +391,13 @@ export default function Products() {
                                     IA
                                   </Badge>
                                 )}
-                                <Badge variant={status.variant} className="text-[10px] px-1.5 py-0">
+                                <AnimatedBadge 
+                                  variant={status.variant} 
+                                  animation={product.status === 'error' ? 'pulse' : product.status === 'pending' ? 'bounce' : 'none'}
+                                  className="text-[10px] px-1.5 py-0"
+                                >
                                   {status.label}
-                                </Badge>
+                                </AnimatedBadge>
                               </div>
                             </div>
                             <DropdownMenu>
@@ -539,9 +544,12 @@ export default function Products() {
                             </div>
                           </AnimatedTableCell>
                           <AnimatedTableCell className="px-6 py-4">
-                            <Badge variant={status.variant}>
+                            <AnimatedBadge 
+                              variant={status.variant}
+                              animation={product.status === 'error' ? 'pulse' : product.status === 'pending' ? 'bounce' : 'none'}
+                            >
                               {status.label}
-                            </Badge>
+                            </AnimatedBadge>
                             {product.error_message && (
                               <p className="text-xs text-destructive mt-1 max-w-32 truncate" title={product.error_message}>
                                 {product.error_message}
