@@ -435,10 +435,51 @@ Otimize para Mercado Livre. Retorne apenas JSON.`
     console.log('[AUTO-PUBLISH] Product saved:', savedProductId);
 
     // ===========================================
-    // STEP 5: Publish to Mercado Livre
+    // STEP 5: Download and Store Images
+    // ===========================================
+    console.log('[AUTO-PUBLISH] Step 4: Downloading and storing images...');
+
+    let imagesToUse = extractedData.images.slice(0, 10);
+    
+    // Try to download and store images in our storage
+    try {
+      const downloadResponse = await fetch(`${SUPABASE_URL}/functions/v1/download-images`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          imageUrls: extractedData.images.slice(0, 10),
+          productId: savedProductId
+        }),
+      });
+
+      const downloadResult = await downloadResponse.json();
+
+      if (downloadResult.success && downloadResult.storedUrls?.length > 0) {
+        console.log(`[AUTO-PUBLISH] Successfully stored ${downloadResult.storedUrls.length} images`);
+        imagesToUse = downloadResult.storedUrls;
+        
+        // Update product with stored image URLs
+        await supabase
+          .from('products')
+          .update({ images: imagesToUse })
+          .eq('id', savedProductId);
+      } else {
+        console.warn('[AUTO-PUBLISH] Image download failed, using original URLs:', downloadResult.error);
+        // Continue with original URLs as fallback
+      }
+    } catch (downloadError) {
+      console.warn('[AUTO-PUBLISH] Image download error, using original URLs:', downloadError);
+      // Continue with original URLs as fallback
+    }
+
+    // ===========================================
+    // STEP 6: Publish to Mercado Livre
     // ===========================================
     currentStep = 'publish';
-    console.log('[AUTO-PUBLISH] Step 4: Publishing to Mercado Livre...');
+    console.log('[AUTO-PUBLISH] Step 5: Publishing to Mercado Livre...');
 
     const mlItemData = {
       title: optimizedTitle,
@@ -450,14 +491,15 @@ Otimize para Mercado Livre. Retorne apenas JSON.`
       condition: 'new',
       listing_type_id: 'gold_special',
       description: { plain_text: optimizedDescription || `${optimizedTitle}. Produto novo e original.` },
-      pictures: extractedData.images.slice(0, 10).map((imgUrl: string) => ({ source: imgUrl })),
+      pictures: imagesToUse.map((imgUrl: string) => ({ source: imgUrl })),
     };
 
     console.log('[AUTO-PUBLISH] ML payload:', { 
       title: mlItemData.title, 
       category_id: mlItemData.category_id,
       price: mlItemData.price,
-      pictures: mlItemData.pictures.length 
+      pictures: mlItemData.pictures.length,
+      usingStoredImages: imagesToUse !== extractedData.images.slice(0, 10)
     });
 
     const publishResponse = await fetch(`${ML_API_BASE}/items`, {
