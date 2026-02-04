@@ -12,7 +12,7 @@ const getOrigin = () => {
   return 'https://gwjtwht.lovable.app'; // Fallback para SSR
 };
 
-const OAUTH_CALLBACK_PATH = '/';
+const OAUTH_CALLBACK_PATH = '/mercado-livre';
 
 // Funções PKCE
 const generateCodeVerifier = (): string => {
