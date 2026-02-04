@@ -88,9 +88,12 @@ serve(async (req) => {
       );
     }
 
-    // Generate OAuth URL for authorization
+    // Generate OAuth URL for authorization with PKCE support
     if (action === 'authorize') {
       const redirectUri = url.searchParams.get('redirect_uri');
+      const codeChallenge = url.searchParams.get('code_challenge');
+      const codeChallengeMethod = url.searchParams.get('code_challenge_method') || 'S256';
+      
       if (!redirectUri || !isAllowedRedirectUri(redirectUri)) {
         return new Response(
           JSON.stringify({ error: 'Invalid redirect_uri' }),
@@ -98,9 +101,16 @@ serve(async (req) => {
         );
       }
 
-      const authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      let authUrl = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
       
-      console.log('Generated ML OAuth URL');
+      // Adiciona parâmetros PKCE se fornecidos
+      if (codeChallenge) {
+        authUrl += `&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=${codeChallengeMethod}`;
+        console.log('Generated ML OAuth URL with PKCE');
+      } else {
+        console.log('Generated ML OAuth URL without PKCE');
+      }
+      
       return new Response(
         JSON.stringify({ auth_url: authUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -130,7 +140,7 @@ serve(async (req) => {
       }
 
       const userId = claimsData.claims.sub;
-      const { code, redirect_uri } = await req.json();
+      const { code, redirect_uri, code_verifier } = await req.json();
 
       if (!code || !redirect_uri || !isAllowedRedirectUri(redirect_uri)) {
         return new Response(
@@ -141,17 +151,26 @@ serve(async (req) => {
 
       console.log('Exchanging ML code for tokens...');
 
+      // Prepara os parâmetros para troca de token
+      const tokenParams: Record<string, string> = {
+        grant_type: 'authorization_code',
+        client_id: ML_CLIENT_ID,
+        client_secret: ML_CLIENT_SECRET,
+        code,
+        redirect_uri,
+      };
+
+      // Adiciona code_verifier se PKCE estiver habilitado
+      if (code_verifier) {
+        tokenParams.code_verifier = code_verifier;
+        console.log('Token exchange with PKCE code_verifier');
+      }
+
       // Exchange code for tokens
       const tokenResponse = await fetch('https://api.mercadolibre.com/oauth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: ML_CLIENT_ID,
-          client_secret: ML_CLIENT_SECRET,
-          code,
-          redirect_uri,
-        }),
+        body: new URLSearchParams(tokenParams),
       });
 
       const tokenData = await tokenResponse.json();
