@@ -75,18 +75,22 @@ export function useMercadoLivre() {
     checkConnection();
   }, [session]);
 
-  const getAuthUrl = async (redirectUri: string): Promise<string | null> => {
+  const getAuthUrl = async (redirectUri: string, codeChallenge?: string): Promise<string | null> => {
     if (!session?.access_token) return null;
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      let url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      
+      // Adiciona code_challenge se PKCE estiver habilitado
+      if (codeChallenge) {
+        url += `&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
       const result = await response.json();
 
@@ -103,10 +107,17 @@ export function useMercadoLivre() {
     }
   };
 
-  const handleCallback = async (code: string, redirectUri: string): Promise<boolean> => {
+  const handleCallback = async (code: string, redirectUri: string, codeVerifier?: string): Promise<boolean> => {
     if (!session?.access_token) return false;
 
     try {
+      const body: Record<string, string> = { code, redirect_uri: redirectUri };
+      
+      // Adiciona code_verifier se PKCE estiver habilitado
+      if (codeVerifier) {
+        body.code_verifier = codeVerifier;
+      }
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=callback`,
         {
@@ -115,7 +126,7 @@ export function useMercadoLivre() {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code, redirect_uri: redirectUri }),
+          body: JSON.stringify(body),
         }
       );
 
