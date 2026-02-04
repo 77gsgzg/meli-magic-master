@@ -108,7 +108,14 @@ export function useMercadoLivre() {
   };
 
   const handleCallback = async (code: string, redirectUri: string, codeVerifier?: string): Promise<boolean> => {
-    if (!session?.access_token) return false;
+    console.log('[ML handleCallback] Iniciando troca de token...');
+    console.log('[ML handleCallback] session disponível:', !!session?.access_token);
+    
+    if (!session?.access_token) {
+      console.error('[ML handleCallback] Sem sessão ativa - usuário não autenticado');
+      toast.error('Sessão expirada. Faça login novamente.');
+      return false;
+    }
 
     try {
       const body: Record<string, string> = { code, redirect_uri: redirectUri };
@@ -116,7 +123,12 @@ export function useMercadoLivre() {
       // Adiciona code_verifier se PKCE estiver habilitado
       if (codeVerifier) {
         body.code_verifier = codeVerifier;
+        console.log('[ML handleCallback] code_verifier incluído no body');
+      } else {
+        console.warn('[ML handleCallback] code_verifier NÃO fornecido');
       }
+
+      console.log('[ML handleCallback] Enviando request para ml-oauth callback...');
       
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-oauth?action=callback`,
@@ -130,7 +142,10 @@ export function useMercadoLivre() {
         }
       );
 
+      console.log('[ML handleCallback] Response status:', response.status);
+      
       const result = await response.json();
+      console.log('[ML handleCallback] Response body:', result);
 
       if (response.ok && result.success) {
         setConnection({
@@ -138,14 +153,15 @@ export function useMercadoLivre() {
           nickname: result.seller?.nickname,
           seller_id: result.seller?.id?.toString(),
         });
-        toast.success('Mercado Livre conectado com sucesso!');
+        // Não mostrar toast aqui - será mostrado no hook OAuth
         return true;
       }
 
+      console.error('[ML handleCallback] Erro:', result.error);
       toast.error(mapMlError(result.error));
       return false;
     } catch (error) {
-      console.error('Error handling callback:', error);
+      console.error('[ML handleCallback] Erro na requisição:', error);
       toast.error('Erro ao processar autorização');
       return false;
     }
