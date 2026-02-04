@@ -7,6 +7,7 @@ import { ScheduledBatchImports } from "@/components/dashboard/ScheduledBatchImpo
 import { ResumableImports } from "@/components/dashboard/ResumableImports";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
+import { StorageImageViewer } from "@/components/dashboard/StorageImageViewer";
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,6 +110,7 @@ export default function Dashboard() {
             <RecentProducts products={products.slice(0, 5)} />
           </div>
           <div className="space-y-4">
+            <StorageImageViewer />
             <ActivityFeed />
             {/* Indicadores em tempo real da integração Mercado Livre */}
             <MercadoLivreStatusIndicators />
