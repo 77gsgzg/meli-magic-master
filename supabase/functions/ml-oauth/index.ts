@@ -15,11 +15,24 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
 
-    const ML_CLIENT_ID = Deno.env.get('ML_CLIENT_ID');
-    const ML_CLIENT_SECRET = Deno.env.get('ML_CLIENT_SECRET');
+    // Normalize env vars to avoid issues with accidental quotes/whitespace
+    const normalizeEnv = (v: string | undefined | null) =>
+      v?.trim().replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '');
+
+    const ML_CLIENT_ID = normalizeEnv(Deno.env.get('ML_CLIENT_ID'));
+    const ML_CLIENT_SECRET = normalizeEnv(Deno.env.get('ML_CLIENT_SECRET'));
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const ML_TOKEN_ENC_KEY = Deno.env.get('ML_TOKEN_ENC_KEY');
+
+    // Safe diagnostics (never log secret values)
+    console.log('[ML OAuth] Env present:', {
+      hasClientId: !!ML_CLIENT_ID,
+      hasClientSecret: !!ML_CLIENT_SECRET,
+      clientIdLength: ML_CLIENT_ID?.length ?? 0,
+      clientSecretLength: ML_CLIENT_SECRET?.length ?? 0,
+      hasTokenEncKey: !!ML_TOKEN_ENC_KEY,
+    });
 
     // Flag para indicar se a encriptação está disponível
     let encryptionEnabled = false;
@@ -109,7 +122,10 @@ serve(async (req) => {
     };
 
     if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
-      console.error('ML credentials not configured');
+      console.error('ML credentials not configured (missing env vars)', {
+        hasClientId: !!ML_CLIENT_ID,
+        hasClientSecret: !!ML_CLIENT_SECRET,
+      });
       return new Response(
         JSON.stringify({ error: 'Mercado Livre credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -203,8 +219,15 @@ serve(async (req) => {
 
       const tokenData = await tokenResponse.json();
 
-      if (!tokenResponse.ok) {
-        console.error('ML token error:', tokenData);
+       if (!tokenResponse.ok) {
+         console.error('ML token error:', {
+           status: tokenResponse.status,
+           body: tokenData,
+           env: {
+             hasClientId: !!ML_CLIENT_ID,
+             hasClientSecret: !!ML_CLIENT_SECRET,
+           },
+         });
         return new Response(
           JSON.stringify({ error: tokenData.message || 'Failed to exchange code' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
