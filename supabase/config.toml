@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.search-suppliers-location]
 verify_jwt = false
+
+[functions.download-images]
+verify_jwt = false
+
+[functions.cleanup-storage]
+verify_jwt = false

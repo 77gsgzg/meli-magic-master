@@ -349,25 +349,84 @@ function extractProductData(html: string, url: string) {
     data.description = ogDescMatch[1].trim();
   }
 
-  // Extract price patterns
-  const pricePatterns = [
-    /R\$\s*([\d.,]+)/gi,
-    /"price":\s*"?([\d.,]+)"?/gi,
-    /data-price=["']?([\d.,]+)["']?/gi,
-    /class=["'][^"']*price[^"']*["'][^>]*>R?\$?\s*([\d.,]+)/gi,
-  ];
-
-  for (const pattern of pricePatterns) {
-    const match = pattern.exec(html);
-    if (match) {
-      const priceStr = match[1].replace(/\./g, '').replace(',', '.');
-      const price = parseFloat(priceStr);
-      if (!isNaN(price) && price > 0 && price < 1000000) {
-        data.price = price;
-        break;
+  // ROBUST price extraction with multiple patterns and validation
+  const extractPrice = (htmlContent: string): number | null => {
+    const prices: number[] = [];
+    
+    // Pattern 1: JSON-LD structured data (most reliable)
+    const jsonLdMatch = htmlContent.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatch) {
+      for (const script of jsonLdMatch) {
+        try {
+          const jsonContent = script.replace(/<\/?script[^>]*>/gi, '');
+          const parsed = JSON.parse(jsonContent);
+          const priceValue = parsed.offers?.price || parsed.price || 
+                            (Array.isArray(parsed.offers) ? parsed.offers[0]?.price : null);
+          if (priceValue && Number(priceValue) > 0) {
+            prices.push(Number(priceValue));
+          }
+        } catch {}
       }
     }
-  }
+
+    // Pattern 2: Meta tags with price
+    const metaPriceMatch = htmlContent.match(/<meta[^>]*property=["']product:price:amount["'][^>]*content=["']?([\d.,]+)["']?/i);
+    if (metaPriceMatch) {
+      const price = parseFlexiblePrice(metaPriceMatch[1]);
+      if (price && price > 0) prices.push(price);
+    }
+
+    // Pattern 3: Standard price formats
+    const pricePatterns = [
+      /R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})/gi, // R$ 1.234,56
+      /R\$\s*(\d+,\d{2})/gi, // R$ 99,90
+      /"price"\s*:\s*"?(\d+[.,]?\d*)"?/gi,
+      /data-price=["']?(\d+[.,]?\d*)["']?/gi,
+      /itemprop=["']price["'][^>]*content=["']?(\d+[.,]?\d*)["']?/gi,
+    ];
+
+    for (const pattern of pricePatterns) {
+      pattern.lastIndex = 0;
+      let match;
+      while ((match = pattern.exec(htmlContent)) !== null) {
+        const price = parseFlexiblePrice(match[1]);
+        if (price && price > 0 && price < 10000000) {
+          prices.push(price);
+        }
+      }
+    }
+
+    if (prices.length === 0) return null;
+    
+    // Return the most common price
+    const priceGroups = new Map<number, number>();
+    for (const p of prices) {
+      const rounded = Math.round(p * 100) / 100;
+      priceGroups.set(rounded, (priceGroups.get(rounded) || 0) + 1);
+    }
+    
+    const sorted = [...priceGroups.entries()].sort((a, b) => b[1] - a[1]);
+    return sorted[0][0];
+  };
+
+  const parseFlexiblePrice = (priceStr: string): number | null => {
+    if (!priceStr) return null;
+    let cleaned = priceStr.trim();
+    
+    // Brazilian format: 1.234,56 -> 1234.56
+    if (/,\d{2}$/.test(cleaned)) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (!(/\.\d{2}$/.test(cleaned)) && cleaned.includes(',')) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+    
+    const price = parseFloat(cleaned);
+    return isNaN(price) ? null : Math.round(price * 100) / 100;
+  };
+
+  data.price = extractPrice(html);
 
   // Extract images
   const imagePatterns = [
