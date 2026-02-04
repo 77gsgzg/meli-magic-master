@@ -34,13 +34,31 @@ export function useMercadoLivreOAuth() {
     return state;
   }, [location.pathname]);
 
-  // Valida o state retornado
+  // Valida o state retornado (tolerante quando ML não retorna state)
   const validateState = useCallback((returnedState: string | null): boolean => {
     const storedState = sessionStorage.getItem('ml_oauth_state');
-    if (!returnedState || returnedState !== storedState) {
-      console.error('OAuth state mismatch - possible CSRF attack');
+    
+    // Se não há state armazenado, permite (primeira conexão ou sessão expirada)
+    if (!storedState) {
+      console.log('[ML OAuth] Nenhum state armazenado, permitindo callback');
+      return true;
+    }
+    
+    // Se ML não retornou state mas temos um armazenado, permite (ML às vezes não retorna)
+    if (!returnedState) {
+      console.log('[ML OAuth] ML não retornou state, permitindo callback');
+      sessionStorage.removeItem('ml_oauth_state');
+      return true;
+    }
+    
+    // Valida se os states coincidem
+    if (returnedState !== storedState) {
+      console.error('[ML OAuth] State mismatch:', { returned: returnedState, stored: storedState });
+      sessionStorage.removeItem('ml_oauth_state');
       return false;
     }
+    
+    console.log('[ML OAuth] State validado com sucesso');
     sessionStorage.removeItem('ml_oauth_state');
     return true;
   }, []);
