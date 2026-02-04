@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMercadoLivre } from './useMercadoLivre';
+import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 // Detecta automaticamente o domínio atual
@@ -51,6 +52,7 @@ export function useMercadoLivreOAuth() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { session, loading: authLoading } = useAuth();
   const { handleCallback, checkConnection, getAuthUrl } = useMercadoLivre();
   const processedRef = useRef(false);
   const processingRef = useRef(false);
@@ -125,10 +127,12 @@ export function useMercadoLivreOAuth() {
   const processCallback = useCallback(async (code: string, state: string | null) => {
     // Evita processamento duplo
     if (processingRef.current || processedRef.current) {
+      console.log('[ML OAuth] Callback já processado ou em processamento, ignorando');
       return;
     }
     
     processingRef.current = true;
+    console.log('[ML OAuth] Iniciando processamento do callback com code:', code?.substring(0, 10) + '...');
     
     try {
       // Valida o state para segurança CSRF
@@ -142,12 +146,20 @@ export function useMercadoLivreOAuth() {
       if (!codeVerifier) {
         console.error('[ML OAuth] code_verifier não encontrado - fluxo PKCE incompleto');
         toast.error('Sessão de autorização expirada. Tente conectar novamente.');
+        // Limpa os parâmetros da URL para permitir nova tentativa
+        window.history.replaceState({}, document.title, window.location.pathname);
         return;
       }
 
+      console.log('[ML OAuth] code_verifier recuperado, chamando handleCallback...');
+
       // Usa o domínio atual como redirect_uri
       const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
+      console.log('[ML OAuth] redirect_uri para callback:', redirectUri);
+      
       const success = await handleCallback(code, redirectUri, codeVerifier);
+      
+      console.log('[ML OAuth] handleCallback resultado:', success);
       
       // Limpa o PKCE após uso
       clearPKCE();
@@ -176,11 +188,16 @@ export function useMercadoLivreOAuth() {
         if (returnPath !== location.pathname) {
           navigate(returnPath);
         }
+      } else {
+        // Se falhou, limpa URL para permitir nova tentativa
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (error) {
-      console.error('Erro ao processar callback OAuth:', error);
+      console.error('[ML OAuth] Erro ao processar callback OAuth:', error);
       toast.error('Erro ao conectar com Mercado Livre. Tente novamente.');
       clearPKCE();
+      // Limpa URL para permitir nova tentativa
+      window.history.replaceState({}, document.title, window.location.pathname);
     } finally {
       processingRef.current = false;
     }
@@ -218,14 +235,49 @@ export function useMercadoLivreOAuth() {
   }, [generateState, generateAndStorePKCE, getAuthUrl]);
 
   // Detecta e processa callback OAuth automaticamente
+  // Aguarda a sessão estar disponível antes de processar
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     
+    // Aguarda o carregamento da autenticação terminar
+    if (authLoading) {
+      console.log('[ML OAuth] Aguardando carregamento da sessão...');
+      return;
+    }
+    
+    // Verifica se temos uma sessão válida
+    if (!session) {
+      console.log('[ML OAuth] Sem sessão ativa, redirecionando para login...');
+      if (code) {
+        // Salva o code para processar após login
+        sessionStorage.setItem('ml_oauth_pending_code', code);
+        if (state) {
+          sessionStorage.setItem('ml_oauth_pending_state', state);
+        }
+        toast.error('Faça login para continuar a conexão com Mercado Livre');
+        navigate('/auth');
+      }
+      return;
+    }
+    
+    // Verifica se há um code pendente do redirecionamento
+    const pendingCode = sessionStorage.getItem('ml_oauth_pending_code');
+    const pendingState = sessionStorage.getItem('ml_oauth_pending_state');
+    
+    if (pendingCode && !code) {
+      console.log('[ML OAuth] Processando code pendente após login');
+      sessionStorage.removeItem('ml_oauth_pending_code');
+      sessionStorage.removeItem('ml_oauth_pending_state');
+      processCallback(pendingCode, pendingState);
+      return;
+    }
+    
     if (code && !processedRef.current && !processingRef.current) {
+      console.log('[ML OAuth] Sessão disponível, processando callback...');
       processCallback(code, state);
     }
-  }, [searchParams, processCallback]);
+  }, [searchParams, processCallback, authLoading, session, navigate]);
 
   // Reseta o estado de processamento quando o componente é remontado
   useEffect(() => {
