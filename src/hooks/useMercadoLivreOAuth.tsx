@@ -74,34 +74,66 @@ export function useMercadoLivreOAuth() {
     windowNamePrefix: 'ml_oauth:',
   } as const;
 
-  // Utility: safe localStorage write with verification
+  // Utility: safe storage write with verification (tries localStorage + sessionStorage)
   const safeSetItem = useCallback((key: string, value: string): boolean => {
+    let success = false;
+    
+    // Try localStorage first
     try {
       localStorage.setItem(key, value);
-      // Verify the write was successful
       const stored = localStorage.getItem(key);
-      if (stored !== value) {
-        console.error(`[ML OAuth] localStorage verification FAILED for ${key}`);
-        return false;
+      if (stored === value) {
+        console.log(`[ML OAuth] ✅ localStorage.setItem('${key}') OK`);
+        success = true;
       }
-      console.log(`[ML OAuth] ✅ localStorage.setItem('${key}') = ${value.substring(0, 20)}...`);
-      return true;
     } catch (e) {
-      console.error(`[ML OAuth] localStorage.setItem FAILED for ${key}:`, e);
-      return false;
+      console.warn(`[ML OAuth] localStorage.setItem FAILED for ${key}:`, e);
     }
+    
+    // Always also save to sessionStorage as backup
+    try {
+      sessionStorage.setItem(key, value);
+      console.log(`[ML OAuth] ✅ sessionStorage.setItem('${key}') OK`);
+      success = true;
+    } catch (e) {
+      console.warn(`[ML OAuth] sessionStorage.setItem FAILED for ${key}:`, e);
+    }
+    
+    if (!success) {
+      console.error(`[ML OAuth] ❌ TODAS as tentativas de salvar ${key} falharam!`);
+    }
+    
+    return success;
   }, []);
 
-  // Utility: safe localStorage read
+  // Utility: safe storage read (tries localStorage, sessionStorage, then window.name)
   const safeGetItem = useCallback((key: string): string | null => {
+    // Try localStorage first
     try {
       const value = localStorage.getItem(key);
-      console.log(`[ML OAuth] localStorage.getItem('${key}') = ${value ? value.substring(0, 20) + '...' : 'NULL'}`);
-      return value;
+      if (value) {
+        console.log(`[ML OAuth] localStorage.getItem('${key}') = ${value.substring(0, 20)}...`);
+        return value;
+      }
     } catch (e) {
-      console.error(`[ML OAuth] localStorage.getItem FAILED for ${key}:`, e);
-      return null;
+      console.warn(`[ML OAuth] localStorage.getItem FAILED for ${key}:`, e);
     }
+    
+    // Try sessionStorage as fallback
+    try {
+      const value = sessionStorage.getItem(key);
+      if (value) {
+        console.log(`[ML OAuth] sessionStorage.getItem('${key}') = ${value.substring(0, 20)}...`);
+        // Rehydrate localStorage
+        try { localStorage.setItem(key, value); } catch {}
+        return value;
+      }
+    } catch (e) {
+      console.warn(`[ML OAuth] sessionStorage.getItem FAILED for ${key}:`, e);
+    }
+    
+    console.log(`[ML OAuth] Nenhum valor encontrado para '${key}'`);
+    return null;
   }, []);
 
   const writeWindowNameSession = useCallback((payload: { state: string; codeVerifier: string; returnPath: string }) => {
@@ -109,7 +141,7 @@ export function useMercadoLivreOAuth() {
       // window.name survives full-page navigations across different origins
       const data = JSON.stringify({ ...payload, createdAt: Date.now() });
       window.name = `${STORAGE_KEYS.windowNamePrefix}${data}`;
-      console.log('[ML OAuth] ✅ window.name fallback salvo:', payload.state.substring(0, 10) + '...');
+      console.log('[ML OAuth] ✅ window.name fallback salvo');
     } catch (e) {
       console.error('[ML OAuth] ❌ Falha ao salvar window.name fallback:', e);
     }
@@ -117,21 +149,18 @@ export function useMercadoLivreOAuth() {
 
   const readWindowNameSession = useCallback((): { state?: string; codeVerifier?: string; returnPath?: string } | null => {
     try {
-      console.log('[ML OAuth] Verificando window.name:', window.name?.substring(0, 30) + '...');
       if (!window.name?.startsWith(STORAGE_KEYS.windowNamePrefix)) {
-        console.log('[ML OAuth] window.name não contém dados OAuth');
         return null;
       }
       const raw = window.name.slice(STORAGE_KEYS.windowNamePrefix.length);
       const parsed = JSON.parse(raw);
-      console.log('[ML OAuth] ✅ window.name parsed com sucesso');
+      console.log('[ML OAuth] ✅ window.name parsed');
       return {
         state: typeof parsed?.state === 'string' ? parsed.state : undefined,
         codeVerifier: typeof parsed?.codeVerifier === 'string' ? parsed.codeVerifier : undefined,
         returnPath: typeof parsed?.returnPath === 'string' ? parsed.returnPath : undefined,
       };
-    } catch (e) {
-      console.error('[ML OAuth] ❌ Falha ao ler window.name:', e);
+    } catch {
       return null;
     }
   }, []);
@@ -174,21 +203,21 @@ export function useMercadoLivreOAuth() {
     return { codeVerifier, codeChallenge };
   }, [safeSetItem]);
 
-  // Recupera o code_verifier armazenado
+  // Recupera o code_verifier armazenado (localStorage → sessionStorage → window.name)
   const getStoredCodeVerifier = useCallback((): string | null => {
     console.log('[ML OAuth] === Recuperando code_verifier ===');
     
-    // Primeiro tenta localStorage
+    // Tenta localStorage e sessionStorage via safeGetItem
     let codeVerifier = safeGetItem(STORAGE_KEYS.pkceVerifier);
     
+    // Fallback: window.name sobrevive redirects cross-origin
     if (!codeVerifier) {
-      console.log('[ML OAuth] code_verifier não encontrado no localStorage, tentando window.name...');
-      // Fallback: window.name survives cross-origin redirects
+      console.log('[ML OAuth] Tentando window.name fallback...');
       const w = readWindowNameSession();
       if (w?.codeVerifier) {
         codeVerifier = w.codeVerifier;
         console.log('[ML OAuth] ✅ code_verifier recuperado via window.name!');
-        // Rehydrate localStorage for subsequent reads
+        // Rehydrate storage
         safeSetItem(STORAGE_KEYS.pkceVerifier, codeVerifier);
         if (w.state) {
           safeSetItem(STORAGE_KEYS.state, w.state);
@@ -202,18 +231,23 @@ export function useMercadoLivreOAuth() {
     if (codeVerifier) {
       console.log('[ML OAuth] ✅ code_verifier disponível:', codeVerifier.substring(0, 20) + '...');
     } else {
-      console.error('[ML OAuth] ❌ NENHUM code_verifier encontrado em localStorage NEM window.name!');
+      console.error('[ML OAuth] ❌ code_verifier NÃO encontrado em nenhum storage!');
     }
     
     return codeVerifier;
   }, [readWindowNameSession, safeGetItem, safeSetItem]);
 
-  // Limpa o code_verifier após uso
+  // Limpa o code_verifier após uso (todos os storages)
   const clearPKCE = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEYS.pkceVerifier);
+      sessionStorage.removeItem(STORAGE_KEYS.pkceVerifier);
+      localStorage.removeItem(STORAGE_KEYS.state);
+      sessionStorage.removeItem(STORAGE_KEYS.state);
+      localStorage.removeItem(STORAGE_KEYS.returnPath);
+      sessionStorage.removeItem(STORAGE_KEYS.returnPath);
       clearWindowNameSession();
-      console.log('[ML OAuth] PKCE limpo');
+      console.log('[ML OAuth] PKCE e state limpos de todos os storages');
     } catch (e) {
       console.error('[ML OAuth] Erro ao limpar PKCE:', e);
     }
