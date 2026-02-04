@@ -21,49 +21,77 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const ML_TOKEN_ENC_KEY = Deno.env.get('ML_TOKEN_ENC_KEY');
 
-    if (!ML_TOKEN_ENC_KEY) {
-      console.error('ML_TOKEN_ENC_KEY not configured - refusing to handle ML tokens without encryption');
-      return new Response(
-        JSON.stringify({ error: 'Mercado Livre token encryption is not configured. Please contact o administrador do sistema.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Flag para indicar se a encriptação está disponível
+    let encryptionEnabled = false;
+    let cryptoKey: CryptoKey | null = null;
+
+    // Tenta inicializar a chave de criptografia
+    if (ML_TOKEN_ENC_KEY) {
+      try {
+        // Tenta decodificar a chave base64
+        const raw = Uint8Array.from(atob(ML_TOKEN_ENC_KEY), (c) => c.charCodeAt(0));
+        if (raw.length === 32) {
+          cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            raw,
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt', 'decrypt']
+          );
+          encryptionEnabled = true;
+          console.log('Token encryption enabled');
+        } else {
+          console.warn('ML_TOKEN_ENC_KEY has wrong length (expected 32 bytes). Tokens will be stored unencrypted.');
+        }
+      } catch (e) {
+        console.warn('ML_TOKEN_ENC_KEY is not valid base64. Tokens will be stored unencrypted:', e);
+      }
+    } else {
+      console.warn('ML_TOKEN_ENC_KEY not configured. Tokens will be stored unencrypted.');
     }
 
-    const getCryptoKey = async (): Promise<CryptoKey> => {
-      const raw = Uint8Array.from(atob(ML_TOKEN_ENC_KEY), (c) => c.charCodeAt(0));
-      return crypto.subtle.importKey(
-        'raw',
-        raw,
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt', 'decrypt']
-      );
-    };
-
     const encryptToken = async (plain: string): Promise<string> => {
-      const key = await getCryptoKey();
-      if (!key) return plain;
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const encoded = new TextEncoder().encode(plain);
-      const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded));
-      const combined = new Uint8Array(iv.length + cipher.length);
-      combined.set(iv, 0);
-      combined.set(cipher, iv.length);
-      const b64 = btoa(String.fromCharCode(...combined));
-      return `enc:${b64}`;
+      if (!encryptionEnabled || !cryptoKey) {
+        // Sem criptografia - retorna o token como está
+        return plain;
+      }
+      try {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encoded = new TextEncoder().encode(plain);
+        const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded));
+        const combined = new Uint8Array(iv.length + cipher.length);
+        combined.set(iv, 0);
+        combined.set(cipher, iv.length);
+        const b64 = btoa(String.fromCharCode(...combined));
+        return `enc:${b64}`;
+      } catch (e) {
+        console.error('Encryption failed, storing unencrypted:', e);
+        return plain;
+      }
     };
 
     const decryptToken = async (value: string): Promise<string> => {
+      // Se não começa com 'enc:', é um token não criptografado
       if (!value.startsWith('enc:')) return value;
-      const key = await getCryptoKey();
-      if (!key) return value;
-      const b64 = value.slice(4);
-      const binary = atob(b64);
-      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-      const iv = bytes.slice(0, 12);
-      const cipher = bytes.slice(12);
-      const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
-      return new TextDecoder().decode(plainBuffer);
+      
+      // Se não temos chave de criptografia, não podemos descriptografar
+      if (!encryptionEnabled || !cryptoKey) {
+        console.warn('Cannot decrypt token - encryption not available');
+        return value;
+      }
+      
+      try {
+        const b64 = value.slice(4);
+        const binary = atob(b64);
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        const iv = bytes.slice(0, 12);
+        const cipher = bytes.slice(12);
+        const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipher);
+        return new TextDecoder().decode(plainBuffer);
+      } catch (e) {
+        console.error('Decryption failed:', e);
+        return value;
+      }
     };
 
     const isAllowedRedirectUri = (uri: string): boolean => {
