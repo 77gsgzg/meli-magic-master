@@ -4,11 +4,12 @@ import { useMercadoLivre } from './useMercadoLivre';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// IMPORTANTE: Usar sempre o domínio publicado para o OAuth do Mercado Livre
-// A redirect_uri registrada no ML deve ser EXATAMENTE esta
-const ML_REDIRECT_URI = 'https://gwjtwht.lovable.app/mercado-livre';
+// Detecta automaticamente o domínio atual para redirect_uri dinâmica
+// IMPORTANTE: Registre AMBAS as URIs no painel do Mercado Livre:
+// - https://gwjtwht.lovable.app/mercado-livre (produção)
+// - https://preview--gwjtwht.lovable.app/mercado-livre (preview)
+const OAUTH_CALLBACK_PATH = '/mercado-livre';
 
-// Detecta automaticamente o domínio atual para verificar se estamos no domínio correto
 const getOrigin = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
@@ -16,10 +17,8 @@ const getOrigin = () => {
   return 'https://gwjtwht.lovable.app';
 };
 
-const OAUTH_CALLBACK_PATH = '/mercado-livre';
-
-// Usa sempre a URI fixa para garantir match com o ML
-const getRedirectUri = () => ML_REDIRECT_URI;
+// Usa a URL dinâmica baseada no ambiente atual
+const getRedirectUri = () => getOrigin() + OAUTH_CALLBACK_PATH;
 
 // Funções PKCE
 const generateCodeVerifier = (): string => {
@@ -310,5 +309,4 @@ export function useMercadoLivreOAuth() {
 export const ML_OAUTH_CONFIG = {
   CALLBACK_PATH: OAUTH_CALLBACK_PATH,
   getRedirectUri,
-  REDIRECT_URI: ML_REDIRECT_URI,
 };
