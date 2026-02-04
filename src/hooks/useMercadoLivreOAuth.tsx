@@ -142,8 +142,10 @@ export function useMercadoLivreOAuth() {
     console.log('[ML OAuth] Iniciando processamento do callback com code:', code?.substring(0, 10) + '...');
     
     try {
-      // Valida o state para segurança CSRF
-      if (state && !validateState(state)) {
+      // Valida (e principalmente LIMPA) o state para evitar loops.
+      // Importante: o ML às vezes não retorna `state`, então validamos mesmo assim
+      // para consumir o valor armazenado no localStorage.
+      if (!validateState(state)) {
         toast.error('Erro de segurança na autenticação. Tente novamente.');
         return;
       }
