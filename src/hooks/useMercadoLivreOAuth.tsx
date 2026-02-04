@@ -4,15 +4,22 @@ import { useMercadoLivre } from './useMercadoLivre';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// Detecta automaticamente o domínio atual
+// IMPORTANTE: Usar sempre o domínio publicado para o OAuth do Mercado Livre
+// A redirect_uri registrada no ML deve ser EXATAMENTE esta
+const ML_REDIRECT_URI = 'https://gwjtwht.lovable.app/mercado-livre';
+
+// Detecta automaticamente o domínio atual para verificar se estamos no domínio correto
 const getOrigin = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  return 'https://gwjtwht.lovable.app'; // Fallback para SSR
+  return 'https://gwjtwht.lovable.app';
 };
 
 const OAUTH_CALLBACK_PATH = '/mercado-livre';
+
+// Usa sempre a URI fixa para garantir match com o ML
+const getRedirectUri = () => ML_REDIRECT_URI;
 
 // Funções PKCE
 const generateCodeVerifier = (): string => {
@@ -153,8 +160,8 @@ export function useMercadoLivreOAuth() {
 
       console.log('[ML OAuth] code_verifier recuperado, chamando handleCallback...');
 
-      // Usa o domínio atual como redirect_uri
-      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
+      // IMPORTANTE: Usa sempre a URI fixa registrada no ML
+      const redirectUri = getRedirectUri();
       console.log('[ML OAuth] redirect_uri para callback:', redirectUri);
       
       const success = await handleCallback(code, redirectUri, codeVerifier);
@@ -208,7 +215,8 @@ export function useMercadoLivreOAuth() {
     try {
       const state = generateState();
       const { codeChallenge } = await generateAndStorePKCE();
-      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
+      // IMPORTANTE: Usa sempre a URI fixa registrada no ML
+      const redirectUri = getRedirectUri();
       
       console.log('[ML OAuth] Iniciando auth com PKCE, redirect_uri:', redirectUri);
       
@@ -301,5 +309,6 @@ export function useMercadoLivreOAuth() {
  */
 export const ML_OAUTH_CONFIG = {
   CALLBACK_PATH: OAUTH_CALLBACK_PATH,
-  getRedirectUri: () => getOrigin() + OAUTH_CALLBACK_PATH,
+  getRedirectUri,
+  REDIRECT_URI: ML_REDIRECT_URI,
 };
