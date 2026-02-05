@@ -4,21 +4,15 @@ import { useMercadoLivre } from './useMercadoLivre';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// Detecta automaticamente o domínio atual para redirect_uri dinâmica
-// IMPORTANTE: Registre AMBAS as URIs no painel do Mercado Livre:
-// - https://gwjtwht.lovable.app/mercado-livre (produção)
-// - https://preview--gwjtwht.lovable.app/mercado-livre (preview)
-const OAUTH_CALLBACK_PATH = '/mercado-livre';
-
+// Detecta automaticamente o domínio atual
 const getOrigin = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  return 'https://gwjtwht.lovable.app';
+  return 'https://gwjtwht.lovable.app'; // Fallback para SSR
 };
 
-// Usa a URL dinâmica baseada no ambiente atual
-const getRedirectUri = () => getOrigin() + OAUTH_CALLBACK_PATH;
+const OAUTH_CALLBACK_PATH = '/';
 
 // Funções PKCE
 const generateCodeVerifier = (): string => {
@@ -63,240 +57,71 @@ export function useMercadoLivreOAuth() {
   const processedRef = useRef(false);
   const processingRef = useRef(false);
 
-  // Storage keys (centralized)
-  const STORAGE_KEYS = {
-    state: 'ml_oauth_state',
-    returnPath: 'ml_oauth_return_path',
-    pkceVerifier: 'ml_pkce_code_verifier',
-    pendingCode: 'ml_oauth_pending_code',
-    pendingState: 'ml_oauth_pending_state',
-    // Fallback that survives cross-origin redirects
-    windowNamePrefix: 'ml_oauth:',
-  } as const;
-
-  // Utility: safe storage write with verification (tries localStorage + sessionStorage)
-  const safeSetItem = useCallback((key: string, value: string): boolean => {
-    let success = false;
-    
-    // Try localStorage first
-    try {
-      localStorage.setItem(key, value);
-      const stored = localStorage.getItem(key);
-      if (stored === value) {
-        console.log(`[ML OAuth] ✅ localStorage.setItem('${key}') OK`);
-        success = true;
-      }
-    } catch (e) {
-      console.warn(`[ML OAuth] localStorage.setItem FAILED for ${key}:`, e);
-    }
-    
-    // Always also save to sessionStorage as backup
-    try {
-      sessionStorage.setItem(key, value);
-      console.log(`[ML OAuth] ✅ sessionStorage.setItem('${key}') OK`);
-      success = true;
-    } catch (e) {
-      console.warn(`[ML OAuth] sessionStorage.setItem FAILED for ${key}:`, e);
-    }
-    
-    if (!success) {
-      console.error(`[ML OAuth] ❌ TODAS as tentativas de salvar ${key} falharam!`);
-    }
-    
-    return success;
-  }, []);
-
-  // Utility: safe storage read (tries localStorage, sessionStorage, then window.name)
-  const safeGetItem = useCallback((key: string): string | null => {
-    // Try localStorage first
-    try {
-      const value = localStorage.getItem(key);
-      if (value) {
-        console.log(`[ML OAuth] localStorage.getItem('${key}') = ${value.substring(0, 20)}...`);
-        return value;
-      }
-    } catch (e) {
-      console.warn(`[ML OAuth] localStorage.getItem FAILED for ${key}:`, e);
-    }
-    
-    // Try sessionStorage as fallback
-    try {
-      const value = sessionStorage.getItem(key);
-      if (value) {
-        console.log(`[ML OAuth] sessionStorage.getItem('${key}') = ${value.substring(0, 20)}...`);
-        // Rehydrate localStorage
-        try { localStorage.setItem(key, value); } catch {}
-        return value;
-      }
-    } catch (e) {
-      console.warn(`[ML OAuth] sessionStorage.getItem FAILED for ${key}:`, e);
-    }
-    
-    console.log(`[ML OAuth] Nenhum valor encontrado para '${key}'`);
-    return null;
-  }, []);
-
-  const writeWindowNameSession = useCallback((payload: { state: string; codeVerifier: string; returnPath: string }) => {
-    try {
-      // window.name survives full-page navigations across different origins
-      const data = JSON.stringify({ ...payload, createdAt: Date.now() });
-      window.name = `${STORAGE_KEYS.windowNamePrefix}${data}`;
-      console.log('[ML OAuth] ✅ window.name fallback salvo');
-    } catch (e) {
-      console.error('[ML OAuth] ❌ Falha ao salvar window.name fallback:', e);
-    }
-  }, []);
-
-  const readWindowNameSession = useCallback((): { state?: string; codeVerifier?: string; returnPath?: string } | null => {
-    try {
-      if (!window.name?.startsWith(STORAGE_KEYS.windowNamePrefix)) {
-        return null;
-      }
-      const raw = window.name.slice(STORAGE_KEYS.windowNamePrefix.length);
-      const parsed = JSON.parse(raw);
-      console.log('[ML OAuth] ✅ window.name parsed');
-      return {
-        state: typeof parsed?.state === 'string' ? parsed.state : undefined,
-        codeVerifier: typeof parsed?.codeVerifier === 'string' ? parsed.codeVerifier : undefined,
-        returnPath: typeof parsed?.returnPath === 'string' ? parsed.returnPath : undefined,
-      };
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const clearWindowNameSession = useCallback(() => {
-    try {
-      if (window.name?.startsWith(STORAGE_KEYS.windowNamePrefix)) {
-        window.name = '';
-        console.log('[ML OAuth] window.name limpo');
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
   // Gera uma string de state aleatória para proteção CSRF
   const generateState = useCallback(() => {
     const state = crypto.randomUUID().replace(/-/g, '');
-    const stateSaved = safeSetItem(STORAGE_KEYS.state, state);
-    const pathSaved = safeSetItem(STORAGE_KEYS.returnPath, location.pathname);
-    
-    if (!stateSaved || !pathSaved) {
-      console.error('[ML OAuth] ❌ CRÍTICO: Falha ao salvar state no localStorage!');
-    }
-    
+    sessionStorage.setItem('ml_oauth_state', state);
+    // Salva a rota atual para retornar após o callback
+    sessionStorage.setItem('ml_oauth_return_path', location.pathname);
     return state;
-  }, [location.pathname, safeSetItem]);
+  }, [location.pathname]);
 
   // Gera e armazena o code_verifier para PKCE
   const generateAndStorePKCE = useCallback(async () => {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     
-    const saved = safeSetItem(STORAGE_KEYS.pkceVerifier, codeVerifier);
-    
-    if (!saved) {
-      console.error('[ML OAuth] ❌ CRÍTICO: Falha ao salvar code_verifier no localStorage!');
-    }
+    sessionStorage.setItem('ml_pkce_code_verifier', codeVerifier);
+    console.log('[ML OAuth] PKCE code_verifier gerado e armazenado');
     
     return { codeVerifier, codeChallenge };
-  }, [safeSetItem]);
+  }, []);
 
-  // Recupera o code_verifier armazenado (localStorage → sessionStorage → window.name)
+  // Recupera o code_verifier armazenado
   const getStoredCodeVerifier = useCallback((): string | null => {
-    console.log('[ML OAuth] === Recuperando code_verifier ===');
-    
-    // Tenta localStorage e sessionStorage via safeGetItem
-    let codeVerifier = safeGetItem(STORAGE_KEYS.pkceVerifier);
-    
-    // Fallback: window.name sobrevive redirects cross-origin
-    if (!codeVerifier) {
-      console.log('[ML OAuth] Tentando window.name fallback...');
-      const w = readWindowNameSession();
-      if (w?.codeVerifier) {
-        codeVerifier = w.codeVerifier;
-        console.log('[ML OAuth] ✅ code_verifier recuperado via window.name!');
-        // Rehydrate storage
-        safeSetItem(STORAGE_KEYS.pkceVerifier, codeVerifier);
-        if (w.state) {
-          safeSetItem(STORAGE_KEYS.state, w.state);
-        }
-        if (w.returnPath) {
-          safeSetItem(STORAGE_KEYS.returnPath, w.returnPath);
-        }
-      }
-    }
-    
+    const codeVerifier = sessionStorage.getItem('ml_pkce_code_verifier');
     if (codeVerifier) {
-      console.log('[ML OAuth] ✅ code_verifier disponível:', codeVerifier.substring(0, 20) + '...');
+      console.log('[ML OAuth] code_verifier recuperado do storage');
     } else {
-      console.error('[ML OAuth] ❌ code_verifier NÃO encontrado em nenhum storage!');
+      console.warn('[ML OAuth] Nenhum code_verifier encontrado no storage');
     }
-    
     return codeVerifier;
-  }, [readWindowNameSession, safeGetItem, safeSetItem]);
+  }, []);
 
-  // Limpa o code_verifier após uso (todos os storages)
+  // Limpa o code_verifier após uso
   const clearPKCE = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEYS.pkceVerifier);
-      sessionStorage.removeItem(STORAGE_KEYS.pkceVerifier);
-      localStorage.removeItem(STORAGE_KEYS.state);
-      sessionStorage.removeItem(STORAGE_KEYS.state);
-      localStorage.removeItem(STORAGE_KEYS.returnPath);
-      sessionStorage.removeItem(STORAGE_KEYS.returnPath);
-      clearWindowNameSession();
-      console.log('[ML OAuth] PKCE e state limpos de todos os storages');
-    } catch (e) {
-      console.error('[ML OAuth] Erro ao limpar PKCE:', e);
-    }
-  }, [clearWindowNameSession]);
+    sessionStorage.removeItem('ml_pkce_code_verifier');
+    console.log('[ML OAuth] PKCE limpo do storage');
+  }, []);
 
   // Valida o state retornado (tolerante quando ML não retorna state)
   const validateState = useCallback((returnedState: string | null): boolean => {
-    console.log('[ML OAuth] === Validando state ===');
-    console.log('[ML OAuth] State retornado pela URL:', returnedState);
-    
-    let storedState = safeGetItem(STORAGE_KEYS.state);
-    
-    if (!storedState) {
-      console.log('[ML OAuth] State não encontrado no localStorage, tentando window.name...');
-      const w = readWindowNameSession();
-      if (w?.state) {
-        storedState = w.state;
-        console.log('[ML OAuth] ✅ State recuperado via window.name!');
-        safeSetItem(STORAGE_KEYS.state, storedState);
-        if (w.returnPath) {
-          safeSetItem(STORAGE_KEYS.returnPath, w.returnPath);
-        }
-      }
-    }
+    const storedState = sessionStorage.getItem('ml_oauth_state');
     
     // Se não há state armazenado, permite (primeira conexão ou sessão expirada)
     if (!storedState) {
-      console.log('[ML OAuth] ⚠️ Nenhum state armazenado, permitindo callback (primeira conexão)');
+      console.log('[ML OAuth] Nenhum state armazenado, permitindo callback');
       return true;
     }
     
-    // Se ML não retornou state mas temos um armazenado, permite
+    // Se ML não retornou state mas temos um armazenado, permite (ML às vezes não retorna)
     if (!returnedState) {
-      console.log('[ML OAuth] ⚠️ ML não retornou state, permitindo callback');
-      localStorage.removeItem(STORAGE_KEYS.state);
+      console.log('[ML OAuth] ML não retornou state, permitindo callback');
+      sessionStorage.removeItem('ml_oauth_state');
       return true;
     }
     
     // Valida se os states coincidem
     if (returnedState !== storedState) {
-      console.error('[ML OAuth] ❌ State MISMATCH:', { returned: returnedState, stored: storedState });
-      localStorage.removeItem(STORAGE_KEYS.state);
+      console.error('[ML OAuth] State mismatch:', { returned: returnedState, stored: storedState });
+      sessionStorage.removeItem('ml_oauth_state');
       return false;
     }
     
-    console.log('[ML OAuth] ✅ State validado com sucesso!');
-    localStorage.removeItem(STORAGE_KEYS.state);
+    console.log('[ML OAuth] State validado com sucesso');
+    sessionStorage.removeItem('ml_oauth_state');
     return true;
-  }, [readWindowNameSession, safeGetItem, safeSetItem]);
+  }, []);
 
   // Processa o callback OAuth
   const processCallback = useCallback(async (code: string, state: string | null) => {
@@ -310,10 +135,8 @@ export function useMercadoLivreOAuth() {
     console.log('[ML OAuth] Iniciando processamento do callback com code:', code?.substring(0, 10) + '...');
     
     try {
-      // Valida (e principalmente LIMPA) o state para evitar loops.
-      // Importante: o ML às vezes não retorna `state`, então validamos mesmo assim
-      // para consumir o valor armazenado no localStorage.
-      if (!validateState(state)) {
+      // Valida o state para segurança CSRF
+      if (state && !validateState(state)) {
         toast.error('Erro de segurança na autenticação. Tente novamente.');
         return;
       }
@@ -330,8 +153,8 @@ export function useMercadoLivreOAuth() {
 
       console.log('[ML OAuth] code_verifier recuperado, chamando handleCallback...');
 
-      // IMPORTANTE: Usa sempre a URI fixa registrada no ML
-      const redirectUri = getRedirectUri();
+      // Usa o domínio atual como redirect_uri
+      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
       console.log('[ML OAuth] redirect_uri para callback:', redirectUri);
       
       const success = await handleCallback(code, redirectUri, codeVerifier);
@@ -350,8 +173,8 @@ export function useMercadoLivreOAuth() {
         newParams.delete('state');
         
         // Recupera a rota de retorno salva
-      const returnPath = localStorage.getItem(STORAGE_KEYS.returnPath) || '/mercado-livre';
-      localStorage.removeItem(STORAGE_KEYS.returnPath);
+        const returnPath = sessionStorage.getItem('ml_oauth_return_path') || '/mercado-livre';
+        sessionStorage.removeItem('ml_oauth_return_path');
         
         // Atualiza a URL sem os parâmetros OAuth
         window.history.replaceState({}, document.title, returnPath);
@@ -383,30 +206,11 @@ export function useMercadoLivreOAuth() {
   // Inicia o fluxo de autorização com PKCE
   const startAuth = useCallback(async () => {
     try {
-      console.log('[ML OAuth] ========== INICIANDO FLUXO OAuth ==========');
-      
       const state = generateState();
-      const { codeVerifier, codeChallenge } = await generateAndStorePKCE();
-      const redirectUri = getRedirectUri();
-
-      // Verificação FINAL antes do redirect
-      const verifyState = safeGetItem(STORAGE_KEYS.state);
-      const verifyVerifier = safeGetItem(STORAGE_KEYS.pkceVerifier);
+      const { codeChallenge } = await generateAndStorePKCE();
+      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
       
-      if (!verifyState || !verifyVerifier) {
-        console.error('[ML OAuth] ❌ CRÍTICO: Dados não persistidos no localStorage!');
-        toast.error('Erro ao preparar conexão. Verifique se localStorage está habilitado.');
-        return false;
-      }
-      
-      console.log('[ML OAuth] ✅ Verificação pré-redirect OK:');
-      console.log('[ML OAuth]   - state:', verifyState.substring(0, 10) + '...');
-      console.log('[ML OAuth]   - code_verifier:', verifyVerifier.substring(0, 10) + '...');
-
-      // Extra fallback (survives cross-origin redirects)
-      writeWindowNameSession({ state, codeVerifier, returnPath: location.pathname });
-      
-      console.log('[ML OAuth] redirect_uri:', redirectUri);
+      console.log('[ML OAuth] Iniciando auth com PKCE, redirect_uri:', redirectUri);
       
       const authUrl = await getAuthUrl(redirectUri, codeChallenge);
       
@@ -417,18 +221,18 @@ export function useMercadoLivreOAuth() {
           url.searchParams.set('state', state);
         }
         
-        console.log('[ML OAuth] 🚀 Redirecionando para ML...');
+        console.log('[ML OAuth] Redirecionando para ML com PKCE');
         window.location.href = url.toString();
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error('[ML OAuth] Erro ao iniciar autenticação:', error);
+      console.error('Erro ao iniciar autenticação:', error);
       toast.error('Erro ao iniciar conexão com Mercado Livre');
       return false;
     }
-  }, [generateState, generateAndStorePKCE, getAuthUrl, writeWindowNameSession, location.pathname]);
+  }, [generateState, generateAndStorePKCE, getAuthUrl]);
 
   // Detecta e processa callback OAuth automaticamente
   // Aguarda a sessão estar disponível antes de processar
@@ -447,9 +251,9 @@ export function useMercadoLivreOAuth() {
       console.log('[ML OAuth] Sem sessão ativa, redirecionando para login...');
       if (code) {
         // Salva o code para processar após login
-        localStorage.setItem(STORAGE_KEYS.pendingCode, code);
+        sessionStorage.setItem('ml_oauth_pending_code', code);
         if (state) {
-          localStorage.setItem(STORAGE_KEYS.pendingState, state);
+          sessionStorage.setItem('ml_oauth_pending_state', state);
         }
         toast.error('Faça login para continuar a conexão com Mercado Livre');
         navigate('/auth');
@@ -458,13 +262,13 @@ export function useMercadoLivreOAuth() {
     }
     
     // Verifica se há um code pendente do redirecionamento
-    const pendingCode = localStorage.getItem(STORAGE_KEYS.pendingCode);
-    const pendingState = localStorage.getItem(STORAGE_KEYS.pendingState);
+    const pendingCode = sessionStorage.getItem('ml_oauth_pending_code');
+    const pendingState = sessionStorage.getItem('ml_oauth_pending_state');
     
     if (pendingCode && !code) {
       console.log('[ML OAuth] Processando code pendente após login');
-      localStorage.removeItem(STORAGE_KEYS.pendingCode);
-      localStorage.removeItem(STORAGE_KEYS.pendingState);
+      sessionStorage.removeItem('ml_oauth_pending_code');
+      sessionStorage.removeItem('ml_oauth_pending_state');
       processCallback(pendingCode, pendingState);
       return;
     }
@@ -497,5 +301,5 @@ export function useMercadoLivreOAuth() {
  */
 export const ML_OAUTH_CONFIG = {
   CALLBACK_PATH: OAUTH_CALLBACK_PATH,
-  getRedirectUri,
+  getRedirectUri: () => getOrigin() + OAUTH_CALLBACK_PATH,
 };

@@ -720,108 +720,38 @@ function extractProductData(html: string, url: string): ExtractedProduct {
     }
   }
 
-  // Extract price - ROBUST extraction with multiple patterns and validation
-  const extractPrice = (htmlContent: string): number | null => {
-    const prices: number[] = [];
-    
-    // Pattern 1: JSON-LD structured data (most reliable)
-    const jsonLdMatch = htmlContent.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-    if (jsonLdMatch) {
-      for (const script of jsonLdMatch) {
-        try {
-          const jsonContent = script.replace(/<\/?script[^>]*>/gi, '');
-          const parsed = JSON.parse(jsonContent);
-          const priceValue = parsed.offers?.price || parsed.price || 
-                            (Array.isArray(parsed.offers) ? parsed.offers[0]?.price : null);
-          if (priceValue && Number(priceValue) > 0) {
-            prices.push(Number(priceValue));
-          }
-        } catch {}
-      }
-    }
+  // Extract price - multiple patterns for different sites
+  const pricePatterns = [
+    /R\$\s*([\d]+[.,][\d]{2})/gi,
+    /R\$\s*([\d.,]+)/gi,
+    /"price":\s*"?([\d.,]+)"?/gi,
+    /"offers"[^}]*"price":\s*"?([\d.,]+)"?/gi,
+    /data-price=["']?([\d.,]+)["']?/gi,
+    /itemprop=["']price["'][^>]*content=["']?([\d.,]+)["']?/gi,
+    /class=["'][^"']*price[^"']*["'][^>]*>R?\$?\s*([\d.,]+)/gi,
+  ];
 
-    // Pattern 2: Meta tags with price
-    const metaPricePatterns = [
-      /<meta[^>]*property=["']product:price:amount["'][^>]*content=["']?([\d.,]+)["']?/gi,
-      /<meta[^>]*itemprop=["']price["'][^>]*content=["']?([\d.,]+)["']?/gi,
-    ];
-    for (const pattern of metaPricePatterns) {
-      const match = pattern.exec(htmlContent);
-      if (match) {
-        const price = parseFlexiblePrice(match[1]);
-        if (price && price > 0) prices.push(price);
-      }
-    }
-
-    // Pattern 3: Standard price formats
-    const pricePatterns = [
-      // Brazilian Real with various formats
-      /R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})/gi, // R$ 1.234,56
-      /R\$\s*(\d+,\d{2})/gi, // R$ 99,90
-      /R\$\s*(\d+\.\d{2})/gi, // R$ 99.90 (international format)
-      // Data attributes
-      /data-price=["']?(\d+[.,]?\d*)["']?/gi,
-      /data-product-price=["']?(\d+[.,]?\d*)["']?/gi,
-      // JSON properties
-      /"price"\s*:\s*"?(\d+[.,]?\d*)"?/gi,
-      /"salePrice"\s*:\s*"?(\d+[.,]?\d*)"?/gi,
-      /"currentPrice"\s*:\s*"?(\d+[.,]?\d*)"?/gi,
-      // Itemprop
-      /itemprop=["']price["'][^>]*content=["']?(\d+[.,]?\d*)["']?/gi,
-      // Class-based (less reliable, use as fallback)
-      /class=["'][^"']*(?:price|valor|preco)[^"']*["'][^>]*>[\s\S]*?R?\$?\s*(\d{1,3}(?:[.,]\d{3})*[.,]?\d{0,2})/gi,
-    ];
-
-    for (const pattern of pricePatterns) {
-      pattern.lastIndex = 0; // Reset regex
-      let match;
-      while ((match = pattern.exec(htmlContent)) !== null) {
-        const price = parseFlexiblePrice(match[1]);
-        if (price && price > 0 && price < 10000000) {
-          prices.push(price);
+  for (const pattern of pricePatterns) {
+    const matches = html.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) {
+        // Handle Brazilian format (1.234,56) and international (1,234.56)
+        let priceStr = match[1].trim();
+        // If has comma and 2 digits after, treat as decimal separator
+        if (/,\d{2}$/.test(priceStr)) {
+          priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+        } else {
+          priceStr = priceStr.replace(/,/g, '');
+        }
+        const price = parseFloat(priceStr);
+        if (!isNaN(price) && price > 0 && price < 10000000) {
+          data.price = Math.round(price * 100) / 100;
+          break;
         }
       }
     }
-
-    // Return the most common price or the first valid one
-    if (prices.length === 0) return null;
-    
-    // Group similar prices and return most frequent
-    const priceGroups = new Map<number, number>();
-    for (const p of prices) {
-      const rounded = Math.round(p * 100) / 100;
-      priceGroups.set(rounded, (priceGroups.get(rounded) || 0) + 1);
-    }
-    
-    // Sort by frequency and return most common
-    const sorted = [...priceGroups.entries()].sort((a, b) => b[1] - a[1]);
-    return sorted[0][0];
-  };
-
-  const parseFlexiblePrice = (priceStr: string): number | null => {
-    if (!priceStr) return null;
-    let cleaned = priceStr.trim();
-    
-    // Determine format: Brazilian (1.234,56) or International (1,234.56)
-    const hasCommaDecimals = /,\d{2}$/.test(cleaned);
-    const hasDotDecimals = /\.\d{2}$/.test(cleaned);
-    
-    if (hasCommaDecimals) {
-      // Brazilian format: remove dots, replace comma with dot
-      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-    } else if (!hasDotDecimals && cleaned.includes(',')) {
-      // Ambiguous: treat comma as decimal if no other dots
-      cleaned = cleaned.replace(',', '.');
-    } else {
-      // International or plain number
-      cleaned = cleaned.replace(/,/g, '');
-    }
-    
-    const price = parseFloat(cleaned);
-    return isNaN(price) ? null : Math.round(price * 100) / 100;
-  };
-
-  data.price = extractPrice(html);
+    if (data.price) break;
+  }
 
   // Extract images
   const imagePatterns = [
