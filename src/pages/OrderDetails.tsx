@@ -143,10 +143,12 @@ export default function OrderDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { loading: authLoading } = useRequireAuth();
-  const { orders, loading, shipOrder, printLabel } = useOrders();
+  const { orders, loading, shipOrder, printLabel, decryptOrderPii } = useOrders();
   
   const [shippingOrder, setShippingOrder] = useState(false);
   const [order, setOrder] = useState<MLOrder | null>(null);
+  const [decryptedOrder, setDecryptedOrder] = useState<MLOrder | null>(null);
+  const [decrypting, setDecrypting] = useState(false);
 
   useEffect(() => {
     if (!loading && orders.length > 0 && id) {
@@ -154,6 +156,18 @@ export default function OrderDetails() {
       setOrder(found || null);
     }
   }, [orders, loading, id]);
+
+  // Decrypt PII when order is found
+  useEffect(() => {
+    if (order?.id && !decryptedOrder) {
+      setDecrypting(true);
+      decryptOrderPii(order.id)
+        .then((decrypted) => {
+          if (decrypted) setDecryptedOrder(decrypted);
+        })
+        .finally(() => setDecrypting(false));
+    }
+  }, [order?.id, decryptOrderPii, decryptedOrder]);
 
   const handleShipOrder = async () => {
     if (!order) return;
@@ -321,6 +335,7 @@ export default function OrderDetails() {
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
                 Comprador
+                {decrypting && <Loader2 className="h-4 w-4 animate-spin" />}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -328,31 +343,36 @@ export default function OrderDetails() {
                 <p className="text-sm text-muted-foreground">Usuário</p>
                 <p className="font-medium">{order.buyer_nickname}</p>
               </div>
-              {order.buyer_first_name && (
+              {(decryptedOrder?.buyer_first_name || order.buyer_first_name) && (
                 <div>
                   <p className="text-sm text-muted-foreground">Nome</p>
                   <p className="font-medium">
-                    {order.buyer_first_name} {order.buyer_last_name}
+                    {decryptedOrder?.buyer_first_name || order.buyer_first_name}{' '}
+                    {decryptedOrder?.buyer_last_name || order.buyer_last_name}
                   </p>
                 </div>
               )}
-              {order.buyer_email && (
+              {(decryptedOrder?.buyer_email || order.buyer_email) && (
                 <div>
                   <p className="text-sm text-muted-foreground">E-mail</p>
-                  <p className="font-medium text-sm">{order.buyer_email}</p>
+                  <p className="font-medium text-sm">
+                    {decryptedOrder?.buyer_email || order.buyer_email}
+                  </p>
                 </div>
               )}
-              {order.buyer_phone && (
+              {(decryptedOrder?.buyer_phone || order.buyer_phone) && (
                 <div>
                   <p className="text-sm text-muted-foreground">Telefone</p>
-                  <p className="font-medium">{order.buyer_phone}</p>
+                  <p className="font-medium">
+                    {decryptedOrder?.buyer_phone || order.buyer_phone}
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* Shipping Address */}
-          {order.shipping_address_line && (
+          {(decryptedOrder?.shipping_address_line || order.shipping_address_line) && (
             <Card className="glass border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -361,14 +381,21 @@ export default function OrderDetails() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {order.shipping_receiver_name && (
-                  <p className="font-medium">{order.shipping_receiver_name}</p>
+                {(decryptedOrder?.shipping_receiver_name || order.shipping_receiver_name) && (
+                  <p className="font-medium">
+                    {decryptedOrder?.shipping_receiver_name || order.shipping_receiver_name}
+                  </p>
                 )}
-                <p className="text-sm">{order.shipping_address_line}</p>
                 <p className="text-sm">
-                  {order.shipping_address_city}, {order.shipping_address_state}
+                  {decryptedOrder?.shipping_address_line || order.shipping_address_line}
                 </p>
-                <p className="text-sm">CEP: {order.shipping_address_zip_code}</p>
+                <p className="text-sm">
+                  {decryptedOrder?.shipping_address_city || order.shipping_address_city},{' '}
+                  {decryptedOrder?.shipping_address_state || order.shipping_address_state}
+                </p>
+                <p className="text-sm">
+                  CEP: {decryptedOrder?.shipping_address_zip_code || order.shipping_address_zip_code}
+                </p>
               </CardContent>
             </Card>
           )}

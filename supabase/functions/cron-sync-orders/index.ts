@@ -96,7 +96,8 @@ serve(async (req) => {
       return crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
     };
 
-    const encryptToken = async (plain: string): Promise<string> => {
+    const encryptValue = async (plain: string | null): Promise<string | null> => {
+      if (!plain) return null;
       const key = await getCryptoKey();
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encoded = new TextEncoder().encode(plain);
@@ -108,8 +109,11 @@ serve(async (req) => {
       return `enc:${b64}`;
     };
 
-    const decryptToken = async (value: string): Promise<string> => {
-      if (!value?.startsWith("enc:")) return value;
+    const encryptToken = encryptValue;
+
+    const decryptValue = async (value: string | null): Promise<string | null> => {
+      if (!value) return null;
+      if (!value.startsWith("enc:")) return value;
       const key = await getCryptoKey();
       const b64 = value.slice(4);
       const binary = atob(b64);
@@ -118,6 +122,11 @@ serve(async (req) => {
       const cipher = bytes.slice(12);
       const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
       return new TextDecoder().decode(plainBuffer);
+    };
+
+    const decryptToken = async (value: string): Promise<string> => {
+      const result = await decryptValue(value);
+      return result || value;
     };
 
     const refreshAccessToken = async (tokenRow: MlTokenRow) => {
@@ -240,6 +249,21 @@ serve(async (req) => {
             .eq("ml_item_id", mlItemId)
             .maybeSingle();
 
+          // Encrypt PII fields before storing
+          const encryptedBuyerFirstName = await encryptValue(buyer?.first_name || null);
+          const encryptedBuyerLastName = await encryptValue(buyer?.last_name || null);
+          const encryptedBuyerEmail = await encryptValue(buyer?.email || null);
+          const encryptedBuyerPhone = await encryptValue(buyer?.phone?.number || null);
+          const encryptedBuyerDocNumber = await encryptValue(buyer?.billing_info?.doc_number || null);
+          const encryptedReceiverName = await encryptValue(receiverAddress?.receiver_name || null);
+          const addressLine = receiverAddress?.street_name
+            ? `${receiverAddress.street_name}, ${receiverAddress.street_number || ""}`
+            : null;
+          const encryptedAddressLine = await encryptValue(addressLine);
+          const encryptedAddressCity = await encryptValue(receiverAddress?.city?.name || null);
+          const encryptedAddressState = await encryptValue(receiverAddress?.state?.name || null);
+          const encryptedAddressZip = await encryptValue(receiverAddress?.zip_code || null);
+
           const payload = {
             user_id: row.user_id,
             ml_order_id: mlOrderId,
@@ -250,19 +274,18 @@ serve(async (req) => {
             date_closed: orderDetail?.date_closed || order?.date_closed || null,
             buyer_id: buyer?.id?.toString() || "",
             buyer_nickname: buyer?.nickname || "Unknown",
-            buyer_first_name: buyer?.first_name || null,
-            buyer_last_name: buyer?.last_name || null,
-            buyer_email: buyer?.email || null,
-            buyer_phone: buyer?.phone?.number || null,
+            buyer_first_name: encryptedBuyerFirstName,
+            buyer_last_name: encryptedBuyerLastName,
+            buyer_email: encryptedBuyerEmail,
+            buyer_phone: encryptedBuyerPhone,
+            buyer_document_number: encryptedBuyerDocNumber,
             shipping_id: shippingId ? shippingId.toString() : null,
             shipping_status: shippingData?.status || null,
-            shipping_receiver_name: receiverAddress?.receiver_name || null,
-            shipping_address_line: receiverAddress?.street_name
-              ? `${receiverAddress.street_name}, ${receiverAddress.street_number || ""}`
-              : null,
-            shipping_address_city: receiverAddress?.city?.name || null,
-            shipping_address_state: receiverAddress?.state?.name || null,
-            shipping_address_zip_code: receiverAddress?.zip_code || null,
+            shipping_receiver_name: encryptedReceiverName,
+            shipping_address_line: encryptedAddressLine,
+            shipping_address_city: encryptedAddressCity,
+            shipping_address_state: encryptedAddressState,
+            shipping_address_zip_code: encryptedAddressZip,
             shipping_address_country: receiverAddress?.country?.name || null,
             ml_item_id: mlItemId,
             item_title: orderItem?.item?.title || "Unknown Item",

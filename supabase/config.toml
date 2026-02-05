@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.search-suppliers-location]
 verify_jwt = false
+
+[functions.decrypt-order-pii]
+verify_jwt = false

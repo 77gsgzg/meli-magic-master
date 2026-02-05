@@ -120,14 +120,6 @@ Deno.serve(async (req) => {
     const userId = claims.claims.sub as string
     const body = await req.json()
     
-    // Handle get-maps-key action
-    if (body.action === 'get-maps-key') {
-      return new Response(
-        JSON.stringify({ googleMapsApiKey: googleApiKey }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
     const params: SearchParams = body
     
     console.log('Search params:', params)

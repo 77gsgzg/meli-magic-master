@@ -60,6 +60,7 @@ export function useOrders() {
         .order('date_created', { ascending: false });
 
       if (error) throw error;
+      // Note: PII fields are encrypted. Use decryptOrderPii for sensitive display.
       setOrders((data as MLOrder[]) || []);
     } catch (error) {
       console.error('Error fetching local orders:', error);
@@ -67,6 +68,20 @@ export function useOrders() {
       setLoading(false);
     }
   }, [session?.user?.id]);
+
+  const decryptOrderPii = useCallback(async (orderId: string): Promise<MLOrder | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('decrypt-order-pii', {
+        body: { order_id: orderId },
+      });
+      if (error) throw error;
+      return data?.order || null;
+    } catch (error) {
+      console.error('Error decrypting order PII:', error);
+      toast.error('Erro ao acessar dados do pedido');
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     fetchLocalOrders();
@@ -198,6 +213,7 @@ export function useOrders() {
     shipOrder,
     printLabel,
     getOrderStats,
+    decryptOrderPii,
     refresh: fetchLocalOrders,
   };
 }
