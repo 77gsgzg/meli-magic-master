@@ -435,46 +435,12 @@ Otimize para Mercado Livre. Retorne apenas JSON.`
     console.log('[AUTO-PUBLISH] Product saved:', savedProductId);
 
     // ===========================================
-    // STEP 5: Download and Store Images
+    // STEP 5: Use public image URLs directly from ML API
     // ===========================================
-    console.log('[AUTO-PUBLISH] Step 4: Downloading and storing images...');
+    console.log('[AUTO-PUBLISH] Step 5: Using public image URLs directly (no download)...');
 
-    let imagesToUse = extractedData.images.slice(0, 10);
-    
-    // Try to download and store images in our storage
-    try {
-      const downloadResponse = await fetch(`${SUPABASE_URL}/functions/v1/download-images`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          imageUrls: extractedData.images.slice(0, 10),
-          productId: savedProductId
-        }),
-      });
-
-      const downloadResult = await downloadResponse.json();
-
-      if (downloadResult.success && downloadResult.storedUrls?.length > 0) {
-        console.log(`[AUTO-PUBLISH] Successfully stored ${downloadResult.storedUrls.length} images`);
-        imagesToUse = downloadResult.storedUrls;
-        
-        // Update product with stored image URLs
-        await supabase
-          .from('products')
-          .update({ images: imagesToUse })
-          .eq('id', savedProductId);
-      } else {
-        console.warn('[AUTO-PUBLISH] Image download failed, using original URLs:', downloadResult.error);
-        // Continue with original URLs as fallback
-      }
-    } catch (downloadError) {
-      console.warn('[AUTO-PUBLISH] Image download error, using original URLs:', downloadError);
-      // Continue with original URLs as fallback
-    }
-
+    const imagesToUse = extractedData.images.slice(0, 10);
+    console.log(`[AUTO-PUBLISH] Using ${imagesToUse.length} public image URLs`);
     // ===========================================
     // STEP 6: Publish to Mercado Livre
     // ===========================================

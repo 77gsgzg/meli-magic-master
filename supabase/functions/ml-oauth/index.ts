@@ -94,18 +94,11 @@ serve(async (req) => {
       }
     };
 
+    // Redirect URI fixo de produção — deve ser idêntico ao cadastrado no painel do ML
+    const ALLOWED_REDIRECT_URI = 'https://eshysysha.lovable.app/';
+
     const isAllowedRedirectUri = (uri: string): boolean => {
-      try {
-        const parsed = new URL(uri);
-        const protocolAllowed = parsed.protocol === 'http:' || parsed.protocol === 'https:';
-        const host = parsed.hostname.toLowerCase();
-        const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-        const isLovableApp = host.endsWith('.lovable.app');
-        const isLovablePreview = host.endsWith('.lovableproject.com');
-        return protocolAllowed && (isLocalhost || isLovableApp || isLovablePreview);
-      } catch {
-        return false;
-      }
+      return uri === ALLOWED_REDIRECT_URI;
     };
 
     if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
