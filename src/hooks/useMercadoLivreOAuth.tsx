@@ -4,15 +4,8 @@ import { useMercadoLivre } from './useMercadoLivre';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// Detecta automaticamente o domínio atual
-const getOrigin = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return 'https://gwjtwht.lovable.app'; // Fallback para SSR
-};
-
-const OAUTH_CALLBACK_PATH = '/';
+// URI fixo de produção — deve ser idêntico ao cadastrado no painel do Mercado Livre
+const ML_REDIRECT_URI = 'https://eshysysha.lovable.app/';
 
 // Funções PKCE
 const generateCodeVerifier = (): string => {
@@ -153,11 +146,9 @@ export function useMercadoLivreOAuth() {
 
       console.log('[ML OAuth] code_verifier recuperado, chamando handleCallback...');
 
-      // Usa o domínio atual como redirect_uri
-      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
-      console.log('[ML OAuth] redirect_uri para callback:', redirectUri);
+      console.log('[ML OAuth] redirect_uri para callback:', ML_REDIRECT_URI);
       
-      const success = await handleCallback(code, redirectUri, codeVerifier);
+      const success = await handleCallback(code, ML_REDIRECT_URI, codeVerifier);
       
       console.log('[ML OAuth] handleCallback resultado:', success);
       
@@ -208,11 +199,10 @@ export function useMercadoLivreOAuth() {
     try {
       const state = generateState();
       const { codeChallenge } = await generateAndStorePKCE();
-      const redirectUri = getOrigin() + OAUTH_CALLBACK_PATH;
       
-      console.log('[ML OAuth] Iniciando auth com PKCE, redirect_uri:', redirectUri);
+      console.log('[ML OAuth] Iniciando auth com PKCE, redirect_uri:', ML_REDIRECT_URI);
       
-      const authUrl = await getAuthUrl(redirectUri, codeChallenge);
+      const authUrl = await getAuthUrl(ML_REDIRECT_URI, codeChallenge);
       
       if (authUrl) {
         // Adiciona o state à URL de autorização se não estiver presente
@@ -300,6 +290,6 @@ export function useMercadoLivreOAuth() {
  * Constantes exportadas para uso em outros componentes
  */
 export const ML_OAUTH_CONFIG = {
-  CALLBACK_PATH: OAUTH_CALLBACK_PATH,
-  getRedirectUri: () => getOrigin() + OAUTH_CALLBACK_PATH,
+  REDIRECT_URI: ML_REDIRECT_URI,
+  getRedirectUri: () => ML_REDIRECT_URI,
 };
