@@ -15,6 +15,19 @@ interface ExtractedProduct {
   url: string;
 }
 
+function isBlockedHost(host: string): boolean {
+  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(host)) return true;
+  if (host === '169.254.169.254' || host.endsWith('.metadata.google.internal')) return true;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+    const parts = host.split('.').map(Number);
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+  }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -85,14 +98,22 @@ serve(async (req) => {
       );
     }
 
-    // Validate URL
+    // Validate URL with SSRF protection
     let validatedUrl: URL;
     try {
       validatedUrl = new URL(supplierUrl);
       if (validatedUrl.protocol !== 'http:' && validatedUrl.protocol !== 'https:') {
         throw new Error('Invalid protocol');
       }
-    } catch {
+      const host = validatedUrl.hostname.toLowerCase();
+      if (isBlockedHost(host)) {
+        return new Response(
+          JSON.stringify({ error: 'URL points to blocked resource' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (e) {
+      if (e instanceof Response) throw e;
       return new Response(
         JSON.stringify({ error: 'Invalid URL format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
