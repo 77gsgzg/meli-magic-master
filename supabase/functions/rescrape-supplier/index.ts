@@ -15,6 +15,19 @@ interface PriceChange {
   supplierUrl: string;
 }
 
+function isBlockedHost(host: string): boolean {
+  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(host)) return true;
+  if (host === '169.254.169.254' || host.endsWith('.metadata.google.internal')) return true;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+    const parts = host.split('.').map(Number);
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+  }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -97,6 +110,18 @@ serve(async (req) => {
       }
 
       try {
+        // SSRF check on supplier URL
+        try {
+          const parsedSupplier = new URL(supplierUrl);
+          if (isBlockedHost(parsedSupplier.hostname.toLowerCase())) {
+            errors.push(`URL bloqueada: ${supplierUrl}`);
+            continue;
+          }
+        } catch {
+          errors.push(`URL inválida: ${supplierUrl}`);
+          continue;
+        }
+
         // Fetch supplier page
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -127,6 +152,18 @@ serve(async (req) => {
           }
 
           try {
+            // SSRF check on product URL
+            try {
+              const parsedProduct = new URL(product.product_url);
+              if (isBlockedHost(parsedProduct.hostname.toLowerCase())) {
+                processed++;
+                continue;
+              }
+            } catch {
+              processed++;
+              continue;
+            }
+
             // Fetch individual product page
             const productController = new AbortController();
             const productTimeoutId = setTimeout(() => productController.abort(), 10000);

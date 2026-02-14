@@ -181,7 +181,7 @@ serve(async (req) => {
     // ===========================================
     console.log('[AUTO-PUBLISH] Step 1: Extracting product data...');
 
-    // Validate URL
+    // Validate URL with SSRF protection
     const validateUrl = (urlString: string): { valid: boolean; error?: string } => {
       try {
         const parsed = new URL(urlString);
@@ -189,9 +189,21 @@ serve(async (req) => {
           return { valid: false, error: 'Apenas URLs HTTP/HTTPS são permitidas' };
         }
         const host = parsed.hostname.toLowerCase();
-        const blockedHosts = ['localhost', '127.0.0.1', '169.254.169.254'];
-        if (blockedHosts.includes(host) || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
-          return { valid: false, error: 'URL inválida' };
+        if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(host)) {
+          return { valid: false, error: 'URL bloqueada' };
+        }
+        if (host === '169.254.169.254' || host.endsWith('.metadata.google.internal')) {
+          return { valid: false, error: 'URL bloqueada' };
+        }
+        if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+          const parts = host.split('.').map(Number);
+          if (parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+              (parts[0] === 192 && parts[1] === 168) || (parts[0] === 169 && parts[1] === 254)) {
+            return { valid: false, error: 'URL bloqueada' };
+          }
+        }
+        if (urlString.length > 2000) {
+          return { valid: false, error: 'URL muito longa' };
         }
         return { valid: true };
       } catch {
