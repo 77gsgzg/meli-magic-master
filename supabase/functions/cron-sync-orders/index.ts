@@ -129,6 +129,32 @@ serve(async (req) => {
       return result || value;
     };
 
+    // Strip PII from raw API responses before storing
+    const sanitizeRawData = (data: any): any => {
+      if (!data) return null;
+      const clone = JSON.parse(JSON.stringify(data));
+      // Remove buyer PII
+      if (clone.buyer) {
+        delete clone.buyer.email;
+        delete clone.buyer.phone;
+        delete clone.buyer.first_name;
+        delete clone.buyer.last_name;
+        delete clone.buyer.billing_info;
+        delete clone.buyer.alternative_phone;
+      }
+      // Remove receiver address PII
+      if (clone.receiver_address) {
+        delete clone.receiver_address.receiver_name;
+        delete clone.receiver_address.receiver_phone;
+      }
+      // Remove from shipping nested structures
+      if (clone.shipping?.receiver_address) {
+        delete clone.shipping.receiver_address.receiver_name;
+        delete clone.shipping.receiver_address.receiver_phone;
+      }
+      return clone;
+    };
+
     const refreshAccessToken = async (tokenRow: MlTokenRow) => {
       const decryptedRefresh = await decryptToken(tokenRow.refresh_token);
 
@@ -296,8 +322,8 @@ serve(async (req) => {
             total_amount: orderDetail?.total_amount || order?.total_amount || null,
             tracking_number: shippingData?.tracking_number || null,
             tracking_url: shippingData?.tracking_url || null,
-            raw_order_data: orderDetail,
-            raw_shipping_data: shippingData,
+            raw_order_data: sanitizeRawData(orderDetail),
+            raw_shipping_data: sanitizeRawData(shippingData),
           };
 
           const { error: upsertError } = await supabase
