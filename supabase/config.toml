@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.decrypt-order-pii]
 verify_jwt = false
+
+[functions.firecrawl-scrape]
+verify_jwt = false

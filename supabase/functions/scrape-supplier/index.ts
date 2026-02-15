@@ -122,40 +122,98 @@ serve(async (req) => {
 
     console.log('Scraping supplier:', supplierUrl);
 
-    // Fetch the page content
+    // Try Firecrawl first for JS-rendered content and screenshots
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     let pageContent = '';
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let screenshotBase64: string | null = null;
+    let firecrawlImages: string[] = [];
+    let usedFirecrawl = false;
 
-      const pageResponse = await fetch(supplierUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-        },
-        signal: controller.signal,
-      });
+    if (FIRECRAWL_API_KEY) {
+      try {
+        console.log('Using Firecrawl for JS rendering...');
+        const fcResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: supplierUrl,
+            formats: ['html', 'screenshot', 'links'],
+            onlyMainContent: false,
+            waitFor: 3000,
+            location: { country: 'BR', languages: ['pt-BR'] },
+          }),
+        });
 
-      clearTimeout(timeoutId);
-      
-      if (!pageResponse.ok) {
-        throw new Error(`Failed to fetch page: ${pageResponse.status}`);
+        if (fcResponse.ok) {
+          const fcData = await fcResponse.json();
+          const content = fcData.data || fcData;
+          pageContent = content.html || '';
+          screenshotBase64 = content.screenshot || null;
+          usedFirecrawl = true;
+
+          // Extract image URLs from links
+          if (content.links && Array.isArray(content.links)) {
+            firecrawlImages = content.links.filter((link: string) =>
+              /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(link)
+            ).slice(0, 20);
+          }
+
+          console.log(`Firecrawl returned ${pageContent.length} chars HTML, screenshot: ${!!screenshotBase64}, images: ${firecrawlImages.length}`);
+        } else {
+          console.warn('Firecrawl failed, falling back to direct fetch:', fcResponse.status);
+        }
+      } catch (fcError) {
+        console.warn('Firecrawl error, falling back to direct fetch:', fcError);
       }
-      
-      pageContent = await pageResponse.text();
-    } catch (fetchError) {
-      console.error('Error fetching URL:', fetchError);
-      return new Response(
-        JSON.stringify({ error: 'Não foi possível acessar o site do fornecedor' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    }
+
+    // Fallback to direct fetch if Firecrawl unavailable or failed
+    if (!pageContent) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const pageResponse = await fetch(supplierUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        
+        if (!pageResponse.ok) {
+          throw new Error(`Failed to fetch page: ${pageResponse.status}`);
+        }
+        
+        pageContent = await pageResponse.text();
+      } catch (fetchError) {
+        console.error('Error fetching URL:', fetchError);
+        return new Response(
+          JSON.stringify({ error: 'Não foi possível acessar o site do fornecedor' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Extract products using basic HTML parsing
     const basicProducts = extractProductsFromHTML(pageContent, validatedUrl.origin);
     
-    console.log('Basic extraction found', basicProducts.length, 'products');
+    // Enrich products with Firecrawl images if available
+    if (firecrawlImages.length > 0) {
+      for (let i = 0; i < basicProducts.length && i < firecrawlImages.length; i++) {
+        if (!basicProducts[i].image) {
+          basicProducts[i].image = firecrawlImages[i];
+        }
+      }
+    }
+
+    console.log('Basic extraction found', basicProducts.length, 'products, firecrawl:', usedFirecrawl);
 
     // If we have AI key, enhance the extraction
     if (LOVABLE_API_KEY && basicProducts.length < 5) {
@@ -240,6 +298,8 @@ Extraia todos os produtos encontrados. Retorne apenas JSON válido.`;
                     supplier_name: aiData.supplier_name || extractSupplierName(supplierUrl),
                     total_found: aiData.total_found || aiData.products.length,
                     ai_enhanced: true,
+                    firecrawl_enhanced: usedFirecrawl,
+                    screenshot: screenshotBase64,
                   }),
                   { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                 );
@@ -266,6 +326,8 @@ Extraia todos os produtos encontrados. Retorne apenas JSON válido.`;
         supplier_name: extractSupplierName(supplierUrl),
         total_found: basicProducts.length,
         ai_enhanced: false,
+        firecrawl_enhanced: usedFirecrawl,
+        screenshot: screenshotBase64,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
