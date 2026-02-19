@@ -204,12 +204,18 @@ serve(async (req) => {
     // Extract products using basic HTML parsing
     const basicProducts = extractProductsFromHTML(pageContent, validatedUrl.origin);
     
-    // Enrich products with Firecrawl images if available
-    if (firecrawlImages.length > 0) {
+    // Only assign images from Firecrawl if it succeeded (status 200).
+    // If Firecrawl failed, image stays null — no HTML fallback for images.
+    if (usedFirecrawl && firecrawlImages.length > 0) {
       for (let i = 0; i < basicProducts.length && i < firecrawlImages.length; i++) {
         if (!basicProducts[i].image) {
           basicProducts[i].image = firecrawlImages[i];
         }
+      }
+    } else if (!usedFirecrawl) {
+      // Firecrawl unavailable or failed: explicitly null all images
+      for (const product of basicProducts) {
+        product.image = null;
       }
     }
 
@@ -376,10 +382,6 @@ function extractProductsFromHTML(html: string, origin: string): ExtractedProduct
     const title = titleMatch ? decodeHTMLEntities(titleMatch[1].trim()) : null;
     if (!title) continue;
 
-    // Extract image
-    const imgMatch = productHtml.match(/<img[^>]*src="([^"]+)"[^>]*>/i);
-    const image = imgMatch ? resolveUrl(imgMatch[1], origin) : null;
-
     // Extract price
     const priceMatch = productHtml.match(/R\$\s*([\d.,]+)/i)
       || productHtml.match(/<span[^>]*class="[^"]*price[^"]*"[^>]*>[^<]*?([\d.,]+)/i);
@@ -391,12 +393,13 @@ function extractProductsFromHTML(html: string, origin: string): ExtractedProduct
       if (isNaN(price)) price = null;
     }
 
+    // image is always null here — set upstream only if Firecrawl succeeded
     products.push({
       title,
       description: null,
       price,
       currency: 'BRL',
-      image,
+      image: null,
       url: productUrl,
     });
   }
@@ -424,9 +427,6 @@ function extractProductsFromHTML(html: string, origin: string): ExtractedProduct
       const title = titleMatch ? decodeHTMLEntities(titleMatch[1].trim()) : null;
       if (!title) continue;
 
-      const imgMatch = productHtml.match(/<img[^>]*src="([^"]+)"[^>]*>/i);
-      const image = imgMatch ? resolveUrl(imgMatch[1], origin) : null;
-
       const priceMatch = productHtml.match(/R\$\s*([\d.,]+)/i);
       let price: number | null = null;
       if (priceMatch) {
@@ -435,12 +435,13 @@ function extractProductsFromHTML(html: string, origin: string): ExtractedProduct
         if (isNaN(price)) price = null;
       }
 
+      // image is always null here — set upstream only if Firecrawl succeeded
       products.push({
         title,
         description: null,
         price,
         currency: 'BRL',
-        image,
+        image: null,
         url: productUrl,
       });
     }

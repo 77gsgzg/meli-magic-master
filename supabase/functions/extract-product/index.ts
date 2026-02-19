@@ -204,18 +204,16 @@ serve(async (req) => {
       }
     }
 
-    // Extract basic data from HTML
+    // Extract basic data from HTML (title, price, description only)
     const extractedData = extractProductData(pageContent, url);
 
-    // Merge Firecrawl images with extracted images
-    if (firecrawlImages.length > 0) {
-      const existingImages = new Set(extractedData.images);
-      for (const img of firecrawlImages) {
-        if (!existingImages.has(img)) {
-          extractedData.images.push(img);
-        }
-      }
-      extractedData.images = extractedData.images.slice(0, 10);
+    // Only use images from Firecrawl when it succeeded (status 200).
+    // If Firecrawl failed or was unavailable, images stay as empty array (null-safe).
+    if (usedFirecrawl && firecrawlImages.length > 0) {
+      extractedData.images = firecrawlImages.slice(0, 10);
+    } else {
+      // Firecrawl failed or unavailable: no images — do not infer from HTML
+      extractedData.images = [];
     }
 
     // If no AI key, return basic extraction
@@ -435,43 +433,8 @@ function extractProductData(html: string, url: string) {
     }
   }
 
-  // Extract images
-  const imagePatterns = [
-    /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/gi,
-    /<img[^>]*src=["']([^"']+)["'][^>]*>/gi,
-    /"image":\s*"([^"]+)"/gi,
-  ];
-
-  const foundImages = new Set<string>();
-  for (const pattern of imagePatterns) {
-    let match;
-    while ((match = pattern.exec(html)) !== null && foundImages.size < 10) {
-      let imgUrl = match[1];
-      if (imgUrl.startsWith('//')) {
-        imgUrl = 'https:' + imgUrl;
-      } else if (imgUrl.startsWith('/')) {
-        try {
-          const urlObj = new URL(url);
-          imgUrl = urlObj.origin + imgUrl;
-        } catch {}
-      }
-      
-      // Filter out small images, icons, etc
-      if (
-        imgUrl.startsWith('http') &&
-        !imgUrl.includes('icon') &&
-        !imgUrl.includes('logo') &&
-        !imgUrl.includes('sprite') &&
-        !imgUrl.includes('.svg') &&
-        !imgUrl.includes('pixel') &&
-        !imgUrl.includes('tracking')
-      ) {
-        foundImages.add(imgUrl);
-      }
-    }
-  }
-
-  data.images = Array.from(foundImages).slice(0, 6);
+  // Images are NOT extracted from HTML — only Firecrawl-confirmed URLs are valid.
+  // data.images remains [] and will be populated upstream if Firecrawl succeeded.
 
   return data;
 }
