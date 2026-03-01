@@ -244,6 +244,8 @@ const translations: Translations = {
     "nav.settings": "Configuración",
     "nav.reports": "Informes",
     "nav.webhooks": "Webhooks",
+    "nav.supplier": "Proveedores",
+    "nav.wallet": "Billetera",
     "nav.logout": "Salir",
 
     // Import Statistics
