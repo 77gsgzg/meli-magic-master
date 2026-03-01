@@ -59,6 +59,8 @@ const translations: Translations = {
     "nav.settings": "Configurações",
     "nav.reports": "Relatórios",
     "nav.webhooks": "Webhooks",
+    "nav.supplier": "Fornecedores",
+    "nav.wallet": "Carteira",
     "nav.logout": "Sair",
 
     // Import Statistics
