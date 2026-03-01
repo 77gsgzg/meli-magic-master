@@ -56,6 +56,9 @@ export function Header({ title, subtitle }: HeaderProps) {
           />
         </div>
 
+        {/* Wallet Balance */}
+        <WalletIndicator />
+
         {/* Theme Toggle */}
         <ThemeToggle />
 

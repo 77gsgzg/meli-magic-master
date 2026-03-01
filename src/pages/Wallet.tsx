@@ -58,7 +58,7 @@ export default function Wallet() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Carteira" subtitle="Gerencie seu saldo e transações">
       <div className="space-y-6 p-4 sm:p-6">
         {/* Balance Card */}
         <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
