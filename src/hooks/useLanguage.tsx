@@ -59,6 +59,8 @@ const translations: Translations = {
     "nav.settings": "Configurações",
     "nav.reports": "Relatórios",
     "nav.webhooks": "Webhooks",
+    "nav.supplier": "Fornecedores",
+    "nav.wallet": "Carteira",
     "nav.logout": "Sair",
 
     // Import Statistics
@@ -242,6 +244,8 @@ const translations: Translations = {
     "nav.settings": "Configuración",
     "nav.reports": "Informes",
     "nav.webhooks": "Webhooks",
+    "nav.supplier": "Proveedores",
+    "nav.wallet": "Billetera",
     "nav.logout": "Salir",
 
     // Import Statistics
@@ -425,6 +429,8 @@ const translations: Translations = {
     "nav.settings": "Settings",
     "nav.reports": "Reports",
     "nav.webhooks": "Webhooks",
+    "nav.supplier": "Suppliers",
+    "nav.wallet": "Wallet",
     "nav.logout": "Logout",
 
     // Import Statistics

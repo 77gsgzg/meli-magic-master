@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MobileSidebar } from "./MobileSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsDropdown } from "./NotificationsDropdown";
+import { WalletIndicator } from "./WalletIndicator";
 
 interface HeaderProps {
   title: string;
@@ -54,6 +55,9 @@ export function Header({ title, subtitle }: HeaderProps) {
             className="w-56 xl:w-72 pl-10 h-10"
           />
         </div>
+
+        {/* Wallet Balance */}
+        <WalletIndicator />
 
         {/* Theme Toggle */}
         <ThemeToggle />

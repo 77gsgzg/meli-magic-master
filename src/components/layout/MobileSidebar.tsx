@@ -27,6 +27,7 @@ import {
   Users,
   LineChart,
   Warehouse,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -47,6 +48,7 @@ const menuItems = [
   { icon: Users, labelKey: "nav.buyers", path: "/buyers" },
   { icon: LineChart, labelKey: "nav.demand", path: "/demand" },
   { icon: Warehouse, labelKey: "nav.supplier", path: "/supplier" },
+  { icon: Wallet, labelKey: "nav.wallet", path: "/wallet" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
