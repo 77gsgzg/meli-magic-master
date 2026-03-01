@@ -27,6 +27,7 @@ import {
   Users,
   LineChart,
   Warehouse,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
