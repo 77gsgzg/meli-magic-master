@@ -340,6 +340,29 @@ serve(async (req) => {
           }
 
           if (isNew) totalNewOrders++;
+
+          // ========== Wallet auto-debit for approved/paid orders ==========
+          if (payload.status === "paid" && payload.cost_price) {
+            // Get the order's DB id for the RPC call
+            const { data: dbOrder } = await supabase
+              .from("ml_orders")
+              .select("id, locked_at")
+              .eq("ml_order_id", mlOrderId)
+              .eq("user_id", row.user_id)
+              .maybeSingle();
+
+            if (dbOrder && !dbOrder.locked_at) {
+              const { data: debitResult, error: debitError } = await supabase.rpc(
+                "process_order_wallet_debit",
+                { p_order_id: dbOrder.id }
+              );
+              if (debitError) {
+                console.error("Wallet debit failed for order", mlOrderId, debitError);
+              } else {
+                console.log("Wallet debit result for order", mlOrderId, debitResult);
+              }
+            }
+          }
         }
 
         // ========== Shipping delay alert (per user) ==========
