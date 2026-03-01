@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MobileSidebar } from "./MobileSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsDropdown } from "./NotificationsDropdown";
+import { WalletIndicator } from "./WalletIndicator";
 
 interface HeaderProps {
   title: string;
