@@ -286,6 +286,7 @@ export type Database = {
           buyer_last_name: string | null
           buyer_nickname: string
           buyer_phone: string | null
+          cost_price: number | null
           created_at: string
           currency_id: string | null
           date_closed: string | null
@@ -294,6 +295,7 @@ export type Database = {
           id: string
           item_quantity: number
           item_title: string
+          locked_at: string | null
           ml_item_id: string
           ml_order_id: string
           ml_pack_id: string | null
@@ -327,6 +329,7 @@ export type Database = {
           buyer_last_name?: string | null
           buyer_nickname: string
           buyer_phone?: string | null
+          cost_price?: number | null
           created_at?: string
           currency_id?: string | null
           date_closed?: string | null
@@ -335,6 +338,7 @@ export type Database = {
           id?: string
           item_quantity?: number
           item_title: string
+          locked_at?: string | null
           ml_item_id: string
           ml_order_id: string
           ml_pack_id?: string | null
@@ -368,6 +372,7 @@ export type Database = {
           buyer_last_name?: string | null
           buyer_nickname?: string
           buyer_phone?: string | null
+          cost_price?: number | null
           created_at?: string
           currency_id?: string | null
           date_closed?: string | null
@@ -376,6 +381,7 @@ export type Database = {
           id?: string
           item_quantity?: number
           item_title?: string
+          locked_at?: string | null
           ml_item_id?: string
           ml_order_id?: string
           ml_pack_id?: string | null
@@ -1314,6 +1320,65 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          order_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ml_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           created_at: string
@@ -1405,6 +1470,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_order_wallet_debit: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      wallet_add_credit: {
+        Args: { p_amount: number; p_description?: string; p_user_id: string }
+        Returns: Json
       }
     }
     Enums: {
