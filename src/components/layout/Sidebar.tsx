@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 const menuItems = [
   { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
@@ -62,6 +63,11 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { t } = useLanguage();
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
+
+  const filteredMenuItems = menuItems.filter(
+    (item) => item.path !== "/wallet" || isWalletAdmin
+  );
 
   return (
     <aside
@@ -101,7 +107,7 @@ export function Sidebar() {
       {/* Navigation with scroll */}
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="space-y-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link

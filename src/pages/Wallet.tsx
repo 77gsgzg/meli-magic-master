@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,15 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Wallet() {
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!adminLoading && !isAdmin) {
+      navigate("/");
+    }
+  }, [isAdmin, adminLoading, navigate]);
+
   const {
     balance,
     transactions,

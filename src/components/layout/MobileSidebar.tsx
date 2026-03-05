@@ -39,6 +39,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 const menuItems = [
   { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
@@ -70,6 +71,11 @@ export function MobileSidebar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { t } = useLanguage();
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
+
+  const filteredMenuItems = menuItems.filter(
+    (item) => item.path !== "/wallet" || isWalletAdmin
+  );
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -102,7 +108,7 @@ export function MobileSidebar() {
         {/* Navigation with scroll */}
         <ScrollArea className="flex-1 h-[calc(100vh-220px)]">
           <nav className="space-y-1 p-3">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link

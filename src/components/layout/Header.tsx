@@ -7,6 +7,7 @@ import { MobileSidebar } from "./MobileSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 import { WalletIndicator } from "./WalletIndicator";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 interface HeaderProps {
   title: string;
@@ -15,6 +16,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
 
   return (
     <header className="sticky top-0 z-30 flex min-h-[56px] sm:min-h-[64px] items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-md px-4 sm:px-5 lg:px-6 gap-3">
@@ -56,8 +58,8 @@ export function Header({ title, subtitle }: HeaderProps) {
           />
         </div>
 
-        {/* Wallet Balance */}
-        <WalletIndicator />
+        {/* Wallet Balance - admin only */}
+        {isWalletAdmin && <WalletIndicator />}
 
         {/* Theme Toggle */}
         <ThemeToggle />
