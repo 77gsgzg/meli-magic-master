@@ -63,6 +63,11 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { t } = useLanguage();
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
+
+  const filteredMenuItems = menuItems.filter(
+    (item) => item.path !== "/wallet" || isWalletAdmin
+  );
 
   return (
     <aside
