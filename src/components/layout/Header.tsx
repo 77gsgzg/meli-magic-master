@@ -16,6 +16,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
 
   return (
     <header className="sticky top-0 z-30 flex min-h-[56px] sm:min-h-[64px] items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-md px-4 sm:px-5 lg:px-6 gap-3">
