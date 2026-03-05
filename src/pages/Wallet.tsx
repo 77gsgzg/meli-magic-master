@@ -29,6 +29,15 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Wallet() {
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!adminLoading && !isAdmin) {
+      navigate("/");
+    }
+  }, [isAdmin, adminLoading, navigate]);
+
   const {
     balance,
     transactions,

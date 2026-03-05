@@ -108,7 +108,7 @@ export function MobileSidebar() {
         {/* Navigation with scroll */}
         <ScrollArea className="flex-1 h-[calc(100vh-220px)]">
           <nav className="space-y-1 p-3">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link

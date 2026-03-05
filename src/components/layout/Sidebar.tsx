@@ -107,7 +107,7 @@ export function Sidebar() {
       {/* Navigation with scroll */}
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="space-y-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
