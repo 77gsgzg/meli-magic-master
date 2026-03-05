@@ -7,6 +7,7 @@ import { MobileSidebar } from "./MobileSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 import { WalletIndicator } from "./WalletIndicator";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 interface HeaderProps {
   title: string;
