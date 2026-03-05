@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 const menuItems = [
   { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
