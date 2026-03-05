@@ -71,6 +71,11 @@ export function MobileSidebar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { t } = useLanguage();
+  const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
+
+  const filteredMenuItems = menuItems.filter(
+    (item) => item.path !== "/wallet" || isWalletAdmin
+  );
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
