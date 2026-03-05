@@ -58,8 +58,8 @@ export function Header({ title, subtitle }: HeaderProps) {
           />
         </div>
 
-        {/* Wallet Balance */}
-        <WalletIndicator />
+        {/* Wallet Balance - admin only */}
+        {isWalletAdmin && <WalletIndicator />}
 
         {/* Theme Toggle */}
         <ThemeToggle />
