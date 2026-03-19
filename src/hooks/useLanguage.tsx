@@ -248,6 +248,8 @@ const translations: Translations = {
     "nav.webhooks": "Webhooks",
     "nav.supplier": "Proveedores",
     "nav.wallet": "Billetera",
+    "nav.aiImages": "Fotos IA",
+    "nav.aiTexts": "Textos IA",
     "nav.logout": "Salir",
 
     // Import Statistics
