@@ -28,6 +28,8 @@ import {
   LineChart,
   Warehouse,
   Wallet,
+  ImagePlus,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
