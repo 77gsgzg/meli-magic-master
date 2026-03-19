@@ -33,6 +33,8 @@ import DemandForecast from "./pages/DemandForecast";
 import CampaignHistory from "./pages/CampaignHistory";
 import Supplier from "./pages/Supplier";
 import Wallet from "./pages/Wallet";
+import AIImageGenerator from "./pages/AIImageGenerator";
+import AITextGenerator from "./pages/AITextGenerator";
 
 const queryClient = new QueryClient();
 
