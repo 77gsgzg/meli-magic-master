@@ -137,7 +137,7 @@ export default function AITextGenerator() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Gerador de Texto IA">
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30">
