@@ -61,6 +61,8 @@ const translations: Translations = {
     "nav.webhooks": "Webhooks",
     "nav.supplier": "Fornecedores",
     "nav.wallet": "Carteira",
+    "nav.aiImages": "Fotos IA",
+    "nav.aiTexts": "Textos IA",
     "nav.logout": "Sair",
 
     // Import Statistics
@@ -246,6 +248,8 @@ const translations: Translations = {
     "nav.webhooks": "Webhooks",
     "nav.supplier": "Proveedores",
     "nav.wallet": "Billetera",
+    "nav.aiImages": "Fotos IA",
+    "nav.aiTexts": "Textos IA",
     "nav.logout": "Salir",
 
     // Import Statistics
@@ -431,6 +435,8 @@ const translations: Translations = {
     "nav.webhooks": "Webhooks",
     "nav.supplier": "Suppliers",
     "nav.wallet": "Wallet",
+    "nav.aiImages": "AI Photos",
+    "nav.aiTexts": "AI Texts",
     "nav.logout": "Logout",
 
     // Import Statistics

@@ -33,6 +33,8 @@ import DemandForecast from "./pages/DemandForecast";
 import CampaignHistory from "./pages/CampaignHistory";
 import Supplier from "./pages/Supplier";
 import Wallet from "./pages/Wallet";
+import AIImageGenerator from "./pages/AIImageGenerator";
+import AITextGenerator from "./pages/AITextGenerator";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +74,8 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/webhooks" element={<Webhooks />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/ai/images" element={<AIImageGenerator />} />
+                <Route path="/ai/texts" element={<AITextGenerator />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>

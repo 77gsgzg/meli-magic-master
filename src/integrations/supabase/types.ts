@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generated_images: {
+        Row: {
+          created_at: string
+          generated_image_urls: Json | null
+          id: string
+          original_image_url: string | null
+          status: string
+          style: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_image_urls?: Json | null
+          id?: string
+          original_image_url?: string | null
+          status?: string
+          style?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_image_urls?: Json | null
+          id?: string
+          original_image_url?: string | null
+          status?: string
+          style?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_generated_texts: {
+        Row: {
+          benefits: string | null
+          created_at: string
+          cta: string | null
+          generated_title: string | null
+          id: string
+          input_data: Json
+          long_description: string | null
+          short_description: string | null
+          specifications: string | null
+          user_id: string
+        }
+        Insert: {
+          benefits?: string | null
+          created_at?: string
+          cta?: string | null
+          generated_title?: string | null
+          id?: string
+          input_data?: Json
+          long_description?: string | null
+          short_description?: string | null
+          specifications?: string | null
+          user_id: string
+        }
+        Update: {
+          benefits?: string | null
+          created_at?: string
+          cta?: string | null
+          generated_title?: string | null
+          id?: string
+          input_data?: Json
+          long_description?: string | null
+          short_description?: string | null
+          specifications?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       batch_import_logs: {
         Row: {
           batch_id: string

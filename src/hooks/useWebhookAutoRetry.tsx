@@ -36,7 +36,7 @@ export function useWebhookAutoRetry(
   userId: string | undefined
 ) {
   const queryClient = useQueryClient();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProcessingRef = useRef(false);
 
   const processFailedWebhooks = useCallback(async () => {
