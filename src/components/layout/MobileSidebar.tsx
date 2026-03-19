@@ -78,7 +78,12 @@ export function MobileSidebar() {
   const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
 
   const filteredMenuItems = menuItems.filter(
-    (item) => item.path !== "/wallet" || isWalletAdmin
+    (item) => {
+      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts") {
+        return isWalletAdmin;
+      }
+      return true;
+    }
   );
 
   return (

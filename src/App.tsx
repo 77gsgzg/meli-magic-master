@@ -74,6 +74,8 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/webhooks" element={<Webhooks />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/ai/images" element={<AIImageGenerator />} />
+                <Route path="/ai/texts" element={<AITextGenerator />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>
