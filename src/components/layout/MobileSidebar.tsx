@@ -52,6 +52,8 @@ const menuItems = [
   { icon: LineChart, labelKey: "nav.demand", path: "/demand" },
   { icon: Warehouse, labelKey: "nav.supplier", path: "/supplier" },
   { icon: Wallet, labelKey: "nav.wallet", path: "/wallet" },
+  { icon: ImagePlus, labelKey: "nav.aiImages", path: "/ai/images" },
+  { icon: Bot, labelKey: "nav.aiTexts", path: "/ai/texts" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
