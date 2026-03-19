@@ -435,6 +435,8 @@ const translations: Translations = {
     "nav.webhooks": "Webhooks",
     "nav.supplier": "Suppliers",
     "nav.wallet": "Wallet",
+    "nav.aiImages": "AI Photos",
+    "nav.aiTexts": "AI Texts",
     "nav.logout": "Logout",
 
     // Import Statistics
