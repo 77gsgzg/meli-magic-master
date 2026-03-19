@@ -13,7 +13,7 @@ export function useShippingDelayAlerts() {
   const { isEnabled, sendNotification } = usePushNotifications();
   const { settings } = useOrderAlertSettings();
   const notifiedOrdersRef = useRef<Set<string>>(new Set());
-  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkDelayedOrders = useCallback(async () => {
     if (!session?.user?.id) return;
