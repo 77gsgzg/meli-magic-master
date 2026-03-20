@@ -100,7 +100,20 @@ export function EditProductModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] glass">
         <DialogHeader>
-          <DialogTitle>Editar Produto</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Editar Produto</span>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setAiPickerOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Aplicar Texto IA
+              </Button>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Altere as informações do produto. Clique em salvar quando terminar.
           </DialogDescription>
