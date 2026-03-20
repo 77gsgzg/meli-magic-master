@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { z } from "zod";
+import { AITextPickerDialog } from "./AITextPickerDialog";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 type Product = Tables<'products'>;
 
@@ -43,6 +45,8 @@ export function EditProductModal({
   const [quantity, setQuantity] = useState("");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [aiPickerOpen, setAiPickerOpen] = useState(false);
+  const { isAdmin } = useIsWalletAdmin();
 
   useEffect(() => {
     if (product) {
@@ -93,10 +97,24 @@ export function EditProductModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] glass">
         <DialogHeader>
-          <DialogTitle>Editar Produto</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Editar Produto</span>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setAiPickerOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Aplicar Texto IA
+              </Button>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Altere as informações do produto. Clique em salvar quando terminar.
           </DialogDescription>
@@ -187,5 +205,15 @@ export function EditProductModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AITextPickerDialog
+      open={aiPickerOpen}
+      onOpenChange={setAiPickerOpen}
+      onApply={(aiTitle, aiDescription) => {
+        setTitle(aiTitle);
+        setDescription(aiDescription);
+      }}
+    />
+    </>
   );
 }
