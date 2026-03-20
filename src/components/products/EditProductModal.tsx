@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { z } from "zod";
+import { AITextPickerDialog } from "./AITextPickerDialog";
+import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 
 type Product = Tables<'products'>;
 
