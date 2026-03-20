@@ -204,5 +204,15 @@ export function EditProductModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AITextPickerDialog
+      open={aiPickerOpen}
+      onOpenChange={setAiPickerOpen}
+      onApply={(aiTitle, aiDescription) => {
+        setTitle(aiTitle);
+        setDescription(aiDescription);
+      }}
+    />
+    </>
   );
 }
