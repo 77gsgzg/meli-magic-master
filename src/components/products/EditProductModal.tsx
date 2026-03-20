@@ -45,6 +45,8 @@ export function EditProductModal({
   const [quantity, setQuantity] = useState("");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [aiPickerOpen, setAiPickerOpen] = useState(false);
+  const { isAdmin } = useIsWalletAdmin();
 
   useEffect(() => {
     if (product) {
