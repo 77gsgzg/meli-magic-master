@@ -81,7 +81,7 @@ export function MobileSidebar() {
 
   const filteredMenuItems = menuItems.filter(
     (item) => {
-      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts") {
+      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts" || item.path === "/tiktok-miner") {
         return isWalletAdmin;
       }
       return true;
