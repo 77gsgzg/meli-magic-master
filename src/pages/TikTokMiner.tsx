@@ -215,7 +215,7 @@ export default function TikTokMiner() {
   );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="TikTok Miner" subtitle="Mineração e análise de vídeos virais">
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-pink-500/30">
