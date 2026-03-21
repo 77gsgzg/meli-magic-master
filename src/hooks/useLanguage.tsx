@@ -63,6 +63,7 @@ const translations: Translations = {
     "nav.wallet": "Carteira",
     "nav.aiImages": "Fotos IA",
     "nav.aiTexts": "Textos IA",
+    "nav.tiktokMiner": "TikTok Miner",
     "nav.logout": "Sair",
 
     // Import Statistics
