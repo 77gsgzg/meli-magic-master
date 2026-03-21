@@ -30,6 +30,7 @@ import {
   Wallet,
   ImagePlus,
   Bot,
+  Pickaxe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
