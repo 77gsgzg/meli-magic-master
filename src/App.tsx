@@ -77,6 +77,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/ai/images" element={<AIImageGenerator />} />
                 <Route path="/ai/texts" element={<AITextGenerator />} />
+                <Route path="/tiktok-miner" element={<TikTokMiner />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>
