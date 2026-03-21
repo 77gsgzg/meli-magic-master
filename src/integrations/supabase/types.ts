@@ -301,6 +301,47 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_creatives: {
+        Row: {
+          created_at: string
+          generated_video_url: string | null
+          id: string
+          script: string | null
+          source_video_id: string
+          status: string
+          thumbnail_url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_video_url?: string | null
+          id?: string
+          script?: string | null
+          source_video_id: string
+          status?: string
+          thumbnail_url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_video_url?: string | null
+          id?: string
+          script?: string | null
+          source_video_id?: string
+          status?: string
+          thumbnail_url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_creatives_source_video_id_fkey"
+            columns: ["source_video_id"]
+            isOneToOne: false
+            referencedRelation: "tiktok_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goal_alerts: {
         Row: {
           acknowledged: boolean | null
@@ -1269,6 +1310,145 @@ export type Database = {
           percent_threshold?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tiktok_analysis: {
+        Row: {
+          comments_summary: string | null
+          created_at: string
+          detected_product: string | null
+          id: string
+          potential_score: number | null
+          raw_analysis: Json | null
+          transcript: string | null
+          trend_type: string | null
+          user_id: string
+          video_id: string
+          video_summary: string | null
+          virality_reason: string | null
+        }
+        Insert: {
+          comments_summary?: string | null
+          created_at?: string
+          detected_product?: string | null
+          id?: string
+          potential_score?: number | null
+          raw_analysis?: Json | null
+          transcript?: string | null
+          trend_type?: string | null
+          user_id: string
+          video_id: string
+          video_summary?: string | null
+          virality_reason?: string | null
+        }
+        Update: {
+          comments_summary?: string | null
+          created_at?: string
+          detected_product?: string | null
+          id?: string
+          potential_score?: number | null
+          raw_analysis?: Json | null
+          transcript?: string | null
+          trend_type?: string | null
+          user_id?: string
+          video_id?: string
+          video_summary?: string | null
+          virality_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiktok_analysis_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "tiktok_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tiktok_performance_logs: {
+        Row: {
+          clicks: number | null
+          conversions: number | null
+          created_at: string
+          creative_id: string | null
+          id: string
+          platform: string
+          user_id: string
+          views: number | null
+        }
+        Insert: {
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          creative_id?: string | null
+          id?: string
+          platform?: string
+          user_id: string
+          views?: number | null
+        }
+        Update: {
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          creative_id?: string | null
+          id?: string
+          platform?: string
+          user_id?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiktok_performance_logs_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "generated_creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tiktok_videos: {
+        Row: {
+          author_username: string | null
+          collected_at: string
+          comments_count: number | null
+          created_at: string
+          description: string | null
+          hashtags: string[] | null
+          id: string
+          likes: number | null
+          shares: number | null
+          user_id: string
+          video_url: string
+          views: number | null
+        }
+        Insert: {
+          author_username?: string | null
+          collected_at?: string
+          comments_count?: number | null
+          created_at?: string
+          description?: string | null
+          hashtags?: string[] | null
+          id?: string
+          likes?: number | null
+          shares?: number | null
+          user_id: string
+          video_url: string
+          views?: number | null
+        }
+        Update: {
+          author_username?: string | null
+          collected_at?: string
+          comments_count?: number | null
+          created_at?: string
+          description?: string | null
+          hashtags?: string[] | null
+          id?: string
+          likes?: number | null
+          shares?: number | null
+          user_id?: string
+          video_url?: string
+          views?: number | null
         }
         Relationships: []
       }

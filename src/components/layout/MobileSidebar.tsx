@@ -30,6 +30,7 @@ import {
   Wallet,
   ImagePlus,
   Bot,
+  Pickaxe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -54,6 +55,7 @@ const menuItems = [
   { icon: Wallet, labelKey: "nav.wallet", path: "/wallet" },
   { icon: ImagePlus, labelKey: "nav.aiImages", path: "/ai/images" },
   { icon: Bot, labelKey: "nav.aiTexts", path: "/ai/texts" },
+  { icon: Pickaxe, labelKey: "nav.tiktokMiner", path: "/tiktok-miner" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
@@ -79,7 +81,7 @@ export function MobileSidebar() {
 
   const filteredMenuItems = menuItems.filter(
     (item) => {
-      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts") {
+      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts" || item.path === "/tiktok-miner") {
         return isWalletAdmin;
       }
       return true;

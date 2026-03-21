@@ -63,6 +63,7 @@ const translations: Translations = {
     "nav.wallet": "Carteira",
     "nav.aiImages": "Fotos IA",
     "nav.aiTexts": "Textos IA",
+    "nav.tiktokMiner": "TikTok Miner",
     "nav.logout": "Sair",
 
     // Import Statistics
@@ -250,6 +251,7 @@ const translations: Translations = {
     "nav.wallet": "Billetera",
     "nav.aiImages": "Fotos IA",
     "nav.aiTexts": "Textos IA",
+    "nav.tiktokMiner": "TikTok Miner",
     "nav.logout": "Salir",
 
     // Import Statistics
@@ -437,6 +439,7 @@ const translations: Translations = {
     "nav.wallet": "Wallet",
     "nav.aiImages": "AI Photos",
     "nav.aiTexts": "AI Texts",
+    "nav.tiktokMiner": "TikTok Miner",
     "nav.logout": "Logout",
 
     // Import Statistics
