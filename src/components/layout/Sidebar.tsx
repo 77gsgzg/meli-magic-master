@@ -50,6 +50,7 @@ const menuItems = [
   { icon: ImagePlus, labelKey: "nav.aiImages", path: "/ai/images" },
   { icon: Bot, labelKey: "nav.aiTexts", path: "/ai/texts" },
   { icon: Pickaxe, labelKey: "nav.tiktokMiner", path: "/tiktok-miner" },
+  { icon: Rss, labelKey: "nav.tiktokFeed", path: "/tiktok-feed" },
   { icon: ClipboardList, labelKey: "nav.importStats", path: "/import-statistics" },
   { icon: Store, labelKey: "nav.mercadoLivre", path: "/mercado-livre" },
   { icon: PlusCircle, labelKey: "nav.import", path: "/import" },
