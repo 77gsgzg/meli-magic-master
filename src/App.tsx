@@ -79,6 +79,7 @@ const App = () => (
                 <Route path="/ai/images" element={<AIImageGenerator />} />
                 <Route path="/ai/texts" element={<AITextGenerator />} />
                 <Route path="/tiktok-miner" element={<TikTokMiner />} />
+                <Route path="/tiktok-feed" element={<TikTokFeed />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>

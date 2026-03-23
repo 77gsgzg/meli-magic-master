@@ -75,7 +75,7 @@ export function Sidebar() {
 
   const filteredMenuItems = menuItems.filter(
     (item) => {
-      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts" || item.path === "/tiktok-miner") {
+      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts" || item.path === "/tiktok-miner" || item.path === "/tiktok-feed") {
         return isWalletAdmin;
       }
       return true;
