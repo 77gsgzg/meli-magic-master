@@ -36,6 +36,7 @@ import Wallet from "./pages/Wallet";
 import AIImageGenerator from "./pages/AIImageGenerator";
 import AITextGenerator from "./pages/AITextGenerator";
 import TikTokMiner from "./pages/TikTokMiner";
+import TikTokFeed from "./pages/TikTokFeed";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
                 <Route path="/ai/images" element={<AIImageGenerator />} />
                 <Route path="/ai/texts" element={<AITextGenerator />} />
                 <Route path="/tiktok-miner" element={<TikTokMiner />} />
+                <Route path="/tiktok-feed" element={<TikTokFeed />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>

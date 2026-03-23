@@ -1414,10 +1414,14 @@ export type Database = {
           comments_count: number | null
           created_at: string
           description: string | null
+          feed_status: string | null
           hashtags: string[] | null
           id: string
+          is_model: boolean | null
           likes: number | null
           shares: number | null
+          source: string | null
+          thumbnail_url: string | null
           user_id: string
           video_url: string
           views: number | null
@@ -1428,10 +1432,14 @@ export type Database = {
           comments_count?: number | null
           created_at?: string
           description?: string | null
+          feed_status?: string | null
           hashtags?: string[] | null
           id?: string
+          is_model?: boolean | null
           likes?: number | null
           shares?: number | null
+          source?: string | null
+          thumbnail_url?: string | null
           user_id: string
           video_url: string
           views?: number | null
@@ -1442,10 +1450,14 @@ export type Database = {
           comments_count?: number | null
           created_at?: string
           description?: string | null
+          feed_status?: string | null
           hashtags?: string[] | null
           id?: string
+          is_model?: boolean | null
           likes?: number | null
           shares?: number | null
+          source?: string | null
+          thumbnail_url?: string | null
           user_id?: string
           video_url?: string
           views?: number | null
@@ -1568,6 +1580,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      video_creative_models: {
+        Row: {
+          created_at: string
+          format: string | null
+          hook_type: string | null
+          id: string
+          notes: string | null
+          opening_style: string | null
+          pacing: string | null
+          raw_extraction: Json | null
+          selling_style: string | null
+          structure_summary: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+          video_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          format?: string | null
+          hook_type?: string | null
+          id?: string
+          notes?: string | null
+          opening_style?: string | null
+          pacing?: string | null
+          raw_extraction?: Json | null
+          selling_style?: string | null
+          structure_summary?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          video_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          format?: string | null
+          hook_type?: string | null
+          id?: string
+          notes?: string | null
+          opening_style?: string | null
+          pacing?: string | null
+          raw_extraction?: Json | null
+          selling_style?: string | null
+          structure_summary?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_creative_models_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "tiktok_videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallet_transactions: {
         Row: {
