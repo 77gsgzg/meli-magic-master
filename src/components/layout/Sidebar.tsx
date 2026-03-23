@@ -30,6 +30,7 @@ import {
   ImagePlus,
   Bot,
   Pickaxe,
+  Rss,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
