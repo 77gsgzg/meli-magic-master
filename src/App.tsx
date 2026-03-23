@@ -36,6 +36,7 @@ import Wallet from "./pages/Wallet";
 import AIImageGenerator from "./pages/AIImageGenerator";
 import AITextGenerator from "./pages/AITextGenerator";
 import TikTokMiner from "./pages/TikTokMiner";
+import TikTokFeed from "./pages/TikTokFeed";
 
 const queryClient = new QueryClient();
 
