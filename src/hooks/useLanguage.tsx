@@ -253,6 +253,7 @@ const translations: Translations = {
     "nav.aiImages": "Fotos IA",
     "nav.aiTexts": "Textos IA",
     "nav.tiktokMiner": "TikTok Miner",
+    "nav.tiktokFeed": "Feed Inteligente",
     "nav.logout": "Salir",
 
     // Import Statistics
