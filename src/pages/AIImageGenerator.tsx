@@ -11,7 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ImagePlus, Download, Loader2, Sparkles, ShieldAlert, History, Trash2 } from "lucide-react";
+import { ImagePlus, Download, Loader2, Sparkles, ShieldAlert, History, Trash2, Pencil } from "lucide-react";
+import { ImageEditTab } from "@/components/ai-images/ImageEditTab";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
