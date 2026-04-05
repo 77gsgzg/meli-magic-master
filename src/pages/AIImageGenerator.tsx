@@ -168,6 +168,9 @@ export default function AIImageGenerator() {
             <TabsTrigger value="generate" className="gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> Gerar
             </TabsTrigger>
+            <TabsTrigger value="edit" className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5">
               <History className="h-3.5 w-3.5" /> Histórico ({history.length})
             </TabsTrigger>
