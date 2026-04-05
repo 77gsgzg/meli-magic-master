@@ -251,8 +251,6 @@ export default function AIImageGenerator() {
             </div>
           </TabsContent>
 
-          </TabsContent>
-
           <TabsContent value="edit" className="mt-4">
             <ImageEditTab userId={user!.id} />
           </TabsContent>
