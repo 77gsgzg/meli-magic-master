@@ -11,7 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ImagePlus, Download, Loader2, Sparkles, ShieldAlert, History, Trash2 } from "lucide-react";
+import { ImagePlus, Download, Loader2, Sparkles, ShieldAlert, History, Trash2, Pencil } from "lucide-react";
+import { ImageEditTab } from "@/components/ai-images/ImageEditTab";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -167,6 +168,9 @@ export default function AIImageGenerator() {
             <TabsTrigger value="generate" className="gap-1.5">
               <Sparkles className="h-3.5 w-3.5" /> Gerar
             </TabsTrigger>
+            <TabsTrigger value="edit" className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5">
               <History className="h-3.5 w-3.5" /> Histórico ({history.length})
             </TabsTrigger>
@@ -245,6 +249,10 @@ export default function AIImageGenerator() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="edit" className="mt-4">
+            <ImageEditTab userId={user!.id} />
           </TabsContent>
 
           <TabsContent value="history" className="mt-4">

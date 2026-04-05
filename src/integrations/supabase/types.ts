@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_image_edits: {
+        Row: {
+          created_at: string
+          edit_type: string
+          edited_image_url: string | null
+          id: string
+          original_image_url: string
+          prompt: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          edit_type?: string
+          edited_image_url?: string | null
+          id?: string
+          original_image_url: string
+          prompt: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          edit_type?: string
+          edited_image_url?: string | null
+          id?: string
+          original_image_url?: string
+          prompt?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       batch_import_logs: {
         Row: {
           batch_id: string
