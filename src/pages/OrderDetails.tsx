@@ -22,10 +22,19 @@ import {
   ExternalLink,
   Loader2,
   Copy,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import {
+  maskName,
+  maskEmail,
+  maskPhone,
+  maskAddress,
+  maskZip,
+} from "@/lib/privacy";
 
 const statusColors: Record<string, string> = {
   paid: "bg-green-500/10 text-green-600 border-green-500/20",
