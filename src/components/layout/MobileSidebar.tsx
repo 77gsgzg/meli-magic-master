@@ -130,8 +130,9 @@ export function MobileSidebar() {
         {/* Navigation with scroll */}
         <ScrollArea className="flex-1 h-[calc(100vh-220px)]">
           <nav className="space-y-1 p-3">
-            {filteredMenuItems.map((item) => {
+            {filteredMenuItems.map((item: any) => {
               const isActive = location.pathname === item.path;
+              const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
               return (
                 <Link
                   key={item.path}
@@ -145,7 +146,7 @@ export function MobileSidebar() {
                   )}
                 >
                   <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-                  <span className="truncate">{t(item.labelKey)}</span>
+                  <span className="truncate">{label}</span>
                 </Link>
               );
             })}
