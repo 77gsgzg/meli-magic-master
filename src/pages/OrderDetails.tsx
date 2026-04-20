@@ -348,11 +348,31 @@ export default function OrderDetails() {
           {/* Buyer Info */}
           <Card className="glass border-border/50">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Comprador
-                {decrypting && <Loader2 className="h-4 w-4 animate-spin" />}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Comprador
+                  {decrypting && <Loader2 className="h-4 w-4 animate-spin" />}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReveal}
+                  disabled={decrypting}
+                >
+                  {revealed ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-1" />
+                      Ocultar
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-1" />
+                      Revelar
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -362,25 +382,30 @@ export default function OrderDetails() {
               {(decryptedOrder?.buyer_first_name || order.buyer_first_name) && (
                 <div>
                   <p className="text-sm text-muted-foreground">Nome</p>
-                  <p className="font-medium">
-                    {decryptedOrder?.buyer_first_name || order.buyer_first_name}{' '}
-                    {decryptedOrder?.buyer_last_name || order.buyer_last_name}
+                  <p className="font-medium font-mono">
+                    {revealed && decryptedOrder
+                      ? `${decryptedOrder.buyer_first_name ?? ""} ${decryptedOrder.buyer_last_name ?? ""}`.trim()
+                      : maskName(`${order.buyer_first_name ?? ""} ${order.buyer_last_name ?? ""}`.trim())}
                   </p>
                 </div>
               )}
               {(decryptedOrder?.buyer_email || order.buyer_email) && (
                 <div>
                   <p className="text-sm text-muted-foreground">E-mail</p>
-                  <p className="font-medium text-sm">
-                    {decryptedOrder?.buyer_email || order.buyer_email}
+                  <p className="font-medium text-sm font-mono">
+                    {revealed && decryptedOrder?.buyer_email
+                      ? decryptedOrder.buyer_email
+                      : maskEmail(decryptedOrder?.buyer_email || order.buyer_email)}
                   </p>
                 </div>
               )}
               {(decryptedOrder?.buyer_phone || order.buyer_phone) && (
                 <div>
                   <p className="text-sm text-muted-foreground">Telefone</p>
-                  <p className="font-medium">
-                    {decryptedOrder?.buyer_phone || order.buyer_phone}
+                  <p className="font-medium font-mono">
+                    {revealed && decryptedOrder?.buyer_phone
+                      ? decryptedOrder.buyer_phone
+                      : maskPhone(decryptedOrder?.buyer_phone || order.buyer_phone)}
                   </p>
                 </div>
               )}
@@ -398,19 +423,25 @@ export default function OrderDetails() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {(decryptedOrder?.shipping_receiver_name || order.shipping_receiver_name) && (
-                  <p className="font-medium">
-                    {decryptedOrder?.shipping_receiver_name || order.shipping_receiver_name}
+                  <p className="font-medium font-mono">
+                    {revealed && decryptedOrder?.shipping_receiver_name
+                      ? decryptedOrder.shipping_receiver_name
+                      : maskName(decryptedOrder?.shipping_receiver_name || order.shipping_receiver_name)}
                   </p>
                 )}
-                <p className="text-sm">
-                  {decryptedOrder?.shipping_address_line || order.shipping_address_line}
+                <p className="text-sm font-mono">
+                  {revealed && decryptedOrder?.shipping_address_line
+                    ? decryptedOrder.shipping_address_line
+                    : maskAddress(decryptedOrder?.shipping_address_line || order.shipping_address_line)}
                 </p>
                 <p className="text-sm">
                   {decryptedOrder?.shipping_address_city || order.shipping_address_city},{' '}
                   {decryptedOrder?.shipping_address_state || order.shipping_address_state}
                 </p>
-                <p className="text-sm">
-                  CEP: {decryptedOrder?.shipping_address_zip_code || order.shipping_address_zip_code}
+                <p className="text-sm font-mono">
+                  CEP: {revealed && decryptedOrder?.shipping_address_zip_code
+                    ? decryptedOrder.shipping_address_zip_code
+                    : maskZip(decryptedOrder?.shipping_address_zip_code || order.shipping_address_zip_code)}
                 </p>
               </CardContent>
             </Card>
