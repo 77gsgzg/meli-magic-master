@@ -32,6 +32,7 @@ import {
   Bot,
   Pickaxe,
   Rss,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const menuItems = [
   { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
@@ -72,6 +74,7 @@ const menuItems = [
   { icon: Webhook, labelKey: "nav.webhooks", path: "/webhooks" },
   { icon: Stethoscope, labelKey: "nav.connectionDiag", path: "/mercado-livre/diagnostics" },
   { icon: FileWarning, labelKey: "nav.publicationDiag", path: "/publications/diagnostics" },
+  { icon: ShieldCheck, labelKey: "Painel Admin", path: "/admin", adminOnly: true },
   { icon: Settings, labelKey: "nav.settings", path: "/settings" },
 ];
 
@@ -80,15 +83,21 @@ export function MobileSidebar() {
   const location = useLocation();
   const { t } = useLanguage();
   const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
+  const { isAdmin } = useIsAdmin();
 
-  const filteredMenuItems = menuItems.filter(
-    (item) => {
-      if (item.path === "/wallet" || item.path === "/ai/images" || item.path === "/ai/texts" || item.path === "/tiktok-miner" || item.path === "/tiktok-feed") {
-        return isWalletAdmin;
-      }
-      return true;
+  const filteredMenuItems = menuItems.filter((item: any) => {
+    if (item.adminOnly) return isAdmin;
+    if (
+      item.path === "/wallet" ||
+      item.path === "/ai/images" ||
+      item.path === "/ai/texts" ||
+      item.path === "/tiktok-miner" ||
+      item.path === "/tiktok-feed"
+    ) {
+      return isWalletAdmin;
     }
-  );
+    return true;
+  });
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -121,8 +130,9 @@ export function MobileSidebar() {
         {/* Navigation with scroll */}
         <ScrollArea className="flex-1 h-[calc(100vh-220px)]">
           <nav className="space-y-1 p-3">
-            {filteredMenuItems.map((item) => {
+            {filteredMenuItems.map((item: any) => {
               const isActive = location.pathname === item.path;
+              const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
               return (
                 <Link
                   key={item.path}
@@ -136,7 +146,7 @@ export function MobileSidebar() {
                   )}
                 >
                   <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-                  <span className="truncate">{t(item.labelKey)}</span>
+                  <span className="truncate">{label}</span>
                 </Link>
               );
             })}
