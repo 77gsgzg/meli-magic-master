@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { maskName, maskAddress, maskZip } from '@/lib/privacy';
 
 const statusColors: Record<string, string> = {
   paid: 'bg-green-500/10 text-green-600 border-green-500/20',
