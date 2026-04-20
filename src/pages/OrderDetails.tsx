@@ -158,6 +158,7 @@ export default function OrderDetails() {
   const [order, setOrder] = useState<MLOrder | null>(null);
   const [decryptedOrder, setDecryptedOrder] = useState<MLOrder | null>(null);
   const [decrypting, setDecrypting] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     if (!loading && orders.length > 0 && id) {
@@ -166,17 +167,23 @@ export default function OrderDetails() {
     }
   }, [orders, loading, id]);
 
-  // Decrypt PII when order is found
-  useEffect(() => {
-    if (order?.id && !decryptedOrder) {
-      setDecrypting(true);
-      decryptOrderPii(order.id)
-        .then((decrypted) => {
-          if (decrypted) setDecryptedOrder(decrypted);
-        })
-        .finally(() => setDecrypting(false));
+  const handleReveal = async () => {
+    if (!order?.id) return;
+    if (revealed) {
+      setRevealed(false);
+      return;
     }
-  }, [order?.id, decryptOrderPii, decryptedOrder]);
+    if (!decryptedOrder) {
+      setDecrypting(true);
+      try {
+        const decrypted = await decryptOrderPii(order.id);
+        if (decrypted) setDecryptedOrder(decrypted);
+      } finally {
+        setDecrypting(false);
+      }
+    }
+    setRevealed(true);
+  };
 
   const handleShipOrder = async () => {
     if (!order) return;
