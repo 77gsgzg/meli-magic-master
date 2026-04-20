@@ -129,11 +129,10 @@ export function Sidebar() {
       {/* Navigation with scroll */}
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="space-y-1">
-          {filteredMenuItems.map((item) => {
+          {filteredMenuItems.map((item: any) => {
             const isActive = location.pathname === item.path;
+            const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
             return (
-              const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
-              return (
               <Link
                 key={item.path}
                 to={item.path}
@@ -144,15 +143,13 @@ export function Sidebar() {
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent"
                 )}
               >
-                <item.icon 
+                <item.icon
                   className={cn(
-                    "h-5 w-5 shrink-0 transition-colors", 
+                    "h-5 w-5 shrink-0 transition-colors",
                     isActive ? "text-primary" : "group-hover:text-foreground"
-                  )} 
+                  )}
                 />
-                {!collapsed && (
-                  <span className="truncate">{t(item.labelKey)}</span>
-                )}
+                {!collapsed && <span className="truncate">{label}</span>}
               </Link>
             );
           })}
