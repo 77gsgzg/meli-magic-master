@@ -421,8 +421,8 @@ export default function Orders() {
                   {selectedOrder.buyer_first_name && (
                     <div>
                       <span className="text-muted-foreground">Nome:</span>
-                      <span className="ml-2">
-                        {selectedOrder.buyer_first_name} {selectedOrder.buyer_last_name}
+                      <span className="ml-2 font-mono">
+                        {maskName(`${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name ?? ""}`.trim())}
                       </span>
                     </div>
                   )}
@@ -438,13 +438,16 @@ export default function Orders() {
                   </h4>
                   <div className="text-sm space-y-1">
                     {selectedOrder.shipping_receiver_name && (
-                      <p className="font-medium">{selectedOrder.shipping_receiver_name}</p>
+                      <p className="font-medium font-mono">{maskName(selectedOrder.shipping_receiver_name)}</p>
                     )}
-                    <p>{selectedOrder.shipping_address_line}</p>
+                    <p className="font-mono">{maskAddress(selectedOrder.shipping_address_line)}</p>
                     <p>
                       {selectedOrder.shipping_address_city}, {selectedOrder.shipping_address_state}
                     </p>
-                    <p>CEP: {selectedOrder.shipping_address_zip_code}</p>
+                    <p className="font-mono">CEP: {maskZip(selectedOrder.shipping_address_zip_code)}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Abra a página de detalhes para revelar os dados completos.
+                    </p>
                   </div>
                 </div>
               )}

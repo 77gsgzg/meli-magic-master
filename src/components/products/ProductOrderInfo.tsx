@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { User, MapPin, Truck, Package, Send, ExternalLink, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { maskName, maskAddress, maskZip } from '@/lib/privacy';
 
 interface ProductOrderInfoProps {
   productId: string;
