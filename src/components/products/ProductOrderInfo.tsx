@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { User, MapPin, Truck, Package, Send, ExternalLink, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { maskName, maskAddress, maskZip } from '@/lib/privacy';
 
 interface ProductOrderInfoProps {
   productId: string;
@@ -134,8 +135,8 @@ export function ProductOrderInfo({ productId, onShip }: ProductOrderInfoProps) {
           </div>
           <p className="text-sm">{order.buyer_nickname}</p>
           {order.buyer_first_name && (
-            <p className="text-sm text-muted-foreground">
-              {order.buyer_first_name} {order.buyer_last_name}
+            <p className="text-sm text-muted-foreground font-mono">
+              {maskName(`${order.buyer_first_name} ${order.buyer_last_name ?? ""}`.trim())}
             </p>
           )}
         </div>
@@ -149,11 +150,11 @@ export function ProductOrderInfo({ productId, onShip }: ProductOrderInfoProps) {
             </div>
             <div className="text-sm space-y-0.5">
               {order.shipping_receiver_name && (
-                <p className="font-medium">{order.shipping_receiver_name}</p>
+                <p className="font-medium font-mono">{maskName(order.shipping_receiver_name)}</p>
               )}
-              <p>{order.shipping_address_line}</p>
+              <p className="font-mono">{maskAddress(order.shipping_address_line)}</p>
               <p>{order.shipping_address_city}, {order.shipping_address_state}</p>
-              <p>CEP: {order.shipping_address_zip_code}</p>
+              <p className="font-mono">CEP: {maskZip(order.shipping_address_zip_code)}</p>
             </div>
           </div>
         )}
