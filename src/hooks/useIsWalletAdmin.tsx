@@ -1,9 +1,10 @@
-import { useAuth } from './useAuth';
+import { useIsAdmin } from "./useIsAdmin";
 
-const WALLET_ADMIN_EMAIL = 'farmatgu@gmail.com';
-
+/**
+ * Mantido por compatibilidade com imports existentes (Wallet, AI Images, TikTok).
+ * Agora baseia-se na role 'admin' do banco — não mais em email hardcoded.
+ */
 export function useIsWalletAdmin() {
-  const { user, loading } = useAuth();
-  const isAdmin = !loading && user?.email === WALLET_ADMIN_EMAIL;
+  const { isAdmin, loading } = useIsAdmin();
   return { isAdmin, loading };
 }
