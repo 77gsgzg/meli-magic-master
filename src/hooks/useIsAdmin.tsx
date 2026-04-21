@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
+const SUPER_ADMIN_EMAIL = "farmatgu@gmail.com";
+
 /**
  * Verifica role 'admin' no banco (tabela user_roles).
  * Frontend é apenas reflexo — toda autorização real é validada no backend.
+ *
+ * Fallback: se o e-mail do usuário for o super admin, considera admin
+ * mesmo que a leitura da tabela falhe (ex: RLS / latência). O backend
+ * continua sendo a fonte de verdade nas Edge Functions.
  */
 export function useIsAdmin() {
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +30,9 @@ export function useIsAdmin() {
         return;
       }
 
+      const isSuperAdminByEmail =
+        (user.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL;
+
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -32,7 +41,7 @@ export function useIsAdmin() {
         .maybeSingle();
 
       if (active) {
-        setIsAdmin(!!data);
+        setIsAdmin(!!data || isSuperAdminByEmail);
         setLoading(false);
       }
     }
