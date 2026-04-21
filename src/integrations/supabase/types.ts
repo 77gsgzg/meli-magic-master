@@ -1343,6 +1343,45 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          admin_reply: string | null
+          created_at: string
+          id: string
+          message: string
+          replied_at: string | null
+          replied_by: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_reply?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          replied_at?: string | null
+          replied_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_reply?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tiktok_analysis: {
         Row: {
           comments_summary: string | null
@@ -1525,6 +1564,33 @@ export type Database = {
           metric_key?: string
           metric_name?: string
           target_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_plans: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          status: Database["public"]["Enums"]["plan_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: Database["public"]["Enums"]["plan_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          status?: Database["public"]["Enums"]["plan_status"]
           updated_at?: string
           user_id?: string
         }
@@ -1839,7 +1905,10 @@ export type Database = {
         | "delete"
         | "token_refresh"
         | "ai_optimization"
+      plan_status: "active" | "expired" | "canceled"
+      plan_type: "free" | "pro" | "premium"
       product_status: "draft" | "pending" | "published" | "error" | "paused"
+      ticket_status: "open" | "answered" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1976,7 +2045,10 @@ export const Constants = {
         "token_refresh",
         "ai_optimization",
       ],
+      plan_status: ["active", "expired", "canceled"],
+      plan_type: ["free", "pro", "premium"],
       product_status: ["draft", "pending", "published", "error", "paused"],
+      ticket_status: ["open", "answered", "closed"],
     },
   },
 } as const
