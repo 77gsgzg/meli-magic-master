@@ -22,6 +22,23 @@ function jsonResp(body: unknown, status = 200) {
   });
 }
 
+async function logAction(
+  supabase: any,
+  caller_id: string,
+  action: string,
+  entity_id?: string,
+  extra?: Record<string, unknown>,
+) {
+  await supabase.from("operation_logs").insert({
+    user_id: caller_id,
+    operation_type: "update",
+    status: "success",
+    entity_type: "admin",
+    entity_id: entity_id ?? null,
+    details: { action, ...(extra ?? {}) },
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -45,7 +62,6 @@ serve(async (req) => {
     }
     const caller = userRes.user;
 
-    // Verify caller has admin role in DB (real authorization)
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("role")
@@ -54,17 +70,13 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!roleRow) {
-      // Sanitized log (no email in clear text)
       await supabase.from("operation_logs").insert({
         user_id: caller.id,
         operation_type: "import",
         status: "error",
         entity_type: "admin",
         error_message: "forbidden_admin_access",
-        details: {
-          masked_email: maskEmail(caller.email),
-          endpoint: "admin-manage",
-        },
+        details: { masked_email: maskEmail(caller.email), endpoint: "admin-manage" },
       });
       return jsonResp({ error: "Forbidden" }, 403);
     }
@@ -72,31 +84,84 @@ serve(async (req) => {
     const { action, ...params } = await req.json();
 
     switch (action) {
+      case "dashboard_stats": {
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const [
+          { data: usersList },
+          { count: mlCount },
+          { data: planRows },
+        ] = await Promise.all([
+          supabase.auth.admin.listUsers({ page: 1, perPage: 1 }),
+          supabase.from("ml_tokens").select("user_id", { count: "exact", head: true }),
+          supabase.from("user_plans").select("plan_type, status"),
+        ]);
+
+        // active = signed in last 30 days (use full list for accuracy up to 1000)
+        const { data: fullList } = await supabase.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        const activeCount = (fullList?.users ?? []).filter(
+          (u) => u.last_sign_in_at && u.last_sign_in_at >= since,
+        ).length;
+
+        const paying = (planRows ?? []).filter(
+          (p: any) => p.plan_type !== "free" && p.status === "active",
+        ).length;
+
+        return jsonResp({
+          total_users: usersList?.total ?? fullList?.users.length ?? 0,
+          active_users_30d: activeCount,
+          paying_users: paying,
+          ml_connected: mlCount ?? 0,
+        });
+      }
+
       case "list_users": {
         const limit = Math.min(Number(params.limit) || 50, 200);
         const page = Math.max(Number(params.page) || 1, 1);
+        const search = (params.search ?? "").toString().trim().toLowerCase();
+        const filterAdmin = params.filter_admin === true;
+        const filterPlan = params.filter_plan as string | undefined;
 
         const { data: list, error: listErr } =
           await supabase.auth.admin.listUsers({ page, perPage: limit });
         if (listErr) throw listErr;
 
-        const userIds = list.users.map((u) => u.id);
+        let users = list.users;
+        if (search) {
+          users = users.filter(
+            (u) =>
+              (u.email ?? "").toLowerCase().includes(search) ||
+              u.id.toLowerCase().includes(search),
+          );
+        }
 
-        const [{ data: roles }, { data: tokens }, { data: profiles }] =
-          await Promise.all([
-            supabase
-              .from("user_roles")
-              .select("user_id, role")
-              .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
-            supabase
-              .from("ml_tokens")
-              .select("user_id, nickname, expires_at, updated_at")
-              .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
-            supabase
-              .from("profiles")
-              .select("id, full_name, avatar_url")
-              .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
-          ]);
+        const userIds = users.map((u) => u.id);
+        const safeIds = userIds.length
+          ? userIds
+          : ["00000000-0000-0000-0000-000000000000"];
+
+        const [
+          { data: roles },
+          { data: tokens },
+          { data: profiles },
+          { data: plans },
+        ] = await Promise.all([
+          supabase.from("user_roles").select("user_id, role").in("user_id", safeIds),
+          supabase
+            .from("ml_tokens")
+            .select("user_id, nickname, expires_at, updated_at")
+            .in("user_id", safeIds),
+          supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url")
+            .in("id", safeIds),
+          supabase
+            .from("user_plans")
+            .select("user_id, plan_type, status, expires_at")
+            .in("user_id", safeIds),
+        ]);
 
         const rolesByUser = new Map<string, string[]>();
         (roles ?? []).forEach((r: any) => {
@@ -104,17 +169,21 @@ serve(async (req) => {
           arr.push(r.role);
           rolesByUser.set(r.user_id, arr);
         });
-
         const tokenByUser = new Map<string, any>();
         (tokens ?? []).forEach((t: any) => tokenByUser.set(t.user_id, t));
-
         const profileByUser = new Map<string, any>();
         (profiles ?? []).forEach((p: any) => profileByUser.set(p.id, p));
+        const planByUser = new Map<string, any>();
+        (plans ?? []).forEach((p: any) => planByUser.set(p.user_id, p));
 
-        const sanitized = list.users.map((u) => {
+        let sanitized = users.map((u) => {
           const userRoles = rolesByUser.get(u.id) ?? [];
           const token = tokenByUser.get(u.id);
           const profile = profileByUser.get(u.id);
+          const plan = planByUser.get(u.id);
+          const bannedUntil = (u as any).banned_until ?? null;
+          const isBanned =
+            bannedUntil && new Date(bannedUntil).getTime() > Date.now();
           return {
             id: u.id,
             masked_email: maskEmail(u.email),
@@ -123,14 +192,23 @@ serve(async (req) => {
             created_at: u.created_at,
             last_sign_in_at: u.last_sign_in_at,
             confirmed: !!u.email_confirmed_at,
-            banned_until: (u as any).banned_until ?? null,
+            banned_until: bannedUntil,
+            is_banned: !!isBanned,
             roles: userRoles,
             is_admin: userRoles.includes("admin"),
             ml_connected: !!token,
             ml_nickname: token?.nickname ?? null,
             ml_expires_at: token?.expires_at ?? null,
+            plan_type: plan?.plan_type ?? "free",
+            plan_status: plan?.status ?? "active",
+            plan_expires_at: plan?.expires_at ?? null,
           };
         });
+
+        if (filterAdmin) sanitized = sanitized.filter((u) => u.is_admin);
+        if (filterPlan && filterPlan !== "all") {
+          sanitized = sanitized.filter((u) => u.plan_type === filterPlan);
+        }
 
         return jsonResp({
           users: sanitized,
@@ -140,49 +218,27 @@ serve(async (req) => {
         });
       }
 
-      case "promote_admin": {
-        const { user_id } = params;
-        if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
-
-        const { error } = await supabase
-          .from("user_roles")
-          .upsert({ user_id, role: "admin" }, { onConflict: "user_id,role" });
-        if (error) throw error;
-
-        await supabase.from("operation_logs").insert({
-          user_id: caller.id,
-          operation_type: "update",
-          status: "success",
-          entity_type: "admin",
-          entity_id: user_id,
-          details: { action: "promote_admin" },
-        });
-
-        return jsonResp({ success: true });
-      }
-
+      case "promote_admin":
       case "demote_admin": {
         const { user_id } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
-        if (user_id === caller.id)
+        if (action === "demote_admin" && user_id === caller.id)
           return jsonResp({ error: "Não pode rebaixar a si mesmo" }, 400);
 
-        const { error } = await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", user_id)
-          .eq("role", "admin");
-        if (error) throw error;
-
-        await supabase.from("operation_logs").insert({
-          user_id: caller.id,
-          operation_type: "update",
-          status: "success",
-          entity_type: "admin",
-          entity_id: user_id,
-          details: { action: "demote_admin" },
-        });
-
+        if (action === "promote_admin") {
+          const { error } = await supabase
+            .from("user_roles")
+            .upsert({ user_id, role: "admin" }, { onConflict: "user_id,role" });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("role", "admin");
+          if (error) throw error;
+        }
+        await logAction(supabase, caller.id, action, user_id);
         return jsonResp({ success: true });
       }
 
@@ -195,16 +251,7 @@ serve(async (req) => {
           .delete()
           .eq("user_id", user_id);
         if (error) throw error;
-
-        await supabase.from("operation_logs").insert({
-          user_id: caller.id,
-          operation_type: "delete",
-          status: "success",
-          entity_type: "ml_token",
-          entity_id: user_id,
-          details: { action: "revoke_ml_token" },
-        });
-
+        await logAction(supabase, caller.id, "revoke_ml_token", user_id);
         return jsonResp({ success: true });
       }
 
@@ -214,7 +261,9 @@ serve(async (req) => {
 
         const { data, error } = await supabase
           .from("operation_logs")
-          .select("id, operation_type, status, entity_type, entity_id, error_message, created_at")
+          .select(
+            "id, operation_type, status, entity_type, entity_id, error_message, created_at",
+          )
           .eq("user_id", user_id)
           .order("created_at", { ascending: false })
           .limit(Math.min(Number(limit) || 25, 100));
@@ -223,11 +272,123 @@ serve(async (req) => {
         return jsonResp({ logs: data ?? [] });
       }
 
+      // ============ PLANS ============
+      case "update_plan": {
+        const { user_id, plan_type, status, expires_at } = params;
+        if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
+        if (!["free", "pro", "premium"].includes(plan_type))
+          return jsonResp({ error: "plan_type inválido" }, 400);
+        if (!["active", "expired", "canceled"].includes(status))
+          return jsonResp({ error: "status inválido" }, 400);
+
+        const { error } = await supabase.from("user_plans").upsert(
+          {
+            user_id,
+            plan_type,
+            status,
+            expires_at: expires_at || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
+        if (error) throw error;
+        await logAction(supabase, caller.id, "update_plan", user_id, {
+          plan_type,
+          status,
+        });
+        return jsonResp({ success: true });
+      }
+
+      // ============ BAN / SUSPEND / REACTIVATE ============
+      case "ban_user":
+      case "suspend_user":
+      case "reactivate_user": {
+        const { user_id, days } = params;
+        if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
+        if (user_id === caller.id)
+          return jsonResp({ error: "Não pode aplicar a si mesmo" }, 400);
+
+        let banDuration: string;
+        if (action === "ban_user") {
+          banDuration = "876600h"; // ~100 years
+        } else if (action === "suspend_user") {
+          const d = Math.max(Number(days) || 7, 1);
+          banDuration = `${d * 24}h`;
+        } else {
+          banDuration = "none";
+        }
+
+        const { error } = await supabase.auth.admin.updateUserById(user_id, {
+          ban_duration: banDuration,
+        } as any);
+        if (error) throw error;
+        await logAction(supabase, caller.id, action, user_id, { days });
+        return jsonResp({ success: true });
+      }
+
+      // ============ SUPPORT ============
+      case "list_tickets": {
+        const status = params.status as string | undefined;
+        const limit = Math.min(Number(params.limit) || 50, 100);
+        let q = supabase
+          .from("support_tickets")
+          .select(
+            "id, user_id, subject, message, admin_reply, status, replied_at, created_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        if (status && status !== "all") q = q.eq("status", status);
+        const { data, error } = await q;
+        if (error) throw error;
+
+        // attach masked email
+        const ids = Array.from(new Set((data ?? []).map((t: any) => t.user_id)));
+        const emailMap = new Map<string, string>();
+        if (ids.length) {
+          const { data: list } = await supabase.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000,
+          });
+          (list?.users ?? []).forEach((u) => {
+            if (ids.includes(u.id)) emailMap.set(u.id, maskEmail(u.email));
+          });
+        }
+        const tickets = (data ?? []).map((t: any) => ({
+          ...t,
+          masked_email: emailMap.get(t.user_id) ?? "—",
+        }));
+        return jsonResp({ tickets });
+      }
+
+      case "reply_ticket": {
+        const { ticket_id, reply, close } = params;
+        if (!ticket_id || !reply)
+          return jsonResp({ error: "ticket_id e reply obrigatórios" }, 400);
+        if (typeof reply !== "string" || reply.length < 1 || reply.length > 5000)
+          return jsonResp({ error: "reply inválido" }, 400);
+
+        const { error } = await supabase
+          .from("support_tickets")
+          .update({
+            admin_reply: reply,
+            status: close ? "closed" : "answered",
+            replied_by: caller.id,
+            replied_at: new Date().toISOString(),
+          })
+          .eq("id", ticket_id);
+        if (error) throw error;
+        await logAction(supabase, caller.id, "reply_ticket", ticket_id);
+        return jsonResp({ success: true });
+      }
+
       default:
         return jsonResp({ error: "Ação inválida" }, 400);
     }
   } catch (error) {
-    console.error("admin-manage error:", error instanceof Error ? error.message : "unknown");
+    console.error(
+      "admin-manage error:",
+      error instanceof Error ? error.message : "unknown",
+    );
     return jsonResp(
       { error: error instanceof Error ? error.message : "Erro interno" },
       500,
