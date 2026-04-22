@@ -299,6 +299,18 @@ export default function Admin() {
     loadTickets();
   }
 
+  async function changeTicketStatus(ticket_id: string, status: string) {
+    const { error } = await supabase.functions.invoke("admin-manage", {
+      body: { action: "change_ticket_status", ticket_id, status },
+    });
+    if (error) {
+      toast.error("Sem permissão", { description: error.message });
+      return;
+    }
+    toast.success("Status atualizado");
+    loadTickets();
+  }
+
   if (roleLoading || !isAdmin) {
     return (
       <div className="p-6 space-y-3">
@@ -450,8 +462,12 @@ export default function Admin() {
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell>
+                      <TableRow
+                        key={u.id}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => navigate(`/admin/user/${u.id}`)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="text-sm">{u.masked_email}</div>
                           <div className="font-mono text-xs text-muted-foreground">
                             {u.id.slice(0, 8)}…{u.id.slice(-4)}
@@ -484,7 +500,7 @@ export default function Admin() {
                             <Badge variant="outline">User</Badge>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => openPlanEdit(u)}
                             className="text-left"
@@ -513,7 +529,7 @@ export default function Admin() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1 flex-wrap">
                             {u.is_admin ? (
                               <Button
@@ -676,18 +692,40 @@ export default function Admin() {
                         <p className="whitespace-pre-wrap">{t.admin_reply}</p>
                       </div>
                     )}
-                    {t.status !== "closed" && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {t.status !== "closed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setReplyTicket(t);
+                            setReplyText(t.admin_reply ?? "");
+                          }}
+                        >
+                          {t.admin_reply ? "Editar resposta" : "Responder"}
+                        </Button>
+                      )}
+                      <Select
+                        value={t.status}
+                        onValueChange={(v) => changeTicketStatus(t.id, v)}
+                      >
+                        <SelectTrigger className="h-8 w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Aguardando</SelectItem>
+                          <SelectItem value="answered">Respondido</SelectItem>
+                          <SelectItem value="closed">Fechado</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setReplyTicket(t);
-                          setReplyText(t.admin_reply ?? "");
-                        }}
+                        variant="ghost"
+                        onClick={() => navigate(`/admin/user/${t.user_id}`)}
                       >
-                        {t.admin_reply ? "Editar resposta" : "Responder"}
+                        Ver usuário
                       </Button>
-                    )}
+                    </div>
                   </div>
                 ))
               )}

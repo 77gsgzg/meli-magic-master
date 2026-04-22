@@ -39,6 +39,23 @@ async function logAction(
   });
 }
 
+async function auditAdmin(
+  supabase: any,
+  actor_id: string,
+  target_id: string | null,
+  action: string,
+  reason: string | null,
+  details?: Record<string, unknown>,
+) {
+  await supabase.from("admin_audit_logs").insert({
+    actor_user_id: actor_id,
+    target_user_id: target_id,
+    action,
+    reason,
+    details: details ?? null,
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -220,7 +237,7 @@ serve(async (req) => {
 
       case "promote_admin":
       case "demote_admin": {
-        const { user_id } = params;
+        const { user_id, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
         if (action === "demote_admin" && user_id === caller.id)
           return jsonResp({ error: "Não pode rebaixar a si mesmo" }, 400);
@@ -238,12 +255,13 @@ serve(async (req) => {
             .eq("role", "admin");
           if (error) throw error;
         }
+        await auditAdmin(supabase, caller.id, user_id, action, reason ?? null);
         await logAction(supabase, caller.id, action, user_id);
         return jsonResp({ success: true });
       }
 
       case "revoke_ml_token": {
-        const { user_id } = params;
+        const { user_id, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
 
         const { error } = await supabase
@@ -251,6 +269,14 @@ serve(async (req) => {
           .delete()
           .eq("user_id", user_id);
         if (error) throw error;
+        await auditAdmin(
+          supabase,
+          caller.id,
+          user_id,
+          "ml_token_revoked",
+          reason ?? "manual_revoke_by_admin",
+          { trigger: "manual" },
+        );
         await logAction(supabase, caller.id, "revoke_ml_token", user_id);
         return jsonResp({ success: true });
       }
@@ -303,7 +329,7 @@ serve(async (req) => {
       case "ban_user":
       case "suspend_user":
       case "reactivate_user": {
-        const { user_id, days } = params;
+        const { user_id, days, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
         if (user_id === caller.id)
           return jsonResp({ error: "Não pode aplicar a si mesmo" }, 400);
@@ -336,7 +362,28 @@ serve(async (req) => {
           await supabase.auth.admin
             .signOut(user_id as any)
             .catch(() => undefined);
+
+          // Audit log: ML revoked due to ban/suspend
+          if (mlRevoked) {
+            await auditAdmin(
+              supabase,
+              caller.id,
+              user_id,
+              "ml_token_revoked",
+              reason ?? `auto_revoke_on_${action}`,
+              { trigger: action, days: action === "suspend_user" ? days : null },
+            );
+          }
         }
+
+        await auditAdmin(
+          supabase,
+          caller.id,
+          user_id,
+          action,
+          reason ?? null,
+          { days, ml_revoked: mlRevoked },
+        );
 
         await logAction(supabase, caller.id, action, user_id, {
           days,
@@ -398,6 +445,184 @@ serve(async (req) => {
         if (error) throw error;
         await logAction(supabase, caller.id, "reply_ticket", ticket_id);
         return jsonResp({ success: true });
+      }
+
+      case "change_ticket_status": {
+        const { ticket_id, status } = params;
+        if (!ticket_id || !["open", "answered", "closed"].includes(status))
+          return jsonResp({ error: "params inválidos" }, 400);
+        const { error } = await supabase
+          .from("support_tickets")
+          .update({ status })
+          .eq("id", ticket_id);
+        if (error) throw error;
+        await logAction(supabase, caller.id, "change_ticket_status", ticket_id, {
+          status,
+        });
+        return jsonResp({ success: true });
+      }
+
+      // ============ USER DETAIL (admin /admin/user/:id) ============
+      case "user_detail": {
+        const { user_id } = params;
+        if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
+
+        const { data: authData, error: authErr } =
+          await supabase.auth.admin.getUserById(user_id);
+        if (authErr || !authData?.user)
+          return jsonResp({ error: "user_not_found" }, 404);
+        const u = authData.user;
+
+        const [
+          { data: roles },
+          { data: profile },
+          { data: plan },
+          { data: token },
+          { data: products },
+          { data: orders },
+          { count: aiImagesCount },
+          { count: aiTextsCount },
+          { count: aiEditsCount },
+          { data: opLogs },
+          { data: tickets },
+          { data: audits },
+        ] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", user_id),
+          supabase
+            .from("profiles")
+            .select("full_name, avatar_url, created_at")
+            .eq("id", user_id)
+            .maybeSingle(),
+          supabase
+            .from("user_plans")
+            .select("plan_type, status, expires_at, updated_at")
+            .eq("user_id", user_id)
+            .maybeSingle(),
+          supabase
+            .from("ml_tokens")
+            .select("nickname, expires_at, updated_at, ml_user_id")
+            .eq("user_id", user_id)
+            .maybeSingle(),
+          supabase
+            .from("products")
+            .select(
+              "id, title, price, available_quantity, sales, status, created_at",
+            )
+            .eq("user_id", user_id)
+            .order("sales", { ascending: false })
+            .limit(50),
+          supabase
+            .from("ml_orders")
+            .select("id, total_amount, status, date_created")
+            .eq("user_id", user_id)
+            .order("date_created", { ascending: false })
+            .limit(500),
+          supabase
+            .from("ai_generated_images")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user_id),
+          supabase
+            .from("ai_generated_texts")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user_id),
+          supabase
+            .from("ai_image_edits")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user_id),
+          supabase
+            .from("operation_logs")
+            .select(
+              "id, operation_type, status, entity_type, entity_id, error_message, created_at",
+            )
+            .eq("user_id", user_id)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          supabase
+            .from("support_tickets")
+            .select(
+              "id, subject, message, admin_reply, status, created_at, replied_at",
+            )
+            .eq("user_id", user_id)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("admin_audit_logs")
+            .select("id, action, reason, details, created_at, actor_user_id")
+            .eq("target_user_id", user_id)
+            .order("created_at", { ascending: false })
+            .limit(30),
+        ]);
+
+        const ordersList = orders ?? [];
+        const totalOrders = ordersList.length;
+        const totalRevenue = ordersList.reduce(
+          (s: number, o: any) => s + Number(o.total_amount ?? 0),
+          0,
+        );
+        const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const productsList = (products ?? []) as any[];
+        const topProducts = productsList.slice(0, 5);
+        const lowProducts = [...productsList]
+          .sort((a, b) => (a.sales ?? 0) - (b.sales ?? 0))
+          .slice(0, 5);
+
+        const bannedUntil = (u as any).banned_until ?? null;
+        const isBanned =
+          bannedUntil && new Date(bannedUntil).getTime() > Date.now();
+
+        return jsonResp({
+          user: {
+            id: u.id,
+            masked_email: maskEmail(u.email),
+            full_name: profile?.full_name ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+            created_at: u.created_at,
+            last_sign_in_at: u.last_sign_in_at,
+            confirmed: !!u.email_confirmed_at,
+            banned_until: bannedUntil,
+            is_banned: !!isBanned,
+            roles: (roles ?? []).map((r: any) => r.role),
+            is_admin: (roles ?? []).some((r: any) => r.role === "admin"),
+          },
+          plan: plan ?? { plan_type: "free", status: "active", expires_at: null },
+          ml_integration: token
+            ? {
+                connected: true,
+                nickname: token.nickname,
+                expires_at: token.expires_at,
+                updated_at: token.updated_at,
+              }
+            : { connected: false },
+          products_count: productsList.length,
+          top_products: topProducts,
+          low_products: lowProducts,
+          sales: {
+            total_orders: totalOrders,
+            total_revenue: totalRevenue,
+            avg_ticket: avgTicket,
+          },
+          usage: {
+            ai_images: aiImagesCount ?? 0,
+            ai_texts: aiTextsCount ?? 0,
+            ai_edits: aiEditsCount ?? 0,
+          },
+          logs: opLogs ?? [],
+          tickets: tickets ?? [],
+          audit_logs: audits ?? [],
+        });
+      }
+
+      case "audit_logs": {
+        const { user_id, limit = 50 } = params;
+        let q = supabase
+          .from("admin_audit_logs")
+          .select("id, action, reason, details, created_at, actor_user_id, target_user_id")
+          .order("created_at", { ascending: false })
+          .limit(Math.min(Number(limit) || 50, 200));
+        if (user_id) q = q.eq("target_user_id", user_id);
+        const { data, error } = await q;
+        if (error) throw error;
+        return jsonResp({ logs: data ?? [] });
       }
 
       default:
