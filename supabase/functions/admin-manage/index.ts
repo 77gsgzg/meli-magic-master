@@ -39,6 +39,23 @@ async function logAction(
   });
 }
 
+async function auditAdmin(
+  supabase: any,
+  actor_id: string,
+  target_id: string | null,
+  action: string,
+  reason: string | null,
+  details?: Record<string, unknown>,
+) {
+  await supabase.from("admin_audit_logs").insert({
+    actor_user_id: actor_id,
+    target_user_id: target_id,
+    action,
+    reason,
+    details: details ?? null,
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
