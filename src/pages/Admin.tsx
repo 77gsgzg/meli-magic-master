@@ -692,18 +692,40 @@ export default function Admin() {
                         <p className="whitespace-pre-wrap">{t.admin_reply}</p>
                       </div>
                     )}
-                    {t.status !== "closed" && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {t.status !== "closed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setReplyTicket(t);
+                            setReplyText(t.admin_reply ?? "");
+                          }}
+                        >
+                          {t.admin_reply ? "Editar resposta" : "Responder"}
+                        </Button>
+                      )}
+                      <Select
+                        value={t.status}
+                        onValueChange={(v) => changeTicketStatus(t.id, v)}
+                      >
+                        <SelectTrigger className="h-8 w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Aguardando</SelectItem>
+                          <SelectItem value="answered">Respondido</SelectItem>
+                          <SelectItem value="closed">Fechado</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setReplyTicket(t);
-                          setReplyText(t.admin_reply ?? "");
-                        }}
+                        variant="ghost"
+                        onClick={() => navigate(`/admin/user/${t.user_id}`)}
                       >
-                        {t.admin_reply ? "Editar resposta" : "Responder"}
+                        Ver usuário
                       </Button>
-                    )}
+                    </div>
                   </div>
                 ))
               )}
