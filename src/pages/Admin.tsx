@@ -299,6 +299,18 @@ export default function Admin() {
     loadTickets();
   }
 
+  async function changeTicketStatus(ticket_id: string, status: string) {
+    const { error } = await supabase.functions.invoke("admin-manage", {
+      body: { action: "change_ticket_status", ticket_id, status },
+    });
+    if (error) {
+      toast.error("Sem permissão", { description: error.message });
+      return;
+    }
+    toast.success("Status atualizado");
+    loadTickets();
+  }
+
   if (roleLoading || !isAdmin) {
     return (
       <div className="p-6 space-y-3">
