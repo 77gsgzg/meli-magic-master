@@ -320,7 +320,7 @@ serve(async (req) => {
       case "ban_user":
       case "suspend_user":
       case "reactivate_user": {
-        const { user_id, days } = params;
+        const { user_id, days, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
         if (user_id === caller.id)
           return jsonResp({ error: "Não pode aplicar a si mesmo" }, 400);
@@ -353,7 +353,28 @@ serve(async (req) => {
           await supabase.auth.admin
             .signOut(user_id as any)
             .catch(() => undefined);
+
+          // Audit log: ML revoked due to ban/suspend
+          if (mlRevoked) {
+            await auditAdmin(
+              supabase,
+              caller.id,
+              user_id,
+              "ml_token_revoked",
+              reason ?? `auto_revoke_on_${action}`,
+              { trigger: action, days: action === "suspend_user" ? days : null },
+            );
+          }
         }
+
+        await auditAdmin(
+          supabase,
+          caller.id,
+          user_id,
+          action,
+          reason ?? null,
+          { days, ml_revoked: mlRevoked },
+        );
 
         await logAction(supabase, caller.id, action, user_id, {
           days,
