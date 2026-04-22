@@ -488,7 +488,7 @@ export default function Admin() {
                             <Badge variant="outline">User</Badge>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => openPlanEdit(u)}
                             className="text-left"
