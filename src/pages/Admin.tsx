@@ -517,7 +517,7 @@ export default function Admin() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1 flex-wrap">
                             {u.is_admin ? (
                               <Button
