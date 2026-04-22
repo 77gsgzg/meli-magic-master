@@ -237,7 +237,7 @@ serve(async (req) => {
 
       case "promote_admin":
       case "demote_admin": {
-        const { user_id } = params;
+        const { user_id, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
         if (action === "demote_admin" && user_id === caller.id)
           return jsonResp({ error: "Não pode rebaixar a si mesmo" }, 400);
@@ -255,12 +255,13 @@ serve(async (req) => {
             .eq("role", "admin");
           if (error) throw error;
         }
+        await auditAdmin(supabase, caller.id, user_id, action, reason ?? null);
         await logAction(supabase, caller.id, action, user_id);
         return jsonResp({ success: true });
       }
 
       case "revoke_ml_token": {
-        const { user_id } = params;
+        const { user_id, reason } = params;
         if (!user_id) return jsonResp({ error: "user_id obrigatório" }, 400);
 
         const { error } = await supabase
@@ -268,6 +269,14 @@ serve(async (req) => {
           .delete()
           .eq("user_id", user_id);
         if (error) throw error;
+        await auditAdmin(
+          supabase,
+          caller.id,
+          user_id,
+          "ml_token_revoked",
+          reason ?? "manual_revoke_by_admin",
+          { trigger: "manual" },
+        );
         await logAction(supabase, caller.id, "revoke_ml_token", user_id);
         return jsonResp({ success: true });
       }
