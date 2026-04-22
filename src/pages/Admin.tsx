@@ -450,8 +450,12 @@ export default function Admin() {
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell>
+                      <TableRow
+                        key={u.id}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => navigate(`/admin/user/${u.id}`)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="text-sm">{u.masked_email}</div>
                           <div className="font-mono text-xs text-muted-foreground">
                             {u.id.slice(0, 8)}…{u.id.slice(-4)}
