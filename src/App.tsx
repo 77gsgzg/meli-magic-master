@@ -38,6 +38,7 @@ import AITextGenerator from "./pages/AITextGenerator";
 import TikTokMiner from "./pages/TikTokMiner";
 import TikTokFeed from "./pages/TikTokFeed";
 import Admin from "./pages/Admin";
+import Support from "./pages/Support";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
                 <Route path="/tiktok-miner" element={<TikTokMiner />} />
                 <Route path="/tiktok-feed" element={<TikTokFeed />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/support" element={<Support />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>

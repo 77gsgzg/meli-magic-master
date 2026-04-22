@@ -322,8 +322,27 @@ serve(async (req) => {
           ban_duration: banDuration,
         } as any);
         if (error) throw error;
-        await logAction(supabase, caller.id, action, user_id, { days });
-        return jsonResp({ success: true });
+
+        // Auto-revoke Mercado Livre token on ban/suspend
+        let mlRevoked = false;
+        if (action === "ban_user" || action === "suspend_user") {
+          const { error: revokeErr } = await supabase
+            .from("ml_tokens")
+            .delete()
+            .eq("user_id", user_id);
+          if (!revokeErr) mlRevoked = true;
+
+          // Force sign-out of all active sessions
+          await supabase.auth.admin
+            .signOut(user_id as any)
+            .catch(() => undefined);
+        }
+
+        await logAction(supabase, caller.id, action, user_id, {
+          days,
+          ml_revoked: mlRevoked,
+        });
+        return jsonResp({ success: true, ml_revoked: mlRevoked });
       }
 
       // ============ SUPPORT ============
