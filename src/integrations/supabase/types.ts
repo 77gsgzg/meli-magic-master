@@ -1891,6 +1891,10 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: Json
       }
+      revoke_ml_token_for_user: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       wallet_add_credit: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
         Returns: Json
