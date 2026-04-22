@@ -602,9 +602,9 @@ serve(async (req) => {
             avg_ticket: avgTicket,
           },
           usage: {
-            ai_images: (aiImages as any)?.length ?? 0,
-            ai_texts: (aiTexts as any)?.length ?? 0,
-            ai_edits: (aiEdits as any)?.length ?? 0,
+            ai_images: aiImagesCount ?? 0,
+            ai_texts: aiTextsCount ?? 0,
+            ai_edits: aiEditsCount ?? 0,
           },
           logs: opLogs ?? [],
           tickets: tickets ?? [],
