@@ -920,17 +920,46 @@ export default function Admin() {
       <AlertDialog open={bulkConfirm} onOpenChange={setBulkConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Atualizar em massa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Aplicar status <strong>{bulkStatus}</strong> em{" "}
-              <strong>{selectedTickets.size}</strong> ticket(s)? Cada mudança será
-              registrada na auditoria administrativa.
+            <AlertDialogTitle>Confirmar atualização em massa</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Você está prestes a atualizar tickets em massa. Esta ação será
+                  registrada individualmente na auditoria administrativa.
+                </p>
+                <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tickets afetados:</span>
+                    <strong className="text-foreground">{selectedTickets.size}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status de destino:</span>
+                    <Badge variant="secondary" className="uppercase">
+                      {bulkStatus === "open"
+                        ? "Aguardando"
+                        : bulkStatus === "answered"
+                          ? "Respondido"
+                          : bulkStatus === "closed"
+                            ? "Fechado"
+                            : bulkStatus}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Página atual:</span>
+                    <span className="text-foreground">{ticketPage}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Apenas os tickets visíveis (selecionados nesta página) serão
+                  alterados.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={bulkChangeStatus}>
-              Confirmar
+              Aplicar para {selectedTickets.size} ticket(s)
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
