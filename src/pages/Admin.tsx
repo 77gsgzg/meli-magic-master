@@ -238,7 +238,7 @@ export default function Admin() {
     const t = setTimeout(loadTickets, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketStatus, ticketSearch, ticketPage]);
+  }, [ticketStatus, ticketSearch, ticketPage, ticketPeriod, ticketPriority]);
 
   const filteredUsers = useMemo(() => {
     if (filterStatus === "all") return users;
