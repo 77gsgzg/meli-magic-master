@@ -107,14 +107,31 @@ export default function AdminUserDetail() {
         { body: { action: "user_detail", user_id: id } },
       );
       if (!alive) return;
-      if (err) setError(err.message);
-      else setData(res as UserDetail);
+      if (err) {
+        const e = handleAdminError(err, "Falha ao carregar usuário", res);
+        setError(`[${e.code}] ${e.message}`);
+      } else {
+        setData(res as UserDetail);
+      }
       setLoading(false);
     })();
     return () => {
       alive = false;
     };
   }, [isAdmin, id]);
+
+  function handleExport(kind: "csv" | "pdf") {
+    if (!data) return;
+    try {
+      if (kind === "csv") exportUserDetailCSV(data as any);
+      else exportUserDetailPDF(data as any);
+      toast.success(`Exportado em ${kind.toUpperCase()}`);
+    } catch (e) {
+      toast.error("Falha ao exportar", {
+        description: e instanceof Error ? e.message : "erro desconhecido",
+      });
+    }
+  }
 
   if (roleLoading || loading) {
     return (
