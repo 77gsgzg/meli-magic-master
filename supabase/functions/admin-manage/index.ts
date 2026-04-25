@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.startsWith("Bearer ")) {
-      return jsonResp({ error: "Unauthorized" }, 401);
+      return jsonResp({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -75,7 +75,7 @@ serve(async (req) => {
     const jwt = authHeader.replace("Bearer ", "");
     const { data: userRes, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !userRes?.user) {
-      return jsonResp({ error: "Unauthorized" }, 401);
+      return jsonResp({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     const caller = userRes.user;
 
@@ -95,7 +95,7 @@ serve(async (req) => {
         error_message: "forbidden_admin_access",
         details: { masked_email: maskEmail(caller.email), endpoint: "admin-manage" },
       });
-      return jsonResp({ error: "Forbidden" }, 403);
+      return jsonResp({ error: "Forbidden", code: "forbidden" }, 403);
     }
 
     const { action, ...params } = await req.json();
