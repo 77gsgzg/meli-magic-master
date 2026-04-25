@@ -201,12 +201,14 @@ export default function Admin() {
         action: "list_tickets",
         status: ticketStatus,
         search: ticketSearch.trim(),
+        since_days: ticketPeriod === "all" ? 0 : Number(ticketPeriod),
+        priority: ticketPriority,
         limit: TICKETS_PER_PAGE,
         page: ticketPage,
       },
     });
     if (error) {
-      handleAdminError(error, "Erro ao carregar tickets");
+      handleAdminError(error, "Erro ao carregar tickets", data);
     } else {
       setTickets(data?.tickets ?? []);
       setTicketTotal(data?.total ?? 0);
