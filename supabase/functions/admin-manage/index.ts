@@ -623,6 +623,15 @@ serve(async (req) => {
         const isBanned =
           bannedUntil && new Date(bannedUntil).getTime() > Date.now();
 
+        // Derive ban_reason and ml_revoke trigger from audit logs
+        const auditList = (audits ?? []) as any[];
+        const banAudit = auditList.find(
+          (a) => a.action === "ban_user" || a.action === "suspend_user",
+        );
+        const mlRevokeAudit = auditList.find(
+          (a) => a.action === "ml_token_revoked",
+        );
+
         return jsonResp({
           user: {
             id: u.id,
@@ -634,6 +643,9 @@ serve(async (req) => {
             confirmed: !!u.email_confirmed_at,
             banned_until: bannedUntil,
             is_banned: !!isBanned,
+            ban_reason: banAudit?.reason ?? null,
+            ban_action: banAudit?.action ?? null,
+            ban_at: banAudit?.created_at ?? null,
             roles: (roles ?? []).map((r: any) => r.role),
             is_admin: (roles ?? []).some((r: any) => r.role === "admin"),
           },
@@ -645,7 +657,13 @@ serve(async (req) => {
                 expires_at: token.expires_at,
                 updated_at: token.updated_at,
               }
-            : { connected: false },
+            : {
+                connected: false,
+                last_revoke_reason: mlRevokeAudit?.reason ?? null,
+                last_revoke_trigger:
+                  (mlRevokeAudit?.details as any)?.trigger ?? null,
+                last_revoke_at: mlRevokeAudit?.created_at ?? null,
+              },
           products_count: productsList.length,
           top_products: topProducts,
           low_products: lowProducts,
