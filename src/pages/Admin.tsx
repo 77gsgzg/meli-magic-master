@@ -698,108 +698,212 @@ export default function Admin() {
         {/* SUPPORT */}
         <TabsContent value="support" className="space-y-4">
           <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Tickets de suporte ({tickets.length})
-              </CardTitle>
-              <Select value={ticketStatus} onValueChange={setTicketStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="open">Abertos</SelectItem>
-                  <SelectItem value="answered">Respondidos</SelectItem>
-                  <SelectItem value="closed">Fechados</SelectItem>
-                </SelectContent>
-              </Select>
+            <CardHeader className="space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Tickets de suporte ({ticketTotal})
+                </CardTitle>
+                <Select value={ticketStatus} onValueChange={(v) => { setTicketPage(1); setTicketStatus(v); }}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="open">Abertos</SelectItem>
+                    <SelectItem value="answered">Respondidos</SelectItem>
+                    <SelectItem value="closed">Fechados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="md:col-span-2 relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por assunto ou mensagem…"
+                    value={ticketSearch}
+                    onChange={(e) => { setTicketPage(1); setTicketSearch(e.target.value); }}
+                    className="pl-9"
+                  />
+                </div>
+                {selectedTickets.size > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={`Mudar ${selectedTickets.size} para…`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Aguardando</SelectItem>
+                        <SelectItem value="answered">Respondido</SelectItem>
+                        <SelectItem value="closed">Fechado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      disabled={!bulkStatus}
+                      onClick={() => setBulkConfirm(true)}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {ticketsLoading ? (
                 <Skeleton className="h-32 w-full" />
               ) : tickets.length === 0 ? (
                 <div className="text-center text-sm text-muted-foreground py-8">
-                  Nenhum ticket.
+                  Nenhum ticket encontrado.
                 </div>
               ) : (
-                tickets.map((t) => (
-                  <div
-                    key={t.id}
-                    className="border border-border/60 rounded-lg p-4 space-y-2 bg-card/40"
-                  >
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            t.status === "open"
-                              ? "default"
-                              : t.status === "answered"
-                                ? "secondary"
-                                : "outline"
-                          }
-                        >
-                          {t.status}
-                        </Badge>
-                        <span className="text-sm font-medium">{t.subject}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {t.masked_email} •{" "}
-                        {new Date(t.created_at).toLocaleString("pt-BR")}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                      {t.message}
-                    </p>
-                    {t.admin_reply && (
-                      <div className="text-sm bg-primary/5 border-l-2 border-primary p-2 rounded">
-                        <div className="text-xs text-primary font-semibold mb-1">
-                          Resposta do admin:
-                        </div>
-                        <p className="whitespace-pre-wrap">{t.admin_reply}</p>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {t.status !== "closed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setReplyTicket(t);
-                            setReplyText(t.admin_reply ?? "");
-                          }}
-                        >
-                          {t.admin_reply ? "Editar resposta" : "Responder"}
-                        </Button>
-                      )}
-                      <Select
-                        value={t.status}
-                        onValueChange={(v) => changeTicketStatus(t.id, v)}
-                      >
-                        <SelectTrigger className="h-8 w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Aguardando</SelectItem>
-                          <SelectItem value="answered">Respondido</SelectItem>
-                          <SelectItem value="closed">Fechado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => navigate(`/admin/user/${t.user_id}`)}
-                      >
-                        Ver usuário
-                      </Button>
-                    </div>
+                <>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground border-b border-border/40 pb-2">
+                    <Checkbox
+                      checked={selectedTickets.size === tickets.length && tickets.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                    <span>Selecionar todos da página</span>
                   </div>
-                ))
+                  {tickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="border border-border/60 rounded-lg p-4 space-y-2 bg-card/40"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          className="mt-1"
+                          checked={selectedTickets.has(t.id)}
+                          onCheckedChange={() => toggleSelectTicket(t.id)}
+                        />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  t.status === "open"
+                                    ? "default"
+                                    : t.status === "answered"
+                                      ? "secondary"
+                                      : "outline"
+                                }
+                              >
+                                {t.status}
+                              </Badge>
+                              <span className="text-sm font-medium">{t.subject}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {t.masked_email} •{" "}
+                              {new Date(t.created_at).toLocaleString("pt-BR")}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                            {t.message}
+                          </p>
+                          {t.admin_reply && (
+                            <div className="text-sm bg-primary/5 border-l-2 border-primary p-2 rounded">
+                              <div className="text-xs text-primary font-semibold mb-1">
+                                Resposta do admin:
+                              </div>
+                              <p className="whitespace-pre-wrap">{t.admin_reply}</p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {t.status !== "closed" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setReplyTicket(t);
+                                  setReplyText(t.admin_reply ?? "");
+                                }}
+                              >
+                                {t.admin_reply ? "Editar resposta" : "Responder"}
+                              </Button>
+                            )}
+                            <Select
+                              value={t.status}
+                              onValueChange={(v) => changeTicketStatus(t.id, v)}
+                            >
+                              <SelectTrigger className="h-8 w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="open">Aguardando</SelectItem>
+                                <SelectItem value="answered">Respondido</SelectItem>
+                                <SelectItem value="closed">Fechado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/admin/user/${t.user_id}`)}
+                            >
+                              Ver usuário
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Pagination */}
+                  {ticketTotal > TICKETS_PER_PAGE && (
+                    <Pagination className="pt-2">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setTicketPage((p) => Math.max(1, p - 1))}
+                            className={ticketPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <span className="px-3 text-sm text-muted-foreground">
+                            Página {ticketPage} de {Math.ceil(ticketTotal / TICKETS_PER_PAGE)}
+                          </span>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() =>
+                              setTicketPage((p) =>
+                                p * TICKETS_PER_PAGE < ticketTotal ? p + 1 : p,
+                              )
+                            }
+                            className={
+                              ticketPage * TICKETS_PER_PAGE >= ticketTotal
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Bulk confirm dialog */}
+      <AlertDialog open={bulkConfirm} onOpenChange={setBulkConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atualizar em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Aplicar status <strong>{bulkStatus}</strong> em{" "}
+              <strong>{selectedTickets.size}</strong> ticket(s)? Cada mudança será
+              registrada na auditoria administrativa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={bulkChangeStatus}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirm dialog */}
       <AlertDialog
