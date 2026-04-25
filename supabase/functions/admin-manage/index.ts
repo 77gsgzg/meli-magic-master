@@ -395,16 +395,28 @@ serve(async (req) => {
       // ============ SUPPORT ============
       case "list_tickets": {
         const status = params.status as string | undefined;
-        const limit = Math.min(Number(params.limit) || 50, 100);
+        const search = (params.search ?? "").toString().trim();
+        const limit = Math.min(Number(params.limit) || 20, 100);
+        const page = Math.max(Number(params.page) || 1, 1);
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
         let q = supabase
           .from("support_tickets")
           .select(
             "id, user_id, subject, message, admin_reply, status, replied_at, created_at",
+            { count: "exact" },
           )
           .order("created_at", { ascending: false })
-          .limit(limit);
+          .range(from, to);
         if (status && status !== "all") q = q.eq("status", status);
-        const { data, error } = await q;
+        if (search) {
+          // Postgres ilike on subject OR message
+          q = q.or(
+            `subject.ilike.%${search.replace(/[%_,]/g, "")}%,message.ilike.%${search.replace(/[%_,]/g, "")}%`,
+          );
+        }
+        const { data, error, count } = await q;
         if (error) throw error;
 
         // attach masked email
@@ -423,7 +435,48 @@ serve(async (req) => {
           ...t,
           masked_email: emailMap.get(t.user_id) ?? "—",
         }));
-        return jsonResp({ tickets });
+        return jsonResp({
+          tickets,
+          total: count ?? tickets.length,
+          page,
+          per_page: limit,
+        });
+      }
+
+      case "bulk_change_ticket_status": {
+        const { ticket_ids, status, reason } = params;
+        if (
+          !Array.isArray(ticket_ids) ||
+          ticket_ids.length === 0 ||
+          !["open", "answered", "closed"].includes(status)
+        ) {
+          return jsonResp({ error: "params inválidos", code: "invalid_params" }, 400);
+        }
+        const ids = ticket_ids.slice(0, 200);
+        const { error } = await supabase
+          .from("support_tickets")
+          .update({ status })
+          .in("id", ids);
+        if (error) throw error;
+
+        // audit each change
+        await Promise.all(
+          ids.map((tid: string) =>
+            auditAdmin(
+              supabase,
+              caller.id,
+              null,
+              "ticket_status_changed",
+              reason ?? null,
+              { ticket_id: tid, new_status: status, bulk: true },
+            ),
+          ),
+        );
+        await logAction(supabase, caller.id, "bulk_change_ticket_status", null, {
+          status,
+          count: ids.length,
+        });
+        return jsonResp({ success: true, updated: ids.length });
       }
 
       case "reply_ticket": {
