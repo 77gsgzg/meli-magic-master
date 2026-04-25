@@ -184,7 +184,7 @@ export default function Admin() {
       },
     });
     if (error) {
-      toast.error("Erro ao carregar usuários", { description: error.message });
+      handleAdminError(error, "Erro ao carregar usuários", data);
       setLoading(false);
       return;
     }
@@ -263,11 +263,11 @@ export default function Admin() {
     };
     if (type === "suspend") body.days = 7;
 
-    const { error } = await supabase.functions.invoke("admin-manage", { body });
+    const { data, error } = await supabase.functions.invoke("admin-manage", { body });
     setBusyId(null);
     setConfirm(null);
     if (error) {
-      toast.error("Falha", { description: error.message });
+      handleAdminError(error, "Falha na operação", data);
       return;
     }
     toast.success("Operação concluída");
@@ -286,7 +286,7 @@ export default function Admin() {
 
   async function savePlan() {
     if (!planEdit) return;
-    const { error } = await supabase.functions.invoke("admin-manage", {
+    const { data, error } = await supabase.functions.invoke("admin-manage", {
       body: {
         action: "update_plan",
         user_id: planEdit.id,
@@ -298,7 +298,7 @@ export default function Admin() {
       },
     });
     if (error) {
-      toast.error("Falha ao salvar plano", { description: error.message });
+      handleAdminError(error, "Falha ao salvar plano", data);
       return;
     }
     toast.success("Plano atualizado");
@@ -309,7 +309,7 @@ export default function Admin() {
 
   async function sendReply() {
     if (!replyTicket || !replyText.trim()) return;
-    const { error } = await supabase.functions.invoke("admin-manage", {
+    const { data, error } = await supabase.functions.invoke("admin-manage", {
       body: {
         action: "reply_ticket",
         ticket_id: replyTicket.id,
@@ -318,13 +318,34 @@ export default function Admin() {
       },
     });
     if (error) {
-      toast.error("Falha", { description: error.message });
+      handleAdminError(error, "Falha ao enviar resposta", data);
       return;
     }
     toast.success("Resposta enviada");
     setReplyTicket(null);
     setReplyText("");
     setReplyClose(false);
+    loadTickets();
+  }
+
+  async function bulkChangeStatus() {
+    if (!bulkStatus || selectedTickets.size === 0) return;
+    const { data, error } = await supabase.functions.invoke("admin-manage", {
+      body: {
+        action: "bulk_change_ticket_status",
+        ticket_ids: Array.from(selectedTickets),
+        status: bulkStatus,
+        reason: "bulk_update_admin_panel",
+      },
+    });
+    setBulkConfirm(false);
+    if (error) {
+      handleAdminError(error, "Falha em massa", data);
+      return;
+    }
+    toast.success(`${data?.updated ?? 0} ticket(s) atualizados`);
+    setSelectedTickets(new Set());
+    setBulkStatus("");
     loadTickets();
   }
 
