@@ -117,6 +117,36 @@ export function exportUserDetailCSV(d: UserDetailExport) {
     ),
   );
 
+  // Resumo final de auditoria
+  const auditDates = audit_logs
+    .map((a) => a.created_at)
+    .filter(Boolean)
+    .sort();
+  const firstAudit = auditDates[0];
+  const lastAudit = auditDates[auditDates.length - 1];
+  lines.push("");
+  lines.push("Resumo de auditoria");
+  lines.push(csvLine(["Total de registros", audit_logs.length]));
+  lines.push(csvLine(["Total de logs operacionais", logs.length]));
+  lines.push(csvLine(["Primeira ação registrada", fmtDate(firstAudit)]));
+  lines.push(csvLine(["Última ação registrada", fmtDate(lastAudit)]));
+
+  // Aviso de mascaramento
+  lines.push("");
+  lines.push("Aviso de privacidade");
+  lines.push(
+    csvLine([
+      "Mascaramento de dados",
+      "Este relatório contém apenas dados mascarados. E-mails, nomes e identificadores pessoais são parcialmente ocultados conforme a política de privacidade. Tokens de integração nunca são exportados.",
+    ]),
+  );
+  lines.push(
+    csvLine([
+      "Gerado em",
+      new Date().toLocaleString("pt-BR"),
+    ]),
+  );
+
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -247,6 +277,44 @@ export function exportUserDetailPDF(d: UserDetailExport) {
     );
     y += 4;
   });
+
+  // Resumo final de auditoria
+  const auditDates = audit_logs
+    .map((a) => a.created_at)
+    .filter(Boolean)
+    .sort();
+  const firstAudit = auditDates[0];
+  const lastAudit = auditDates[auditDates.length - 1];
+  y += 4;
+  section("Resumo de auditoria");
+  row("Total de registros:", String(audit_logs.length));
+  row("Logs operacionais:", String(logs.length));
+  row("Primeira ação:", fmtDate(firstAudit));
+  row("Última ação:", fmtDate(lastAudit));
+
+  // Aviso de mascaramento
+  y += 4;
+  if (y > 250) {
+    doc.addPage();
+    y = margin;
+  }
+  doc.setFillColor(255, 248, 220);
+  doc.setDrawColor(220, 180, 80);
+  doc.rect(margin, y - 4, 180, 26, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(120, 80, 0);
+  doc.text("Aviso de privacidade — dados mascarados", margin + 2, y + 1);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(80);
+  doc.text(
+    "Este relatório contém apenas dados mascarados. E-mails, nomes e identificadores pessoais são parcialmente ocultados conforme a política de privacidade. Tokens de integração nunca são exportados.",
+    margin + 2,
+    y + 6,
+    { maxWidth: 176 },
+  );
+  doc.setTextColor(0);
 
   doc.save(`usuario-${user.id.slice(0, 8)}-${Date.now()}.pdf`);
 }
