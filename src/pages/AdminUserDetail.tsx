@@ -169,7 +169,42 @@ export default function AdminUserDetail() {
         <h1 className="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" /> Usuário
         </h1>
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => handleExport("csv")}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleExport("pdf")}>
+            <Download className="h-4 w-4 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
+
+      {/* Bloqueio / revogação ML — alertas visíveis */}
+      {user.is_banned && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="py-4 text-sm space-y-1">
+            <div className="flex items-center gap-2 font-semibold text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Conta bloqueada ({user.ban_action ?? "ban_user"})
+            </div>
+            <div><span className="text-muted-foreground">Motivo:</span> {user.ban_reason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Quando:</span> {fmtDate(user.ban_at ?? null)}</div>
+          </CardContent>
+        </Card>
+      )}
+      {!ml_integration.connected && (ml_integration as any).last_revoke_at && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="py-4 text-sm space-y-1">
+            <div className="flex items-center gap-2 font-semibold text-amber-600">
+              <Unplug className="h-4 w-4" />
+              Mercado Livre revogado
+            </div>
+            <div><span className="text-muted-foreground">Gatilho:</span> {(ml_integration as any).last_revoke_trigger ?? "—"}</div>
+            <div><span className="text-muted-foreground">Motivo:</span> {(ml_integration as any).last_revoke_reason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Quando:</span> {fmtDate((ml_integration as any).last_revoke_at)}</div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* SECTION 1 — General info */}
       <Card>
