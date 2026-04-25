@@ -34,7 +34,14 @@ import {
   Ban,
   CheckCircle2,
   XCircle,
+  Download,
+  FileSpreadsheet,
+  AlertTriangle,
+  Unplug,
 } from "lucide-react";
+import { handleAdminError } from "@/lib/adminErrors";
+import { exportUserDetailCSV, exportUserDetailPDF } from "@/utils/exportAdminUserDetail";
+import { toast } from "sonner";
 
 interface UserDetail {
   user: {
@@ -48,10 +55,13 @@ interface UserDetail {
     is_banned: boolean;
     is_admin: boolean;
     roles: string[];
+    ban_reason?: string | null;
+    ban_action?: string | null;
+    ban_at?: string | null;
   };
   plan: { plan_type: string; status: string; expires_at: string | null };
   ml_integration:
-    | { connected: false }
+    | { connected: false; last_revoke_reason?: string | null; last_revoke_trigger?: string | null; last_revoke_at?: string | null }
     | { connected: true; nickname: string | null; expires_at: string; updated_at: string };
   products_count: number;
   top_products: any[];
