@@ -140,6 +140,13 @@ export default function Admin() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketStatus, setTicketStatus] = useState<string>("all");
+  const [ticketSearch, setTicketSearch] = useState("");
+  const [ticketPage, setTicketPage] = useState(1);
+  const [ticketTotal, setTicketTotal] = useState(0);
+  const TICKETS_PER_PAGE = 20;
+  const [selectedTickets, setSelectedTickets] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>("");
+  const [bulkConfirm, setBulkConfirm] = useState(false);
   const [replyTicket, setReplyTicket] = useState<Ticket | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replyClose, setReplyClose] = useState(false);
@@ -179,9 +186,20 @@ export default function Admin() {
   async function loadTickets() {
     setTicketsLoading(true);
     const { data, error } = await supabase.functions.invoke("admin-manage", {
-      body: { action: "list_tickets", status: ticketStatus, limit: 100 },
+      body: {
+        action: "list_tickets",
+        status: ticketStatus,
+        search: ticketSearch.trim(),
+        limit: TICKETS_PER_PAGE,
+        page: ticketPage,
+      },
     });
-    if (!error) setTickets(data?.tickets ?? []);
+    if (error) {
+      handleAdminError(error, "Erro ao carregar tickets");
+    } else {
+      setTickets(data?.tickets ?? []);
+      setTicketTotal(data?.total ?? 0);
+    }
     setTicketsLoading(false);
   }
 
@@ -203,9 +221,11 @@ export default function Admin() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    loadTickets();
+    setSelectedTickets(new Set());
+    const t = setTimeout(loadTickets, 300);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketStatus]);
+  }, [ticketStatus, ticketSearch, ticketPage]);
 
   const filteredUsers = useMemo(() => {
     if (filterStatus === "all") return users;
