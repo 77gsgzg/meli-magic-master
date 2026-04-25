@@ -350,15 +350,32 @@ export default function Admin() {
   }
 
   async function changeTicketStatus(ticket_id: string, status: string) {
-    const { error } = await supabase.functions.invoke("admin-manage", {
+    const { data, error } = await supabase.functions.invoke("admin-manage", {
       body: { action: "change_ticket_status", ticket_id, status },
     });
     if (error) {
-      toast.error("Sem permissão", { description: error.message });
+      handleAdminError(error, "Falha ao mudar status", data);
       return;
     }
     toast.success("Status atualizado");
     loadTickets();
+  }
+
+  function toggleSelectTicket(id: string) {
+    setSelectedTickets((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedTickets((prev) =>
+      prev.size === tickets.length
+        ? new Set()
+        : new Set(tickets.map((t) => t.id)),
+    );
   }
 
   if (roleLoading || !isAdmin) {
