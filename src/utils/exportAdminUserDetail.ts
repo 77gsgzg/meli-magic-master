@@ -117,6 +117,36 @@ export function exportUserDetailCSV(d: UserDetailExport) {
     ),
   );
 
+  // Resumo final de auditoria
+  const auditDates = audit_logs
+    .map((a) => a.created_at)
+    .filter(Boolean)
+    .sort();
+  const firstAudit = auditDates[0];
+  const lastAudit = auditDates[auditDates.length - 1];
+  lines.push("");
+  lines.push("Resumo de auditoria");
+  lines.push(csvLine(["Total de registros", audit_logs.length]));
+  lines.push(csvLine(["Total de logs operacionais", logs.length]));
+  lines.push(csvLine(["Primeira ação registrada", fmtDate(firstAudit)]));
+  lines.push(csvLine(["Última ação registrada", fmtDate(lastAudit)]));
+
+  // Aviso de mascaramento
+  lines.push("");
+  lines.push("Aviso de privacidade");
+  lines.push(
+    csvLine([
+      "Mascaramento de dados",
+      "Este relatório contém apenas dados mascarados. E-mails, nomes e identificadores pessoais são parcialmente ocultados conforme a política de privacidade. Tokens de integração nunca são exportados.",
+    ]),
+  );
+  lines.push(
+    csvLine([
+      "Gerado em",
+      new Date().toLocaleString("pt-BR"),
+    ]),
+  );
+
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
