@@ -150,6 +150,8 @@ export default function Admin() {
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketStatus, setTicketStatus] = useState<string>("all");
   const [ticketSearch, setTicketSearch] = useState("");
+  const [ticketPeriod, setTicketPeriod] = useState<string>("all"); // all|7|30|90
+  const [ticketPriority, setTicketPriority] = useState<string>("all"); // all|high|low
   const [ticketPage, setTicketPage] = useState(1);
   const [ticketTotal, setTicketTotal] = useState(0);
   const TICKETS_PER_PAGE = 20;
