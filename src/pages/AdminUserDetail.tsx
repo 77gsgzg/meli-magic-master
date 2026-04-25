@@ -193,9 +193,9 @@ export default function AdminUserDetail() {
         </Card>
       )}
       {!ml_integration.connected && (ml_integration as any).last_revoke_at && (
-        <Card className="border-amber-500/40 bg-amber-500/5">
+        <Card className="border-warning/40 bg-warning/5">
           <CardContent className="py-4 text-sm space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-amber-600">
+            <div className="flex items-center gap-2 font-semibold text-warning">
               <Unplug className="h-4 w-4" />
               Mercado Livre revogado
             </div>
