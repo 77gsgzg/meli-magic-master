@@ -27,6 +27,14 @@ const messages: Record<AdminErrorCode, string> = {
   unknown: "Falha inesperada. Tente novamente.",
 };
 
+const suggestedActions: Record<AdminErrorCode, string> = {
+  forbidden: "Confirme com um administrador se você possui o papel necessário.",
+  unauthorized: "Saia da conta e entre novamente para renovar a sessão.",
+  invalid_params: "Revise os campos preenchidos antes de tentar novamente.",
+  user_not_found: "Atualize a lista — o usuário pode ter sido removido.",
+  unknown: "Aguarde alguns segundos e tente novamente. Se persistir, contate o suporte.",
+};
+
 export function normalizeAdminError(
   err: unknown,
   data?: any,
@@ -68,8 +76,14 @@ export function handleAdminError(
 ): NormalizedAdminError {
   const e = normalizeAdminError(err, data);
   const friendly = messages[e.code] ?? messages.unknown;
+  const action = suggestedActions[e.code] ?? suggestedActions.unknown;
   toast.error(fallbackTitle, {
-    description: `[${e.code}] ${friendly}`,
+    description: `[${e.code}] ${friendly} — ${action}`,
   });
   return e;
+}
+
+/** Returns the suggested next action string for a given code. */
+export function getSuggestedAction(code: AdminErrorCode): string {
+  return suggestedActions[code] ?? suggestedActions.unknown;
 }
