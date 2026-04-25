@@ -170,7 +170,7 @@ export function exportUserDetailPDF(d: UserDetailExport) {
     doc.setFont("helvetica", "bold");
     doc.text(label, margin, y);
     doc.setFont("helvetica", "normal");
-    doc.text(value, margin + 55, y, { maxWidth: 130 });
+    doc.text(String(value), margin + 55, y, { maxWidth: 130 });
     y += 5;
   }
 
