@@ -707,21 +707,13 @@ export default function Admin() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
                   Tickets de suporte ({ticketTotal})
+                  {ticketsLoading && (
+                    <RefreshCcw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  )}
                 </CardTitle>
-                <Select value={ticketStatus} onValueChange={(v) => { setTicketPage(1); setTicketStatus(v); }}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="open">Abertos</SelectItem>
-                    <SelectItem value="answered">Respondidos</SelectItem>
-                    <SelectItem value="closed">Fechados</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div className="md:col-span-2 relative">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="col-span-2 relative">
                   <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Buscar por assunto ou mensagem…"
@@ -730,11 +722,46 @@ export default function Admin() {
                     className="pl-9"
                   />
                 </div>
+                <Select value={ticketStatus} onValueChange={(v) => { setTicketPage(1); setTicketStatus(v); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos status</SelectItem>
+                    <SelectItem value="open">Aguardando</SelectItem>
+                    <SelectItem value="answered">Respondidos</SelectItem>
+                    <SelectItem value="closed">Fechados</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={ticketPeriod} onValueChange={(v) => { setTicketPage(1); setTicketPeriod(v); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Qualquer período</SelectItem>
+                    <SelectItem value="7">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30">Últimos 30 dias</SelectItem>
+                    <SelectItem value="90">Últimos 90 dias</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={ticketPriority} onValueChange={(v) => { setTicketPage(1); setTicketPriority(v); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toda prioridade</SelectItem>
+                    <SelectItem value="high">Alta (urgente/crítico)</SelectItem>
+                    <SelectItem value="low">Baixa (dúvida/sugestão)</SelectItem>
+                  </SelectContent>
+                </Select>
                 {selectedTickets.size > 0 && (
-                  <div className="flex gap-2 items-center">
+                  <div className="col-span-2 md:col-span-4 flex gap-2 items-center pt-2 border-t border-border/40">
+                    <span className="text-xs text-muted-foreground">
+                      {selectedTickets.size} selecionado(s) nesta página:
+                    </span>
                     <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={`Mudar ${selectedTickets.size} para…`} />
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Mudar status para…" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="open">Aguardando</SelectItem>
@@ -747,7 +774,7 @@ export default function Admin() {
                       disabled={!bulkStatus}
                       onClick={() => setBulkConfirm(true)}
                     >
-                      Aplicar
+                      Aplicar em massa
                     </Button>
                   </div>
                 )}
