@@ -398,6 +398,8 @@ serve(async (req) => {
         const search = (params.search ?? "").toString().trim();
         const limit = Math.min(Number(params.limit) || 20, 100);
         const page = Math.max(Number(params.page) || 1, 1);
+        const sinceDays = Number(params.since_days) || 0;
+        const priority = (params.priority ?? "all") as string;
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
@@ -410,6 +412,20 @@ serve(async (req) => {
           .order("created_at", { ascending: false })
           .range(from, to);
         if (status && status !== "all") q = q.eq("status", status);
+        if (sinceDays > 0) {
+          const since = new Date(
+            Date.now() - sinceDays * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          q = q.gte("created_at", since);
+        }
+        // priority: heurística por palavras-chave no assunto/mensagem
+        if (priority === "high") {
+          q = q.or(
+            "subject.ilike.%urgente%,subject.ilike.%urgent%,subject.ilike.%crítico%,subject.ilike.%critico%,message.ilike.%urgente%",
+          );
+        } else if (priority === "low") {
+          q = q.or("subject.ilike.%dúvida%,subject.ilike.%duvida%,subject.ilike.%sugest%");
+        }
         if (search) {
           // Postgres ilike on subject OR message
           q = q.or(
