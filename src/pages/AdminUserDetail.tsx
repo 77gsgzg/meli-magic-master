@@ -34,7 +34,14 @@ import {
   Ban,
   CheckCircle2,
   XCircle,
+  Download,
+  FileSpreadsheet,
+  AlertTriangle,
+  Unplug,
 } from "lucide-react";
+import { handleAdminError } from "@/lib/adminErrors";
+import { exportUserDetailCSV, exportUserDetailPDF } from "@/utils/exportAdminUserDetail";
+import { toast } from "sonner";
 
 interface UserDetail {
   user: {
@@ -48,10 +55,13 @@ interface UserDetail {
     is_banned: boolean;
     is_admin: boolean;
     roles: string[];
+    ban_reason?: string | null;
+    ban_action?: string | null;
+    ban_at?: string | null;
   };
   plan: { plan_type: string; status: string; expires_at: string | null };
   ml_integration:
-    | { connected: false }
+    | { connected: false; last_revoke_reason?: string | null; last_revoke_trigger?: string | null; last_revoke_at?: string | null }
     | { connected: true; nickname: string | null; expires_at: string; updated_at: string };
   products_count: number;
   top_products: any[];
@@ -97,14 +107,31 @@ export default function AdminUserDetail() {
         { body: { action: "user_detail", user_id: id } },
       );
       if (!alive) return;
-      if (err) setError(err.message);
-      else setData(res as UserDetail);
+      if (err) {
+        const e = handleAdminError(err, "Falha ao carregar usuário", res);
+        setError(`[${e.code}] ${e.message}`);
+      } else {
+        setData(res as UserDetail);
+      }
       setLoading(false);
     })();
     return () => {
       alive = false;
     };
   }, [isAdmin, id]);
+
+  function handleExport(kind: "csv" | "pdf") {
+    if (!data) return;
+    try {
+      if (kind === "csv") exportUserDetailCSV(data as any);
+      else exportUserDetailPDF(data as any);
+      toast.success(`Exportado em ${kind.toUpperCase()}`);
+    } catch (e) {
+      toast.error("Falha ao exportar", {
+        description: e instanceof Error ? e.message : "erro desconhecido",
+      });
+    }
+  }
 
   if (roleLoading || loading) {
     return (
@@ -142,7 +169,42 @@ export default function AdminUserDetail() {
         <h1 className="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" /> Usuário
         </h1>
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => handleExport("csv")}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleExport("pdf")}>
+            <Download className="h-4 w-4 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
+
+      {/* Bloqueio / revogação ML — alertas visíveis */}
+      {user.is_banned && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="py-4 text-sm space-y-1">
+            <div className="flex items-center gap-2 font-semibold text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Conta bloqueada ({user.ban_action ?? "ban_user"})
+            </div>
+            <div><span className="text-muted-foreground">Motivo:</span> {user.ban_reason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Quando:</span> {fmtDate(user.ban_at ?? null)}</div>
+          </CardContent>
+        </Card>
+      )}
+      {!ml_integration.connected && (ml_integration as any).last_revoke_at && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="py-4 text-sm space-y-1">
+            <div className="flex items-center gap-2 font-semibold text-warning">
+              <Unplug className="h-4 w-4" />
+              Mercado Livre revogado
+            </div>
+            <div><span className="text-muted-foreground">Gatilho:</span> {(ml_integration as any).last_revoke_trigger ?? "—"}</div>
+            <div><span className="text-muted-foreground">Motivo:</span> {(ml_integration as any).last_revoke_reason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Quando:</span> {fmtDate((ml_integration as any).last_revoke_at)}</div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* SECTION 1 — General info */}
       <Card>

@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.startsWith("Bearer ")) {
-      return jsonResp({ error: "Unauthorized" }, 401);
+      return jsonResp({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -75,7 +75,7 @@ serve(async (req) => {
     const jwt = authHeader.replace("Bearer ", "");
     const { data: userRes, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !userRes?.user) {
-      return jsonResp({ error: "Unauthorized" }, 401);
+      return jsonResp({ error: "Unauthorized", code: "unauthorized" }, 401);
     }
     const caller = userRes.user;
 
@@ -95,7 +95,7 @@ serve(async (req) => {
         error_message: "forbidden_admin_access",
         details: { masked_email: maskEmail(caller.email), endpoint: "admin-manage" },
       });
-      return jsonResp({ error: "Forbidden" }, 403);
+      return jsonResp({ error: "Forbidden", code: "forbidden" }, 403);
     }
 
     const { action, ...params } = await req.json();
@@ -395,16 +395,28 @@ serve(async (req) => {
       // ============ SUPPORT ============
       case "list_tickets": {
         const status = params.status as string | undefined;
-        const limit = Math.min(Number(params.limit) || 50, 100);
+        const search = (params.search ?? "").toString().trim();
+        const limit = Math.min(Number(params.limit) || 20, 100);
+        const page = Math.max(Number(params.page) || 1, 1);
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
         let q = supabase
           .from("support_tickets")
           .select(
             "id, user_id, subject, message, admin_reply, status, replied_at, created_at",
+            { count: "exact" },
           )
           .order("created_at", { ascending: false })
-          .limit(limit);
+          .range(from, to);
         if (status && status !== "all") q = q.eq("status", status);
-        const { data, error } = await q;
+        if (search) {
+          // Postgres ilike on subject OR message
+          q = q.or(
+            `subject.ilike.%${search.replace(/[%_,]/g, "")}%,message.ilike.%${search.replace(/[%_,]/g, "")}%`,
+          );
+        }
+        const { data, error, count } = await q;
         if (error) throw error;
 
         // attach masked email
@@ -423,7 +435,48 @@ serve(async (req) => {
           ...t,
           masked_email: emailMap.get(t.user_id) ?? "—",
         }));
-        return jsonResp({ tickets });
+        return jsonResp({
+          tickets,
+          total: count ?? tickets.length,
+          page,
+          per_page: limit,
+        });
+      }
+
+      case "bulk_change_ticket_status": {
+        const { ticket_ids, status, reason } = params;
+        if (
+          !Array.isArray(ticket_ids) ||
+          ticket_ids.length === 0 ||
+          !["open", "answered", "closed"].includes(status)
+        ) {
+          return jsonResp({ error: "params inválidos", code: "invalid_params" }, 400);
+        }
+        const ids = ticket_ids.slice(0, 200);
+        const { error } = await supabase
+          .from("support_tickets")
+          .update({ status })
+          .in("id", ids);
+        if (error) throw error;
+
+        // audit each change
+        await Promise.all(
+          ids.map((tid: string) =>
+            auditAdmin(
+              supabase,
+              caller.id,
+              null,
+              "ticket_status_changed",
+              reason ?? null,
+              { ticket_id: tid, new_status: status, bulk: true },
+            ),
+          ),
+        );
+        await logAction(supabase, caller.id, "bulk_change_ticket_status", null, {
+          status,
+          count: ids.length,
+        });
+        return jsonResp({ success: true, updated: ids.length });
       }
 
       case "reply_ticket": {
@@ -570,6 +623,15 @@ serve(async (req) => {
         const isBanned =
           bannedUntil && new Date(bannedUntil).getTime() > Date.now();
 
+        // Derive ban_reason and ml_revoke trigger from audit logs
+        const auditList = (audits ?? []) as any[];
+        const banAudit = auditList.find(
+          (a) => a.action === "ban_user" || a.action === "suspend_user",
+        );
+        const mlRevokeAudit = auditList.find(
+          (a) => a.action === "ml_token_revoked",
+        );
+
         return jsonResp({
           user: {
             id: u.id,
@@ -581,6 +643,9 @@ serve(async (req) => {
             confirmed: !!u.email_confirmed_at,
             banned_until: bannedUntil,
             is_banned: !!isBanned,
+            ban_reason: banAudit?.reason ?? null,
+            ban_action: banAudit?.action ?? null,
+            ban_at: banAudit?.created_at ?? null,
             roles: (roles ?? []).map((r: any) => r.role),
             is_admin: (roles ?? []).some((r: any) => r.role === "admin"),
           },
@@ -592,7 +657,13 @@ serve(async (req) => {
                 expires_at: token.expires_at,
                 updated_at: token.updated_at,
               }
-            : { connected: false },
+            : {
+                connected: false,
+                last_revoke_reason: mlRevokeAudit?.reason ?? null,
+                last_revoke_trigger:
+                  (mlRevokeAudit?.details as any)?.trigger ?? null,
+                last_revoke_at: mlRevokeAudit?.created_at ?? null,
+              },
           products_count: productsList.length,
           top_products: topProducts,
           low_products: lowProducts,
