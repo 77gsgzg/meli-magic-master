@@ -154,7 +154,7 @@ export function exportUserDetailPDF(d: UserDetailExport) {
     }
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.setFillColor(245);
+    doc.setFillColor(245, 245, 245);
     doc.rect(margin, y - 4, 180, 6, "F");
     doc.text(title, margin + 1, y);
     y += 6;
