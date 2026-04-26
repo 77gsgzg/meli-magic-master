@@ -15,6 +15,7 @@ import {
 import { MobileSidebar } from "./MobileSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsDropdown } from "./NotificationsDropdown";
+import { AuthStatusBadge } from "@/components/auth/AuthStatusBadge";
 import { WalletIndicator } from "./WalletIndicator";
 import { useIsWalletAdmin } from "@/hooks/useIsWalletAdmin";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -62,9 +63,13 @@ export function Header({ title, subtitle }: HeaderProps) {
         <MobileSidebar />
         
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate tracking-tight">
-            {title}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate tracking-tight">
+              {title}
+            </h1>
+            {/* Indicador temporário de estado de sessão (debug) */}
+            <AuthStatusBadge />
+          </div>
           {subtitle && (
             <p className="text-xs sm:text-sm text-muted-foreground truncate hidden xs:block mt-0.5">
               {subtitle}

@@ -1,13 +1,14 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -19,25 +20,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
+  const hadSessionRef = useRef(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    let isMounted = true;
+
+    // 1) Auth state listener (fires on SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED).
+    //    Keep callback synchronous & non-blocking — no awaits inside.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+      (event, newSession) => {
+        if (!isMounted) return;
+
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+
+        // Detect session loss after we previously had one => session expired / signed out elsewhere.
+        if (event === 'SIGNED_OUT' && hadSessionRef.current) {
+          hadSessionRef.current = false;
+          toast.info('Sua sessão foi encerrada.');
+        }
+
+        if (newSession) {
+          hadSessionRef.current = true;
+        }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // 2) Get initial session from storage — this is the source of truth on first render.
+    //    Only set loading=false AFTER this resolves so guards don't redirect prematurely.
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!isMounted) return;
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+      hadSessionRef.current = !!initialSession;
       setLoading(false);
+      setInitialized(true);
+    }).catch(() => {
+      if (!isMounted) return;
+      setLoading(false);
+      setInitialized(true);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -93,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, initialized, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -107,16 +135,25 @@ export function useAuth() {
   return context;
 }
 
+/**
+ * Hook que garante autenticação. NÃO redireciona enquanto a sessão está sendo
+ * carregada do storage — evita redirect prematuro logo após reload.
+ */
 export function useRequireAuth() {
-  const { user, session, loading } = useAuth();
+  const { user, session, loading, initialized } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!initialized || loading) return;
+    if (!user) {
       toast.error('Você precisa estar logado para acessar esta página');
-      navigate('/auth');
+      navigate('/auth', {
+        replace: true,
+        state: { from: location.pathname + location.search },
+      });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, initialized, navigate, location.pathname, location.search]);
 
-  return { user, session, loading };
+  return { user, session, loading: loading || !initialized };
 }
