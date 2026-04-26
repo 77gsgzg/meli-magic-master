@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,15 +22,19 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, initialized, signIn, signUp } = useAuth();
+
+  // Destino para onde voltar após login (preservado pelo ProtectedRoute).
+  const fromPath = (location.state as { from?: string } | null)?.from ?? "/";
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!loading && user) {
-      navigate("/");
+    if (initialized && !loading && user) {
+      navigate(fromPath, { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, initialized, navigate, fromPath]);
 
   // Handle ML OAuth callback
   useEffect(() => {
@@ -87,7 +91,7 @@ export default function Auth() {
         }
         toast.success("Conta criada com sucesso!");
       }
-      navigate("/");
+      navigate(fromPath, { replace: true });
     } catch (error) {
       toast.error("Ocorreu um erro. Tente novamente.");
     } finally {
