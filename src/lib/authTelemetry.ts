@@ -30,8 +30,8 @@ export function logAuthEvent(event: AuthEvent, details?: Record<string, unknown>
   const payload: AuthEventPayload = {
     event,
     at: new Date().toISOString(),
-    details,
   };
+  if (details !== undefined) payload.details = details;
 
   buffer.push(payload);
   if (buffer.length > BUFFER_LIMIT) buffer.shift();
