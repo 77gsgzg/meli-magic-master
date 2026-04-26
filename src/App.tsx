@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Import from "./pages/Import";
 import Products from "./pages/Products";
@@ -43,6 +44,12 @@ import Support from "./pages/Support";
 
 const queryClient = new QueryClient();
 
+// Helper to wrap a page in the protected-route guard.
+const Private = (el: JSX.Element) => <ProtectedRoute>{el}</ProtectedRoute>;
+const AdminOnly = (el: JSX.Element) => (
+  <ProtectedRoute requireAdmin>{el}</ProtectedRoute>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -53,39 +60,47 @@ const App = () => (
           <AuthProvider>
             <LanguageProvider>
               <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/mercado-livre" element={<MercadoLivreConnect />} />
-                <Route path="/mercado-livre/diagnostics" element={<MercadoLivreDiagnostics />} />
-                <Route path="/publications/diagnostics" element={<PublicationDiagnostics />} />
-                <Route path="/metrics" element={<MetricsDashboard />} />
-                <Route path="/analytics" element={<ProductAnalytics />} />
-                <Route path="/import-statistics" element={<ImportStatistics />} />
-                <Route path="/import" element={<Import />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/orders" element={<Orders />} />
-                <Route path="/orders/:id" element={<OrderDetails />} />
-                <Route path="/orders/queue" element={<OrdersQueue />} />
-                <Route path="/orders/monitor" element={<OrdersCronMonitor />} />
-                <Route path="/sales" element={<SalesDashboard />} />
-                <Route path="/buyers" element={<BuyerAnalytics />} />
-                <Route path="/demand" element={<DemandForecast />} />
-                <Route path="/campaigns" element={<CampaignHistory />} />
-                <Route path="/supplier" element={<Supplier />} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/events" element={<OperationLogs />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/security-logs" element={<SecurityLogs />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/webhooks" element={<Webhooks />} />
+                {/* Public */}
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/ai/images" element={<AIImageGenerator />} />
-                <Route path="/ai/texts" element={<AITextGenerator />} />
-                <Route path="/tiktok-miner" element={<TikTokMiner />} />
-                <Route path="/tiktok-feed" element={<TikTokFeed />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/admin/user/:id" element={<AdminUserDetail />} />
-                <Route path="/support" element={<Support />} />
+
+                {/* Index handles ML OAuth callback + Dashboard. Dashboard itself is protected. */}
+                <Route path="/" element={<Index />} />
+
+                {/* Protected routes */}
+                <Route path="/mercado-livre" element={Private(<MercadoLivreConnect />)} />
+                <Route path="/mercado-livre/diagnostics" element={Private(<MercadoLivreDiagnostics />)} />
+                <Route path="/publications/diagnostics" element={Private(<PublicationDiagnostics />)} />
+                <Route path="/metrics" element={Private(<MetricsDashboard />)} />
+                <Route path="/analytics" element={Private(<ProductAnalytics />)} />
+                <Route path="/import-statistics" element={Private(<ImportStatistics />)} />
+                <Route path="/import" element={Private(<Import />)} />
+                <Route path="/products" element={Private(<Products />)} />
+                <Route path="/orders" element={Private(<Orders />)} />
+                <Route path="/orders/:id" element={Private(<OrderDetails />)} />
+                <Route path="/orders/queue" element={Private(<OrdersQueue />)} />
+                <Route path="/orders/monitor" element={Private(<OrdersCronMonitor />)} />
+                <Route path="/sales" element={Private(<SalesDashboard />)} />
+                <Route path="/buyers" element={Private(<BuyerAnalytics />)} />
+                <Route path="/demand" element={Private(<DemandForecast />)} />
+                <Route path="/campaigns" element={Private(<CampaignHistory />)} />
+                <Route path="/supplier" element={Private(<Supplier />)} />
+                <Route path="/wallet" element={Private(<Wallet />)} />
+                <Route path="/events" element={Private(<OperationLogs />)} />
+                <Route path="/history" element={Private(<History />)} />
+                <Route path="/settings" element={Private(<Settings />)} />
+                <Route path="/security-logs" element={Private(<SecurityLogs />)} />
+                <Route path="/reports" element={Private(<Reports />)} />
+                <Route path="/webhooks" element={Private(<Webhooks />)} />
+                <Route path="/ai/images" element={Private(<AIImageGenerator />)} />
+                <Route path="/ai/texts" element={Private(<AITextGenerator />)} />
+                <Route path="/tiktok-miner" element={Private(<TikTokMiner />)} />
+                <Route path="/tiktok-feed" element={Private(<TikTokFeed />)} />
+                <Route path="/support" element={Private(<Support />)} />
+
+                {/* Admin-only */}
+                <Route path="/admin" element={AdminOnly(<Admin />)} />
+                <Route path="/admin/user/:id" element={AdminOnly(<AdminUserDetail />)} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LanguageProvider>
