@@ -8,6 +8,7 @@ import { Store, ArrowRight, Shield, Zap, Sparkles, Eye, EyeOff, Loader2 } from "
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { z } from "zod";
+import { getRedirectFrom } from "@/lib/authRedirect";
 
 const emailSchema = z.string().email("Email inválido");
 const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
@@ -27,7 +28,8 @@ export default function Auth() {
   const { user, loading, initialized, signIn, signUp } = useAuth();
 
   // Destino para onde voltar após login (preservado pelo ProtectedRoute).
-  const fromPath = (location.state as { from?: string } | null)?.from ?? "/";
+  // Suporta path + search + hash. Sanitizado para evitar loops em /auth.
+  const fromPath = getRedirectFrom(location.state, "/");
 
   // Redirect if already logged in
   useEffect(() => {
