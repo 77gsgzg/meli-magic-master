@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, User, X, Copy, LogOut, ShieldCheck, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,14 @@ export function Header({ title, subtitle }: HeaderProps) {
   const userId = user?.id ?? "";
   const shortId = userId ? `${userId.slice(0, 8)}…${userId.slice(-4)}` : "—";
   const maskedEmail = user?.email ? maskEmail(user.email) : "—";
+
+  // Reatividade total: se o usuário sair (em outra aba, expiração, etc.),
+  // fecha automaticamente o dropdown do perfil.
+  useEffect(() => {
+    if (!user && openProfile) {
+      setOpenProfile(false);
+    }
+  }, [user, openProfile]);
 
   async function copyId() {
     if (!userId) return;
