@@ -117,86 +117,98 @@ export function Header({ title, subtitle }: HeaderProps) {
         {/* Notifications */}
         <NotificationsDropdown />
 
-        {/* User profile dropdown */}
-        <DropdownMenu open={openProfile} onOpenChange={setOpenProfile}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setOpenProfile((prev) => !prev)}
-              className="flex items-center gap-2 sm:gap-3 rounded-lg glass px-2.5 sm:px-3 py-2 cursor-pointer hover:border-primary/40 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
-              aria-label="Abrir menu de perfil"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-foreground leading-tight">
-                  {isAdmin ? "Admin" : "Usuário"}
-                </p>
-                <Badge variant="success" className="mt-0.5 text-[10px] px-1.5 py-0">
-                  Conectado
-                </Badge>
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 shrink-0">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground truncate">
-                    {maskedEmail}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {isAdmin ? "Administrador" : "Usuário"}
-                  </p>
-                </div>
-              </div>
+        {/* User profile dropdown — só renderiza se houver sessão ativa.
+            Garante reatividade 100% ao estado do auth. */}
+        {user ? (
+          <DropdownMenu open={openProfile} onOpenChange={setOpenProfile}>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={copyId}
-                className="flex w-full items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors"
-                title="Copiar ID completo"
+                onClick={() => setOpenProfile((prev) => !prev)}
+                className="flex items-center gap-2 sm:gap-3 rounded-lg glass px-2.5 sm:px-3 py-2 cursor-pointer hover:border-primary/40 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+                aria-label="Abrir menu de perfil"
               >
-                <span className="font-mono text-muted-foreground truncate">{shortId}</span>
-                <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30">
+                  <User className="h-4 w-4 text-primary" />
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-foreground leading-tight">
+                    {isAdmin ? "Admin" : "Usuário"}
+                  </p>
+                  <Badge variant="success" className="mt-0.5 text-[10px] px-1.5 py-0">
+                    Conectado
+                  </Badge>
+                </div>
               </button>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                setOpenProfile(false);
-                navigate("/settings");
-              }}
-              className="cursor-pointer"
-            >
-              <UserCircle className="h-4 w-4 mr-2" />
-              Ver Perfil
-            </DropdownMenuItem>
-            {isAdmin && (
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 shrink-0">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {maskedEmail}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isAdmin ? "Administrador" : "Usuário"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyId}
+                  className="flex w-full items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors"
+                  title="Copiar ID completo"
+                >
+                  <span className="font-mono text-muted-foreground truncate">{shortId}</span>
+                  <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                </button>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
                   setOpenProfile(false);
-                  navigate("/admin");
+                  navigate("/settings");
                 }}
-                className="cursor-pointer text-primary focus:text-primary"
+                className="cursor-pointer"
               >
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                Painel Admin
+                <UserCircle className="h-4 w-4 mr-2" />
+                Ver Perfil
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {isAdmin && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenProfile(false);
+                    navigate("/admin");
+                  }}
+                  className="cursor-pointer text-primary focus:text-primary"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Painel Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => navigate("/auth")}
+          >
+            Entrar
+          </Button>
+        )}
       </div>
 
       {/* Mobile search bar - slides down when open */}
