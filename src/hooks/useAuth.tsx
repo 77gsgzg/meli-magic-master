@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { logAuthEvent } from '@/lib/authTelemetry';
+import { buildFullPath } from '@/lib/authRedirect';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    logAuthEvent('init_start');
 
     // 1) Auth state listener (fires on SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED).
     //    Keep callback synchronous & non-blocking — no awaits inside.
@@ -35,9 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
+        logAuthEvent('session_changed', {
+          event,
+          hasSession: !!newSession,
+          userId: newSession?.user?.id ?? null,
+        });
+
         // Detect session loss after we previously had one => session expired / signed out elsewhere.
         if (event === 'SIGNED_OUT' && hadSessionRef.current) {
           hadSessionRef.current = false;
+          logAuthEvent('signed_out', { trigger: 'auth_state_change' });
           toast.info('Sua sessão foi encerrada.');
         }
 
@@ -56,10 +66,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hadSessionRef.current = !!initialSession;
       setLoading(false);
       setInitialized(true);
-    }).catch(() => {
+      logAuthEvent('init_resolved', {
+        hasSession: !!initialSession,
+        userId: initialSession?.user?.id ?? null,
+      });
+    }).catch((err) => {
       if (!isMounted) return;
       setLoading(false);
       setInitialized(true);
+      logAuthEvent('init_resolved', { hasSession: false, error: String(err) });
     });
 
     return () => {
@@ -147,13 +162,21 @@ export function useRequireAuth() {
   useEffect(() => {
     if (!initialized || loading) return;
     if (!user) {
+      const from = buildFullPath(location);
+      logAuthEvent('redirect_to_auth', {
+        source: 'useRequireAuth',
+        from,
+        loading,
+        initialized,
+        hasUser: false,
+      });
       toast.error('Você precisa estar logado para acessar esta página');
       navigate('/auth', {
         replace: true,
-        state: { from: location.pathname + location.search },
+        state: { from, reason: 'unauthenticated' },
       });
     }
-  }, [user, loading, initialized, navigate, location.pathname, location.search]);
+  }, [user, loading, initialized, navigate, location]);
 
   return { user, session, loading: loading || !initialized };
 }
