@@ -50,3 +50,11 @@ export function logAuthEvent(event: AuthEvent, details?: Record<string, unknown>
 export function getAuthEvents(): AuthEventPayload[] {
   return [...buffer];
 }
+
+/** Limpa o buffer. Útil em testes. */
+export function __resetAuthEvents() {
+  buffer.length = 0;
+  if (typeof window !== "undefined") {
+    (window as unknown as { __authEvents?: AuthEventPayload[] }).__authEvents = buffer;
+  }
+}

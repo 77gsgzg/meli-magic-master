@@ -19,6 +19,8 @@ export function buildFullPath(location: Pick<Location, "pathname" | "search" | "
 export function sanitizeRedirectTarget(target: unknown, fallback = "/"): string {
   if (typeof target !== "string" || target.length === 0) return fallback;
   if (!target.startsWith("/")) return fallback;
+  // Bloqueia protocol-relative (//host) que poderia virar URL externa
+  if (target.startsWith("//")) return fallback;
   // Evita loops para a própria página de auth ou /session-expired
   if (target.startsWith("/auth") || target.startsWith("/session-expired")) return fallback;
   return target;

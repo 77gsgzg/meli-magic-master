@@ -1,15 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { logAuthEvent, getAuthEvents } from "@/lib/authTelemetry";
+import { logAuthEvent, getAuthEvents, __resetAuthEvents } from "@/lib/authTelemetry";
 
 describe("authTelemetry", () => {
   beforeEach(() => {
-    // limpa o buffer entre testes
-    const events = getAuthEvents();
-    events.length = 0;
-    if (typeof window !== "undefined") {
-      // @ts-expect-error reset for tests
-      window.__authEvents = [];
-    }
+    __resetAuthEvents();
   });
 
   it("registra evento com timestamp ISO", () => {
