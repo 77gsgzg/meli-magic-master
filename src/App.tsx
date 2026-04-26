@@ -13,6 +13,7 @@ import Products from "./pages/Products";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import SessionExpired from "./pages/SessionExpired";
 import NotFound from "./pages/NotFound";
 import MercadoLivreConnect from "./pages/MercadoLivreConnect";
 import MercadoLivreDiagnostics from "./pages/MercadoLivreDiagnostics";
@@ -62,6 +63,7 @@ const App = () => (
               <Routes>
                 {/* Public */}
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/session-expired" element={<SessionExpired />} />
 
                 {/* Index handles ML OAuth callback + Dashboard. Dashboard itself is protected. */}
                 <Route path="/" element={<Index />} />
