@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { z } from "zod";
 import { getRedirectFrom } from "@/lib/authRedirect";
+import { logAuthEvent } from "@/lib/authTelemetry";
 
 const emailSchema = z.string().email("Email inválido");
 const passwordSchema = z.string().min(6, "A senha deve ter pelo menos 6 caracteres");
@@ -34,6 +35,12 @@ export default function Auth() {
   // Redirect if already logged in
   useEffect(() => {
     if (initialized && !loading && user) {
+      logAuthEvent("redirect_to_auth", {
+        source: "AuthPage",
+        action: "already_authenticated_redirect",
+        to: fromPath,
+        userId: user.id,
+      });
       navigate(fromPath, { replace: true });
     }
   }, [user, loading, initialized, navigate, fromPath]);
@@ -79,23 +86,47 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error, hasSession } = await signIn(email, password);
         if (error) {
           toast.error(error.message);
           return;
         }
+        logAuthEvent("redirect_to_auth", {
+          source: "AuthPage",
+          action: "post_login_redirect",
+          to: fromPath,
+          hasSession,
+        });
         toast.success("Login realizado com sucesso!");
+        navigate(fromPath, { replace: true });
       } else {
-        const { error } = await signUp(email, password, fullName);
+        const { error, hasSession } = await signUp(email, password, fullName);
         if (error) {
           toast.error(error.message);
           return;
         }
+        if (!hasSession) {
+          logAuthEvent("signup_resolved", {
+            source: "AuthPage",
+            requiresEmailConfirmation: true,
+          });
+          toast.success("Conta criada. Confirme seu email antes de entrar.");
+          setIsLogin(true);
+          return;
+        }
+        logAuthEvent("redirect_to_auth", {
+          source: "AuthPage",
+          action: "post_signup_redirect",
+          to: fromPath,
+          hasSession,
+        });
         toast.success("Conta criada com sucesso!");
+        navigate(fromPath, { replace: true });
       }
-      navigate(fromPath, { replace: true });
     } catch (error) {
-      toast.error("Ocorreu um erro. Tente novamente.");
+      console.error("[auth-real-error]", error);
+      logAuthEvent(isLogin ? "signin_exception" : "signup_exception", { message: String(error) });
+      toast.error(error instanceof Error ? error.message : "Ocorreu um erro. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
