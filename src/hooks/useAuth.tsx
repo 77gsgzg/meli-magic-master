@@ -26,6 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hadSessionRef = useRef(false);
 
   const auditUserData = async (userId: string, source: string) => {
+    if (typeof supabase.from !== 'function') {
+      logAuthEvent('profile_fetch_error', {
+        source,
+        userId,
+        message: 'supabase.from unavailable in test/mock client',
+      });
+      return;
+    }
+
     logAuthEvent('profile_fetch_start', { source, userId });
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
