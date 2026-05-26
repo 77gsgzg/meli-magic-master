@@ -59,9 +59,20 @@ export function logAuthEvent(event: AuthEvent, details?: Record<string, unknown>
 
   // Logging visível apenas em dev. Em prod, fica em window.__authEvents.
   if (import.meta.env?.DEV) {
+    const channel = getAuthLogChannel(event);
     // eslint-disable-next-line no-console
-    console.debug(`[auth] ${event}`, details ?? "");
+    console.debug(`[${channel}] ${event}`, details ?? "");
   }
+}
+
+function getAuthLogChannel(event: AuthEvent): string {
+  if (event.startsWith("signin") || event === "init_start") return "auth";
+  if (event.startsWith("signup")) return "signup";
+  if (event.startsWith("profile")) return "profile";
+  if (event.startsWith("user_roles")) return "user_roles";
+  if (event.startsWith("redirect")) return "redirect";
+  if (event.includes("session") || event === "signed_out" || event.startsWith("signout")) return "session";
+  return "auth";
 }
 
 export function getAuthEvents(): AuthEventPayload[] {
