@@ -11,7 +11,24 @@ export type AuthEvent =
   | "init_start"
   | "init_resolved"
   | "session_changed"
+  | "signin_start"
+  | "signin_resolved"
+  | "signin_error"
+  | "signin_exception"
+  | "signup_start"
+  | "signup_resolved"
+  | "signup_error"
+  | "signup_exception"
+  | "signout_start"
+  | "signout_resolved"
+  | "signout_error"
   | "signed_out"
+  | "profile_fetch_start"
+  | "profile_fetch_resolved"
+  | "profile_fetch_error"
+  | "user_roles_fetch_start"
+  | "user_roles_fetch_resolved"
+  | "user_roles_fetch_error"
   | "redirect_to_auth"
   | "redirect_blocked_loading"
   | "redirect_admin_denied"
@@ -42,9 +59,20 @@ export function logAuthEvent(event: AuthEvent, details?: Record<string, unknown>
 
   // Logging visível apenas em dev. Em prod, fica em window.__authEvents.
   if (import.meta.env?.DEV) {
+    const channel = getAuthLogChannel(event);
     // eslint-disable-next-line no-console
-    console.debug(`[auth] ${event}`, details ?? "");
+    console.debug(`[${channel}] ${event}`, details ?? "");
   }
+}
+
+function getAuthLogChannel(event: AuthEvent): string {
+  if (event.startsWith("signin") || event === "init_start") return "auth";
+  if (event.startsWith("signup")) return "signup";
+  if (event.startsWith("profile")) return "profile";
+  if (event.startsWith("user_roles")) return "user_roles";
+  if (event.startsWith("redirect")) return "redirect";
+  if (event.includes("session") || event === "init_resolved" || event === "signed_out" || event.startsWith("signout")) return "session";
+  return "auth";
 }
 
 export function getAuthEvents(): AuthEventPayload[] {

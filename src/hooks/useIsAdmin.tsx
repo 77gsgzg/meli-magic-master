@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { logAuthEvent } from "@/lib/authTelemetry";
 
 const SUPER_ADMIN_EMAIL = "farmatgu@gmail.com";
 
@@ -21,7 +22,10 @@ export function useIsAdmin() {
     let active = true;
 
     async function check() {
-      if (authLoading) return;
+      if (authLoading) {
+        logAuthEvent("user_roles_fetch_start", { source: "useIsAdmin", waitingForAuth: true });
+        return;
+      }
       if (!user) {
         if (active) {
           setIsAdmin(false);
@@ -33,12 +37,36 @@ export function useIsAdmin() {
       const isSuperAdminByEmail =
         (user.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL;
 
-      const { data } = await supabase
+      logAuthEvent("user_roles_fetch_start", {
+        source: "useIsAdmin",
+        userId: user.id,
+        role: "admin",
+      });
+
+      const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
         .eq("role", "admin")
         .maybeSingle();
+
+      if (error) {
+        console.error("[user_roles-real-error]", error);
+        console.error("[rls]", "user_roles admin SELECT failed", error);
+        logAuthEvent("user_roles_fetch_error", {
+          source: "useIsAdmin",
+          userId: user.id,
+          message: error.message,
+          code: error.code,
+        });
+      } else {
+        logAuthEvent("user_roles_fetch_resolved", {
+          source: "useIsAdmin",
+          userId: user.id,
+          roles: data ? [data.role] : [],
+          usedSuperAdminFallback: !data && isSuperAdminByEmail,
+        });
+      }
 
       if (active) {
         setIsAdmin(!!data || isSuperAdminByEmail);

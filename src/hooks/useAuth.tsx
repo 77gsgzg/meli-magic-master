@@ -11,8 +11,8 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   initialized: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; hasSession?: boolean }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null; hasSession?: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -25,9 +25,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const hadSessionRef = useRef(false);
 
+  const auditUserData = async (userId: string, source: string) => {
+    if (typeof supabase.from !== 'function') {
+      logAuthEvent('profile_fetch_error', {
+        source,
+        userId,
+        message: 'supabase.from unavailable in test/mock client',
+      });
+      return;
+    }
+
+    logAuthEvent('profile_fetch_start', { source, userId });
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('[profile-real-error]', profileError);
+      console.error('[rls]', 'profiles SELECT failed', profileError);
+      logAuthEvent('profile_fetch_error', {
+        source,
+        userId,
+        message: profileError.message,
+        code: profileError.code,
+      });
+    } else {
+      logAuthEvent('profile_fetch_resolved', { source, userId, exists: !!profile });
+    }
+
+    logAuthEvent('user_roles_fetch_start', { source, userId });
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+
+    if (rolesError) {
+      console.error('[user_roles-real-error]', rolesError);
+      console.error('[rls]', 'user_roles SELECT failed', rolesError);
+      logAuthEvent('user_roles_fetch_error', {
+        source,
+        userId,
+        message: rolesError.message,
+        code: rolesError.code,
+      });
+    } else {
+      logAuthEvent('user_roles_fetch_resolved', {
+        source,
+        userId,
+        roles: roles?.map((row) => row.role) ?? [],
+      });
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    logAuthEvent('init_start');
+    logAuthEvent('init_start', {
+      projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID,
+      hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
+      hasPublishableKey: !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    });
 
     // 1) Auth state listener (fires on SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED).
     //    Keep callback synchronous & non-blocking — no awaits inside.
@@ -42,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           event,
           hasSession: !!newSession,
           userId: newSession?.user?.id ?? null,
+          emailConfirmedAt: newSession?.user?.email_confirmed_at ?? null,
+          expiresAt: newSession?.expires_at ?? null,
         });
 
         // Detect session loss after we previously had one => session expired / signed out elsewhere.
@@ -53,6 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (newSession) {
           hadSessionRef.current = true;
+          window.setTimeout(() => {
+            void auditUserData(newSession.user.id, `auth_state:${event}`);
+          }, 0);
         }
       }
     );
@@ -69,7 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logAuthEvent('init_resolved', {
         hasSession: !!initialSession,
         userId: initialSession?.user?.id ?? null,
+        emailConfirmedAt: initialSession?.user?.email_confirmed_at ?? null,
+        expiresAt: initialSession?.expires_at ?? null,
       });
+      if (initialSession) {
+        void auditUserData(initialSession.user.id, 'initial_session');
+      }
     }).catch((err) => {
       if (!isMounted) return;
       setLoading(false);
@@ -85,20 +153,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      logAuthEvent('signin_start', { email });
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          return { error: new Error('Email ou senha incorretos') };
-        }
+        console.error('[auth-real-error]', error);
+        logAuthEvent('signin_error', {
+          message: error.message,
+          name: error.name,
+          status: 'status' in error ? error.status : undefined,
+        });
         return { error };
       }
 
-      return { error: null };
+      setSession(data.session);
+      setUser(data.user);
+      hadSessionRef.current = !!data.session;
+
+      logAuthEvent('signin_resolved', {
+        hasSession: !!data.session,
+        userId: data.user?.id ?? null,
+        emailConfirmedAt: data.user?.email_confirmed_at ?? null,
+        expiresAt: data.session?.expires_at ?? null,
+      });
+
+      if (data.user) {
+        void auditUserData(data.user.id, 'signin_success');
+      }
+
+      return { error: null, hasSession: !!data.session };
     } catch (err) {
+      console.error('[auth-real-error]', err);
+      logAuthEvent('signin_exception', { message: String(err) });
       return { error: err as Error };
     }
   };
@@ -107,7 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      const { error } = await supabase.auth.signUp({
+      logAuthEvent('signup_start', { email, redirectUrl });
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -119,20 +209,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        if (error.message.includes('User already registered')) {
-          return { error: new Error('Este email já está cadastrado') };
-        }
+        console.error('[signup-real-error]', error);
+        logAuthEvent('signup_error', {
+          message: error.message,
+          name: error.name,
+          status: 'status' in error ? error.status : undefined,
+        });
         return { error };
       }
 
-      return { error: null };
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        hadSessionRef.current = true;
+      }
+
+      logAuthEvent('signup_resolved', {
+        hasSession: !!data.session,
+        userId: data.user?.id ?? null,
+        emailConfirmedAt: data.user?.email_confirmed_at ?? null,
+        identities: data.user?.identities?.length ?? 0,
+      });
+
+      if (data.user && data.session) {
+        void auditUserData(data.user.id, 'signup_success');
+      }
+
+      return { error: null, hasSession: !!data.session };
     } catch (err) {
+      console.error('[signup-real-error]', err);
+      logAuthEvent('signup_exception', { message: String(err) });
       return { error: err as Error };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    logAuthEvent('signout_start', { userId: user?.id ?? null });
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('[auth-real-error]', error);
+      logAuthEvent('signout_error', { message: error.message });
+      return;
+    }
+    setSession(null);
+    setUser(null);
+    hadSessionRef.current = false;
+    logAuthEvent('signout_resolved');
   };
 
   return (
