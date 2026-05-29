@@ -128,12 +128,10 @@ export function Sidebar() {
         </Button>
       </div>
 
-
       {/* Navigation with scroll */}
       <ScrollArea className="flex-1 px-3 py-3">
-        <nav className="space-y-1">
-      <ScrollArea className="flex-1 px-3 py-3">
         <nav className="space-y-0.5">
+
           {filteredMenuItems.map((item: any) => {
             const isActive = location.pathname === item.path;
             const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
