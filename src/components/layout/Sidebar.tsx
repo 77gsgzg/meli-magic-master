@@ -162,20 +162,24 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
 
-      {/* AI Badge */}
+      {/* Operational system status */}
       {!collapsed && (
-        <div className="mx-3 mb-3 rounded-xl bg-gradient-to-r from-primary/15 to-info/10 p-4 border border-primary/25 shrink-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="p-1.5 rounded-lg bg-primary/20">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">IA Ativa</span>
+        <div className="mx-3 mb-3 rounded-xl cinematic-panel p-3 shrink-0 space-y-1.5">
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em]">
+            <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_hsl(var(--success))] animate-pulse" />
+            <span className="text-foreground/80">SYSTEM ONLINE</span>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Otimização automática de títulos e descrições
-          </p>
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em]">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))] animate-pulse" />
+            <span className="text-foreground/80">AI LINK ACTIVE</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em]">
+            <span className="h-1.5 w-1.5 rounded-full bg-info shadow-[0_0_8px_hsl(var(--info))]" />
+            <span className="text-foreground/80">MARKET SYNCED</span>
+          </div>
         </div>
       )}
+
 
       {/* Logout */}
       <div className="border-t border-border/60 p-3 shrink-0">
