@@ -442,7 +442,96 @@ html.transitioning *::after {
   .status-offline { @apply bg-muted-foreground; }
   .status-warning { @apply bg-warning; }
   .status-error { @apply bg-destructive; }
+
+  /* Terminal feed line */
+  .terminal-line {
+    position: relative;
+    padding-left: 1rem;
+  }
+  .terminal-line::before {
+    content: "›";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: hsl(var(--primary) / 0.7);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Live pulse dot */
+  .live-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: hsl(var(--success));
+    box-shadow: 0 0 0 0 hsl(var(--success) / 0.6);
+    animation: livePulse 2s ease-out infinite;
+  }
+  .live-dot.warn { background: hsl(var(--warning)); box-shadow: 0 0 0 0 hsl(var(--warning) / 0.6); }
+  .live-dot.err  { background: hsl(var(--destructive)); box-shadow: 0 0 0 0 hsl(var(--destructive) / 0.6); }
+
+  /* Radar sweep ring */
+  .radar-ring {
+    position: relative;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at center, hsl(var(--primary) / 0.18), transparent 65%),
+      conic-gradient(from 0deg, transparent 0deg, hsl(var(--primary) / 0.35) 60deg, transparent 120deg);
+    animation: radarSweep 4s linear infinite;
+  }
+
+  /* Scanline overlay */
+  .scanlines {
+    position: relative;
+  }
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 2px,
+      hsl(var(--foreground) / 0.025) 3px,
+      transparent 4px
+    );
+    mix-blend-mode: overlay;
+    border-radius: inherit;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted) / 0.4) 0%,
+      hsl(var(--muted) / 0.7) 50%,
+      hsl(var(--muted) / 0.4) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
 }
+
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 hsl(var(--success) / 0.5); }
+  70%  { box-shadow: 0 0 0 8px hsl(var(--success) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
+}
+
+@keyframes radarSweep {
+  to { transform: rotate(360deg); }
+}
+
 
 @keyframes ambientDrift {
   0%   { transform: translate3d(0,0,0) scale(1); }
