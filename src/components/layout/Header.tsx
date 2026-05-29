@@ -64,7 +64,9 @@ export function Header({ title, subtitle }: HeaderProps) {
     navigate("/auth", { replace: true });
   }
 
+  return (
     <header className="sticky top-0 z-30 flex min-h-[56px] sm:min-h-[64px] items-center justify-between border-b border-border/60 bg-background/70 backdrop-blur-xl px-4 sm:px-5 lg:px-6 gap-3 relative">
+
       {/* hairline gradient under header */}
       <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
