@@ -64,18 +64,23 @@ export function Header({ title, subtitle }: HeaderProps) {
     navigate("/auth", { replace: true });
   }
 
-  return (
-    <header className="sticky top-0 z-30 flex min-h-[56px] sm:min-h-[64px] items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-md px-4 sm:px-5 lg:px-6 gap-3">
+    <header className="sticky top-0 z-30 flex min-h-[56px] sm:min-h-[64px] items-center justify-between border-b border-border/60 bg-background/70 backdrop-blur-xl px-4 sm:px-5 lg:px-6 gap-3 relative">
+      {/* hairline gradient under header */}
+      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
       {/* Left section - Mobile menu & title */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <MobileSidebar />
-        
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.18em] text-primary/90">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" />
+              LIVE
+            </span>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate tracking-tight">
               {title}
             </h1>
-            {/* Indicador temporário de estado de sessão (debug) */}
             <AuthStatusBadge />
           </div>
           {subtitle && (
@@ -85,6 +90,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           )}
         </div>
       </div>
+
 
       {/* Right section - Actions */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
