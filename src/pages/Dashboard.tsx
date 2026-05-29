@@ -53,10 +53,10 @@ export default function Dashboard() {
       title="Dashboard"
       subtitle="Gerencie seus produtos do Mercado Livre"
     >
-      <div className="space-y-4 md:space-y-6">
-        {/* Stats Grid with Stagger Animation */}
-        <StaggerContainer className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <StaggerItem>
+      <div className="space-y-5 md:space-y-6">
+        {/* Bento Stats Grid — asymmetric: hero card spans 2 cols on lg */}
+        <StaggerContainer className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          <StaggerItem className="lg:col-span-2 lg:row-span-1">
             <StatCard
               title="Total de Produtos"
               value={stats.total}
@@ -110,7 +110,6 @@ export default function Dashboard() {
           </div>
           <div className="space-y-4">
             <ActivityFeed />
-            {/* Indicadores em tempo real da integração Mercado Livre */}
             <MercadoLivreStatusIndicators />
           </div>
         </div>
@@ -118,4 +117,5 @@ export default function Dashboard() {
     </DashboardLayout>
   );
 }
+
 

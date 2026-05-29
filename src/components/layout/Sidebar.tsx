@@ -94,20 +94,25 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen border-r border-border/60 bg-sidebar transition-all duration-300 flex flex-col",
+        "fixed left-0 top-0 z-40 h-screen border-r border-border/60 bg-sidebar/95 backdrop-blur-xl transition-all duration-300 flex flex-col",
+        "before:content-[''] before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-gradient-to-b before:from-transparent before:via-primary/30 before:to-transparent before:opacity-60",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-border/60 shrink-0">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 shadow-glow">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-border/60 shrink-0 relative">
+        <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <Link to="/" className="flex items-center gap-3 min-w-0">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/30 via-primary/10 to-transparent border border-primary/40 shadow-[0_0_24px_-4px_hsl(var(--primary)/0.55)]">
             <Store className="h-5 w-5 text-primary" />
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_hsl(var(--primary))]" />
           </div>
           {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-bold text-foreground tracking-tight">ML Manager</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">by AI</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-foreground tracking-tight leading-none">Ruxov</span>
+              <span className="text-[10px] text-primary/80 uppercase tracking-[0.22em] mt-1 font-mono">
+                Intelligence
+              </span>
             </div>
           )}
         </Link>
@@ -115,20 +120,18 @@ export function Sidebar() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="h-8 w-8 hover:bg-secondary"
+          className="h-8 w-8 hover:bg-secondary hover:text-primary"
         >
           <ChevronLeft
-            className={cn(
-              "h-4 w-4 transition-transform duration-300",
-              collapsed && "rotate-180"
-            )}
+            className={cn("h-4 w-4 transition-transform duration-300", collapsed && "rotate-180")}
           />
         </Button>
       </div>
 
       {/* Navigation with scroll */}
       <ScrollArea className="flex-1 px-3 py-3">
-        <nav className="space-y-1">
+        <nav className="space-y-0.5">
+
           {filteredMenuItems.map((item: any) => {
             const isActive = location.pathname === item.path;
             const label = item.labelKey.startsWith("nav.") ? t(item.labelKey) : item.labelKey;
@@ -137,16 +140,19 @@ export function Sidebar() {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
+                  "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
                   isActive
-                    ? "bg-primary/15 text-primary border border-primary/30 shadow-inner-glow"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent"
+                    ? "bg-gradient-to-r from-primary/20 via-primary/10 to-transparent text-primary border border-primary/30 shadow-[inset_0_1px_0_0_hsl(var(--primary)/0.15)]"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
                 )}
               >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />
+                )}
                 <item.icon
                   className={cn(
                     "h-5 w-5 shrink-0 transition-colors",
-                    isActive ? "text-primary" : "group-hover:text-foreground"
+                    isActive ? "text-primary" : "group-hover:text-primary/80"
                   )}
                 />
                 {!collapsed && <span className="truncate">{label}</span>}
