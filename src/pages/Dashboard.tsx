@@ -50,6 +50,9 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout
+      title="Dashboard"
+      subtitle="Gerencie seus produtos do Mercado Livre"
+    >
       <div className="space-y-5 md:space-y-6">
         {/* Bento Stats Grid — asymmetric: hero card spans 2 cols on lg */}
         <StaggerContainer className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
@@ -111,19 +114,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-            </div>
-            <ScheduledBatchImports />
-            <RecentProducts products={products.slice(0, 5)} />
-          </div>
-          <div className="space-y-4">
-            <ActivityFeed />
-            {/* Indicadores em tempo real da integração Mercado Livre */}
-            <MercadoLivreStatusIndicators />
-          </div>
-        </div>
-      </div>
     </DashboardLayout>
   );
 }
+
 
