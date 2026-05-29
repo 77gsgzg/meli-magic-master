@@ -7,6 +7,7 @@ import { ScheduledBatchImports } from "@/components/dashboard/ScheduledBatchImpo
 import { ResumableImports } from "@/components/dashboard/ResumableImports";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { MercadoLivreStatusIndicators } from "@/components/dashboard/MercadoLivreStatusIndicators";
+import { AICommandPanel } from "@/components/dashboard/AICommandPanel";
 import { Package, TrendingUp, AlertCircle, CheckCircle, ShoppingCart } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
