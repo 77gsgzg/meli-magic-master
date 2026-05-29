@@ -2,6 +2,8 @@ import { ReactNode, useRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { AnimatedCounter } from "./AnimatedCounter";
+import { Sparkline } from "./Sparkline";
 
 interface StatCardProps {
   title: string;
@@ -22,22 +24,38 @@ export function StatCard({ title, value, change, icon, trend = "neutral" }: Stat
     el.style.setProperty("--y", `${e.clientY - rect.top}px`);
   };
 
+  // Deterministic seed per card so sparklines feel stable across renders
+  const seed = Math.abs(
+    Array.from(title).reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  );
+
+  // Detect numeric vs formatted string (e.g. "92%")
+  const isPercent = typeof value === "string" && value.trim().endsWith("%");
+  const numericValue = typeof value === "number"
+    ? value
+    : Number(String(value).replace(/[^\d.-]/g, ""));
+  const canAnimate = Number.isFinite(numericValue);
+
   return (
     <motion.div
       ref={ref}
       onMouseMove={handleMove}
       whileHover={{ y: -3 }}
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
-      className="panel-premium panel-premium-hover edge-glow spotlight overflow-hidden group"
+      className="cinematic-panel edge-highlight ambient-noise spotlight overflow-hidden group"
     >
       <div className="p-4 sm:p-5 lg:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1.5 sm:space-y-2 min-w-0 flex-1">
-            <p className="text-[11px] sm:text-xs text-muted-foreground font-medium uppercase tracking-[0.14em] truncate">
+            <p className="text-[11px] sm:text-xs text-muted-foreground font-medium uppercase tracking-[0.16em] truncate">
               {title}
             </p>
-            <p className="num-display text-2xl sm:text-3xl lg:text-[2.25rem] font-semibold text-foreground leading-none">
-              {value}
+            <p className="mono-data text-2xl sm:text-3xl lg:text-[2.25rem] font-semibold text-foreground leading-none counter-reveal">
+              {canAnimate ? (
+                <AnimatedCounter value={numericValue} suffix={isPercent ? "%" : ""} />
+              ) : (
+                value
+              )}
             </p>
             {change !== undefined && (
               <div
@@ -51,24 +69,31 @@ export function StatCard({ title, value, change, icon, trend = "neutral" }: Stat
                 {trend === "up" && <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                 {trend === "down" && <TrendingDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                 {trend === "neutral" && <Minus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                <span className="num-display font-semibold">
+                <span className="mono-data font-semibold">
                   {change > 0 ? "+" : ""}
                   {change}%
                 </span>
               </div>
             )}
           </div>
-          <div
-            className={cn(
-              "relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl shrink-0",
-              "bg-gradient-to-br from-primary/25 via-primary/10 to-transparent",
-              "border border-primary/30 text-primary",
-              "shadow-[0_0_24px_-6px_hsl(var(--primary)/0.45)]",
-              "transition-transform duration-300 group-hover:scale-[1.06]"
-            )}
-          >
-            <div className="absolute inset-0 rounded-xl bg-primary/0 group-hover:bg-primary/5 transition-colors" />
-            {icon}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div
+              className={cn(
+                "relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl",
+                "bg-gradient-to-br from-primary/25 via-primary/10 to-transparent",
+                "border border-primary/30 text-primary",
+                "shadow-[0_0_24px_-6px_hsl(var(--primary)/0.5)]",
+                "transition-transform duration-300 group-hover:scale-[1.06]"
+              )}
+            >
+              <div className="absolute inset-0 rounded-xl bg-primary/0 group-hover:bg-primary/5 transition-colors" />
+              {icon}
+            </div>
+            <Sparkline
+              seed={seed}
+              trend={trend}
+              className="opacity-70 group-hover:opacity-100 transition-opacity"
+            />
           </div>
         </div>
       </div>
