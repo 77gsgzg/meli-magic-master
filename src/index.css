@@ -268,23 +268,122 @@ html.transitioning *::after {
     @apply bg-card/50 backdrop-blur-md border border-border/40;
   }
 
+  /* Premium panel – glass + inner highlight + soft shadow */
+  .panel-premium {
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.85), hsl(var(--card) / 0.55));
+    @apply backdrop-blur-xl border border-border/60 rounded-xl;
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.04),
+      0 1px 0 0 hsl(0 0% 0% / 0.5),
+      0 20px 60px -30px hsl(225 30% 0% / 0.8);
+  }
+
+  .panel-premium-hover {
+    @apply transition-all duration-300;
+  }
+  .panel-premium-hover:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--primary) / 0.08),
+      0 1px 0 0 hsl(0 0% 0% / 0.5),
+      0 24px 70px -30px hsl(var(--primary) / 0.25);
+  }
+
+  /* Spotlight – pointer-tracked glow via CSS vars (--x, --y) */
+  .spotlight {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    background: radial-gradient(
+      300px circle at var(--x, 50%) var(--y, 0%),
+      hsl(var(--primary) / 0.18),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 1;
+  }
+  .spotlight:hover::before { opacity: 1; }
+  .spotlight > * { position: relative; z-index: 2; }
+
+  /* Hair-thin gradient top border for panels (AI command feel) */
+  .edge-glow {
+    position: relative;
+  }
+  .edge-glow::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.55),
+      hsl(var(--info) / 0.4),
+      transparent
+    );
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* Ambient backdrop – animated cyan/indigo halos + subtle grid */
+  .ambient-backdrop {
+    position: relative;
+  }
+  .ambient-backdrop::before,
+  .ambient-backdrop::after {
+    content: "";
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(80px);
+    opacity: 0.55;
+  }
+  .ambient-backdrop::before {
+    top: -10%;
+    left: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.18), transparent 60%);
+    animation: ambientDrift 18s ease-in-out infinite alternate;
+  }
+  .ambient-backdrop::after {
+    bottom: -15%;
+    right: -10%;
+    width: 55vw;
+    height: 55vw;
+    background: radial-gradient(circle, hsl(var(--info) / 0.14), transparent 60%);
+    animation: ambientDrift 22s ease-in-out infinite alternate-reverse;
+  }
+
+  .grid-overlay {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at top, black 40%, transparent 80%);
+  }
+
   /* Glow effects */
-  .glow {
-    box-shadow: var(--shadow-glow);
-  }
-
-  .glow-sm {
-    box-shadow: 0 0 15px hsl(175, 85%, 45%, 0.15);
-  }
-
-  .glow-lg {
-    box-shadow: 0 0 50px hsl(175, 85%, 45%, 0.3);
-  }
+  .glow { box-shadow: var(--shadow-glow); }
+  .glow-sm { box-shadow: 0 0 15px hsl(175, 85%, 45%, 0.15); }
+  .glow-lg { box-shadow: 0 0 50px hsl(175, 85%, 45%, 0.3); }
 
   /* Gradient utilities */
   .gradient-text {
     @apply bg-gradient-to-r from-primary via-info to-primary bg-clip-text text-transparent;
     background-size: 200% auto;
+  }
+  .gradient-text-animated {
+    @apply gradient-text;
+    animation: shimmer 6s linear infinite;
   }
 
   .gradient-border {
@@ -292,7 +391,6 @@ html.transitioning *::after {
     background: hsl(var(--card));
     border-radius: var(--radius);
   }
-
   .gradient-border::before {
     content: '';
     position: absolute;
@@ -308,37 +406,25 @@ html.transitioning *::after {
   }
 
   /* Animations */
-  .animate-fade-in {
-    animation: fadeIn 0.4s ease-out forwards;
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.4s ease-out forwards;
-  }
-
-  .animate-pulse-glow {
-    animation: pulseGlow 2.5s ease-in-out infinite;
-  }
-
+  .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+  .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+  .animate-pulse-glow { animation: pulseGlow 2.5s ease-in-out infinite; }
   .animate-shimmer {
     animation: shimmer 2s linear infinite;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      hsl(var(--primary) / 0.1),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.1), transparent);
     background-size: 200% 100%;
   }
 
-  /* Mobile-first touch targets */
-  .touch-target {
-    @apply min-h-[48px] min-w-[48px];
+  /* Typographic */
+  .num-display {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    letter-spacing: -0.02em;
   }
 
-  .touch-target-sm {
-    @apply min-h-[44px] min-w-[44px];
-  }
+  /* Mobile-first touch targets */
+  .touch-target { @apply min-h-[48px] min-w-[48px]; }
+  .touch-target-sm { @apply min-h-[44px] min-w-[44px]; }
 
   /* Responsive container */
   .container-responsive {
@@ -351,26 +437,18 @@ html.transitioning *::after {
   }
 
   /* Status indicators */
-  .status-dot {
-    @apply w-2 h-2 rounded-full;
-  }
-
-  .status-online {
-    @apply bg-success animate-pulse;
-  }
-
-  .status-offline {
-    @apply bg-muted-foreground;
-  }
-
-  .status-warning {
-    @apply bg-warning;
-  }
-
-  .status-error {
-    @apply bg-destructive;
-  }
+  .status-dot { @apply w-2 h-2 rounded-full; }
+  .status-online { @apply bg-success animate-pulse; }
+  .status-offline { @apply bg-muted-foreground; }
+  .status-warning { @apply bg-warning; }
+  .status-error { @apply bg-destructive; }
 }
+
+@keyframes ambientDrift {
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  100% { transform: translate3d(4%, 3%, 0) scale(1.08); }
+}
+
 
 @keyframes fadeIn {
   from {
