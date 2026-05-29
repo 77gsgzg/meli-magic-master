@@ -103,10 +103,11 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <ResumableImports />
             <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
-              <QuickImport />
-              <BatchImport />
-            </div>
-            <ScheduledBatchImports />
+          <div className="space-y-4">
+            <AICommandPanel />
+            <ActivityFeed />
+            <MercadoLivreStatusIndicators />
+          </div>
             <RecentProducts products={products.slice(0, 5)} />
           </div>
           <div className="space-y-4">
