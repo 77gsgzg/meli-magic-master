@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Bell, Check, Trash2, Package, ShoppingCart, AlertTriangle, Info, TrendingDown, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -219,7 +220,7 @@ export function NotificationsDropdown() {
         {notifications.length > 0 && (
           <div className="p-3 border-t border-border/50">
             <Button variant="ghost" className="w-full text-sm h-9" asChild>
-              <a href="/settings">Ver configurações</a>
+              <Link to="/settings">Ver configurações</Link>
             </Button>
           </div>
         )}
