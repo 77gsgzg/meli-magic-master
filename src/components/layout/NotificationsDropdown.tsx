@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Bell, Check, Trash2, Package, ShoppingCart, AlertTriangle, Info, TrendingDown, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
