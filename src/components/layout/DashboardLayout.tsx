@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
   return (
-    <div className="relative min-h-screen bg-background ambient-backdrop overflow-hidden">
+    <div className="relative min-h-screen bg-background ambient-backdrop overflow-x-hidden">
       {/* Cinematic grid + vignette */}
       <div className="pointer-events-none absolute inset-0 grid-overlay opacity-60" aria-hidden />
       <div

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -73,9 +74,17 @@ const menuItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const { isAdmin: isWalletAdmin } = useIsWalletAdmin();
   const { isAdmin } = useIsAdmin();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
+
 
   const filteredMenuItems = menuItems.filter((item: any) => {
     if (item.adminOnly) return isAdmin;
@@ -185,6 +194,7 @@ export function Sidebar() {
       <div className="border-t border-border/60 p-3 shrink-0">
         <Button
           variant="ghost"
+          onClick={handleLogout}
           className={cn(
             "w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-11",
             collapsed && "justify-center px-0"
