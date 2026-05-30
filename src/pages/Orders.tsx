@@ -113,7 +113,7 @@ export default function Orders() {
               Para ver seus pedidos, você precisa conectar sua conta do Mercado Livre.
             </p>
             <Button asChild>
-              <a href="/mercado-livre">Conectar Mercado Livre</a>
+              <Link to="/mercado-livre">Conectar Mercado Livre</Link>
             </Button>
           </CardContent>
         </Card>

@@ -219,7 +219,7 @@ export function NotificationsDropdown() {
         {notifications.length > 0 && (
           <div className="p-3 border-t border-border/50">
             <Button variant="ghost" className="w-full text-sm h-9" asChild>
-              <a href="/settings">Ver configurações</a>
+              <Link to="/settings">Ver configurações</Link>
             </Button>
           </div>
         )}
