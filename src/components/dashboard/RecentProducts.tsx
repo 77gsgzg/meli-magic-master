@@ -109,6 +109,7 @@ export function RecentProducts({ products }: RecentProductsProps) {
                   key={product.id}
                   variants={itemVariants}
                   whileHover={{ x: 2 }}
+                  onClick={() => navigate('/products')}
                   className="group relative px-4 py-3 hover:bg-primary/[0.04] transition-colors cursor-pointer"
                 >
                   {/* Hover accent bar */}
