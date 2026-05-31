@@ -23,7 +23,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       />
 
       {/* Desktop Sidebar - hidden on mobile/tablet */}
-      <div className="hidden lg:block relative z-10">
+      <div className="hidden lg:block relative z-40">
         <Sidebar />
       </div>
 
