@@ -255,10 +255,11 @@ export default function TikTokFeed() {
   const PAGE_SIZE = 20;
 
   useEffect(() => {
-    if (!isAdmin) { navigate("/"); return; }
+    if (adminLoading) return;
+    if (!isAdmin) return;
     fetchFeed(0, true);
     fetchModels();
-  }, [isAdmin]);
+  }, [isAdmin, adminLoading]);
 
   // Infinite scroll
   const lastCardCallback = useCallback(
