@@ -102,12 +102,10 @@ export default function TikTokMiner() {
   const [shares, setShares] = useState("");
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate("/");
-      return;
-    }
+    if (adminLoading) return;
+    if (!isAdmin) return;
     fetchData();
-  }, [isAdmin]);
+  }, [isAdmin, adminLoading]);
 
   const fetchData = async () => {
     setLoading(true);
