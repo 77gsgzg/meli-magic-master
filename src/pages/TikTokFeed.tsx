@@ -236,7 +236,7 @@ function formatNumber(n: number): string {
 
 export default function TikTokFeed() {
   const { user } = useAuth();
-  const { isAdmin } = useIsWalletAdmin();
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
   const navigate = useNavigate();
 
   const [videos, setVideos] = useState<FeedVideo[]>([]);
