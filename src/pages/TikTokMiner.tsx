@@ -82,7 +82,7 @@ function ScoreBadge({ score }: { score: number | null }) {
 
 export default function TikTokMiner() {
   const { user } = useAuth();
-  const { isAdmin } = useIsWalletAdmin();
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
   const navigate = useNavigate();
 
   const [videos, setVideos] = useState<TikTokVideo[]>([]);
