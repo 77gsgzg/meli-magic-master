@@ -236,7 +236,7 @@ function formatNumber(n: number): string {
 
 export default function TikTokFeed() {
   const { user } = useAuth();
-  const { isAdmin } = useIsWalletAdmin();
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
   const navigate = useNavigate();
 
   const [videos, setVideos] = useState<FeedVideo[]>([]);
@@ -255,10 +255,11 @@ export default function TikTokFeed() {
   const PAGE_SIZE = 20;
 
   useEffect(() => {
-    if (!isAdmin) { navigate("/"); return; }
+    if (adminLoading) return;
+    if (!isAdmin) return;
     fetchFeed(0, true);
     fetchModels();
-  }, [isAdmin]);
+  }, [isAdmin, adminLoading]);
 
   // Infinite scroll
   const lastCardCallback = useCallback(
@@ -380,7 +381,30 @@ export default function TikTokFeed() {
     setMarkingModelId(null);
   };
 
-  if (!isAdmin) return null;
+  if (adminLoading) {
+    return (
+      <DashboardLayout title="Feed Inteligente" subtitle="Vídeos virais automatizados">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-pink-400" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+  if (!isAdmin) {
+    return (
+      <DashboardLayout title="Feed Inteligente" subtitle="Acesso restrito">
+        <Card className="border-border/60 bg-card/80 max-w-lg mx-auto mt-10">
+          <CardContent className="p-8 text-center space-y-3">
+            <Zap className="h-10 w-10 text-pink-400 mx-auto" />
+            <h2 className="text-lg font-semibold text-foreground">Módulo restrito</h2>
+            <p className="text-sm text-muted-foreground">
+              O Feed Inteligente está disponível apenas para administradores.
+            </p>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   const savedVideos = videos.filter((v) => v.feed_status === "saved");
   const modelVideos = videos.filter((v) => v.is_model);

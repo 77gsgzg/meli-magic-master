@@ -82,7 +82,7 @@ function ScoreBadge({ score }: { score: number | null }) {
 
 export default function TikTokMiner() {
   const { user } = useAuth();
-  const { isAdmin } = useIsWalletAdmin();
+  const { isAdmin, loading: adminLoading } = useIsWalletAdmin();
   const navigate = useNavigate();
 
   const [videos, setVideos] = useState<TikTokVideo[]>([]);
@@ -102,12 +102,10 @@ export default function TikTokMiner() {
   const [shares, setShares] = useState("");
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate("/");
-      return;
-    }
+    if (adminLoading) return;
+    if (!isAdmin) return;
     fetchData();
-  }, [isAdmin]);
+  }, [isAdmin, adminLoading]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -206,7 +204,30 @@ export default function TikTokMiner() {
     }
   };
 
-  if (!isAdmin) return null;
+  if (adminLoading) {
+    return (
+      <DashboardLayout title="TikTok Miner" subtitle="Mineração e análise de vídeos virais">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-pink-400" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+  if (!isAdmin) {
+    return (
+      <DashboardLayout title="TikTok Miner" subtitle="Acesso restrito">
+        <Card className="glass max-w-lg mx-auto mt-10">
+          <CardContent className="p-8 text-center space-y-3">
+            <TrendingUp className="h-10 w-10 text-pink-400 mx-auto" />
+            <h2 className="text-lg font-semibold text-foreground">Módulo restrito</h2>
+            <p className="text-sm text-muted-foreground">
+              O TikTok Miner está disponível apenas para administradores.
+            </p>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   const analyzedVideos = videos.filter((v) => analyses[v.id]);
   const pendingVideos = videos.filter((v) => !analyses[v.id]);
