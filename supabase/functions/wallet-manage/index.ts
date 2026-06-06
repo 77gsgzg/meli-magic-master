@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const WALLET_ADMIN_EMAIL = "farmatgu@gmail.com";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -36,29 +34,7 @@ serve(async (req) => {
       });
     }
 
-    // Wallet admin check: must be admin role AND specific email
-    if (user.email !== WALLET_ADMIN_EMAIL) {
-      // Log unauthorized attempt
-      await supabase.from("operation_logs").insert({
-        user_id: user.id,
-        operation_type: "import", // using existing enum
-        status: "error",
-        entity_type: "wallet",
-        error_message: `Tentativa de acesso não autorizado à wallet por ${user.email}`,
-        details: {
-          email: user.email,
-          endpoint: "wallet-manage",
-          blocked_reason: "not_wallet_admin",
-        },
-      });
-
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Also verify admin role in DB
+    // DB role check is the sole source of truth — no hardcoded email.
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -67,6 +43,14 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!roleData) {
+      await supabase.from("operation_logs").insert({
+        user_id: user.id,
+        operation_type: "import",
+        status: "error",
+        entity_type: "wallet",
+        error_message: `Tentativa de acesso não autorizado à wallet por ${user.email}`,
+        details: { endpoint: "wallet-manage", blocked_reason: "not_admin" },
+      });
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
