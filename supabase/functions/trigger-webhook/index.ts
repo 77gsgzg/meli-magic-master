@@ -140,8 +140,8 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleTestWebhook(supabase: any, body: TestWebhookPayload) {
-  console.log(`Testing webhook ${body.webhook_id}`);
+async function handleTestWebhook(supabase: any, body: TestWebhookPayload, callerUserId: string) {
+  console.log(`Testing webhook ${body.webhook_id} for caller ${callerUserId}`);
 
   // Fetch the webhook
   const { data: webhook, error } = await supabase
@@ -155,6 +155,14 @@ async function handleTestWebhook(supabase: any, body: TestWebhookPayload) {
     return new Response(
       JSON.stringify({ error: "Webhook not found" }),
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Verify ownership — prevent cross-user webhook testing (IDOR)
+  if (webhook.user_id !== callerUserId) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
