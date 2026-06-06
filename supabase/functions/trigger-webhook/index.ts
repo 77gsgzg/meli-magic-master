@@ -60,29 +60,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    const callerUserId = claimsData.claims.sub as string;
     const body = await req.json();
-    console.log("Received webhook trigger request:", JSON.stringify(body));
+    console.log("Received webhook trigger request from user:", callerUserId);
 
     // Check if this is a test webhook request
     if (body.test && body.webhook_id) {
-      return await handleTestWebhook(supabase, body as TestWebhookPayload);
+      return await handleTestWebhook(supabase, body as TestWebhookPayload, callerUserId);
     }
 
-    // Regular webhook trigger
-    const { event_type, user_id, data } = body as WebhookPayload;
+    // Regular webhook trigger — ignore body.user_id, always use JWT subject
+    const { event_type, data } = body as WebhookPayload;
 
-    if (!event_type || !user_id) {
+    if (!event_type) {
       return new Response(
-        JSON.stringify({ error: "Missing event_type or user_id" }),
+        JSON.stringify({ error: "Missing event_type" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fetch active webhooks for this user subscribed to this event
+    // Fetch active webhooks for the caller subscribed to this event
     const { data: webhooks, error: webhooksError } = await supabase
       .from("webhooks")
       .select("*")
-      .eq("user_id", user_id)
+      .eq("user_id", callerUserId)
       .eq("is_active", true)
       .contains("events", [event_type]);
 
