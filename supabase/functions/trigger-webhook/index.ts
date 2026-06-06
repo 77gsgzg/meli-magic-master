@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     }
 
     if (!webhooks || webhooks.length === 0) {
-      console.log(`No active webhooks found for event ${event_type} and user ${user_id}`);
+      console.log(`No active webhooks found for event ${event_type} and user ${callerUserId}`);
       return new Response(
         JSON.stringify({ message: "No webhooks to trigger", triggered: 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
