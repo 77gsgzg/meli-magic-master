@@ -48,7 +48,7 @@ export function useWallet() {
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, isAdmin]);
 
   const addCredit = useCallback(async (amount: number, description?: string) => {
     setActionLoading(true);
