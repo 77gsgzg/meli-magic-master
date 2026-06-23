@@ -37,7 +37,7 @@ export function useWallet() {
   }, [session?.user?.id]);
 
   const fetchTransactions = useCallback(async (limit = 50, offset = 0) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isAdmin) return;
     try {
       const { data, error } = await supabase.functions.invoke('wallet-manage', {
         body: { action: 'get_transactions', limit, offset },
