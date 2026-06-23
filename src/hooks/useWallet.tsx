@@ -16,6 +16,7 @@ export interface WalletTransaction {
 
 export function useWallet() {
   const { session } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
@@ -23,7 +24,7 @@ export function useWallet() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchBalance = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isAdmin) return;
     try {
       const { data, error } = await supabase.functions.invoke('wallet-manage', {
         body: { action: 'get_balance' },
