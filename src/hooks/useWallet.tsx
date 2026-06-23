@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useIsAdmin } from './useIsAdmin';
 import { toast } from 'sonner';
 
 export interface WalletTransaction {
@@ -15,6 +16,7 @@ export interface WalletTransaction {
 
 export function useWallet() {
   const { session } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
@@ -22,7 +24,7 @@ export function useWallet() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchBalance = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isAdmin) return;
     try {
       const { data, error } = await supabase.functions.invoke('wallet-manage', {
         body: { action: 'get_balance' },
@@ -32,10 +34,10 @@ export function useWallet() {
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, isAdmin]);
 
   const fetchTransactions = useCallback(async (limit = 50, offset = 0) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isAdmin) return;
     try {
       const { data, error } = await supabase.functions.invoke('wallet-manage', {
         body: { action: 'get_transactions', limit, offset },
@@ -46,7 +48,7 @@ export function useWallet() {
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, isAdmin]);
 
   const addCredit = useCallback(async (amount: number, description?: string) => {
     setActionLoading(true);
@@ -104,11 +106,14 @@ export function useWallet() {
   }, [fetchBalance, fetchTransactions]);
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (adminLoading) return;
+    if (session?.user?.id && isAdmin) {
       setLoading(true);
       Promise.all([fetchBalance(), fetchTransactions()]).finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-  }, [session?.user?.id, fetchBalance, fetchTransactions]);
+  }, [session?.user?.id, isAdmin, adminLoading, fetchBalance, fetchTransactions]);
 
   return {
     balance,
