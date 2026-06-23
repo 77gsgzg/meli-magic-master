@@ -106,11 +106,14 @@ export function useWallet() {
   }, [fetchBalance, fetchTransactions]);
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (adminLoading) return;
+    if (session?.user?.id && isAdmin) {
       setLoading(true);
       Promise.all([fetchBalance(), fetchTransactions()]).finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-  }, [session?.user?.id, fetchBalance, fetchTransactions]);
+  }, [session?.user?.id, isAdmin, adminLoading, fetchBalance, fetchTransactions]);
 
   return {
     balance,
