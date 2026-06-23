@@ -34,7 +34,7 @@ export function useWallet() {
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, isAdmin]);
 
   const fetchTransactions = useCallback(async (limit = 50, offset = 0) => {
     if (!session?.user?.id || !isAdmin) return;
