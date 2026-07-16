@@ -13,6 +13,23 @@ interface DownloadResult {
   error?: string;
 }
 
+function isBlockedHost(host: string): boolean {
+  const h = host.toLowerCase();
+  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0', '::1'].includes(h)) return true;
+  if (h === '169.254.169.254' || h.endsWith('.metadata.google.internal')) return true;
+  if (h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(h)) {
+    const parts = h.split('.').map(Number);
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    if (parts[0] === 127) return true;
+    if (parts[0] === 0) return true;
+  }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -77,6 +94,11 @@ serve(async (req) => {
         const parsedUrl = new URL(imageUrl);
         if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
           result.error = 'Protocolo inválido';
+          results.push(result);
+          continue;
+        }
+        if (isBlockedHost(parsedUrl.hostname.toLowerCase())) {
+          result.error = 'Host bloqueado (rede interna)';
           results.push(result);
           continue;
         }
