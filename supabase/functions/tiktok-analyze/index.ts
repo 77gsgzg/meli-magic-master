@@ -7,8 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ADMIN_EMAIL = "farmatgu@gmail.com";
-
 async function getAdminClient(req: Request) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) throw { status: 401, message: "Unauthorized" };
@@ -20,8 +18,9 @@ async function getAdminClient(req: Request) {
   });
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== ADMIN_EMAIL) throw { status: 403, message: "Forbidden" };
+  if (!user) throw { status: 401, message: "Unauthorized" };
 
+  // Rely solely on user_roles.admin — no hardcoded admin email.
   const { data: roleData } = await supabase
     .from("user_roles")
     .select("role")

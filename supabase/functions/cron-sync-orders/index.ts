@@ -49,14 +49,32 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Allow only calls with a valid JWT (anon or authenticated).
-    const jwt = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(jwt);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Require either CRON_SECRET (scheduler) or an admin JWT to invoke
+    // this cross-account sync. A plain authenticated JWT is not enough.
+    const token = authHeader.replace("Bearer ", "");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isCron = !!cronSecret && token === cronSecret;
+
+    if (!isCron) {
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims?.sub) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", claimsData.claims.sub)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!roleData) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Abuse protection: do not run more than once every 10 minutes.
