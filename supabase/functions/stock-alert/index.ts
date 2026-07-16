@@ -16,21 +16,35 @@ interface StockAlertRequest {
     suggestedRestock: number;
     trend: string;
   }>;
-  recipientEmail: string;
   criticalDays?: number;
 }
 
-serve(async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+async function checkRateLimit(supabase: any, userId: string, endpoint: string, maxPerHour: number) {
+  const windowStart = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data: row } = await supabase
+    .from("rate_limit_tracking")
+    .select("id, request_count, window_start")
+    .eq("user_id", userId).eq("endpoint", endpoint).maybeSingle();
+  if (!row || new Date(row.window_start).toISOString() < windowStart) {
+    await supabase.from("rate_limit_tracking").upsert(
+      { user_id: userId, endpoint, request_count: 1, window_start: new Date().toISOString() },
+      { onConflict: "user_id,endpoint" }
+    );
+    return true;
   }
+  if (row.request_count >= maxPerHour) return false;
+  await supabase.from("rate_limit_tracking").update({ request_count: row.request_count + 1 }).eq("id", row.id);
+  return true;
+}
+
+serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -41,22 +55,28 @@ serve(async (req: Request): Promise<Response> => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
+    if (authError || !user || !user.email) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { products, recipientEmail, criticalDays = 7 } = await req.json() as StockAlertRequest;
-
-    if (!recipientEmail || !recipientEmail.includes("@")) {
-      return new Response(JSON.stringify({ error: "Invalid recipient email" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!(await checkRateLimit(supabase, user.id, "stock-alert", 5))) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const { products, criticalDays = 7 } = (await req.json()) as StockAlertRequest;
+    if (!Array.isArray(products)) {
+      return new Response(JSON.stringify({ error: "products must be an array" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Recipient is always the caller's own account email — no arbitrary
+    // recipient/from/HTML overrides accepted from the client.
+    const recipientEmail = user.email;
 
     // Filter products with critical stock
     const criticalProducts = products.filter(p => 
