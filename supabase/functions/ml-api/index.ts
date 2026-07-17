@@ -282,8 +282,20 @@ serve(async (req) => {
         result = await response.json();
 
         if (response.ok && result.id) {
-          // Update product in database
+          // Update product in database (scoped to caller to prevent IDOR)
           if (data.product_id) {
+            const { data: ownedProduct } = await supabase
+              .from('products')
+              .select('id')
+              .eq('id', data.product_id)
+              .eq('user_id', userId)
+              .maybeSingle();
+
+            if (!ownedProduct) {
+              result = { error: 'Product not found or not owned by caller' };
+              break;
+            }
+
             await supabase
               .from('products')
               .update({
@@ -292,7 +304,8 @@ serve(async (req) => {
                 status: 'published',
                 published_at: new Date().toISOString(),
               })
-              .eq('id', data.product_id);
+              .eq('id', data.product_id)
+              .eq('user_id', userId);
 
             await supabase.from('publication_history').insert({
               user_id: userId,
@@ -323,13 +336,26 @@ serve(async (req) => {
             }
           }
         } else if (data.product_id) {
+          const { data: ownedProduct } = await supabase
+            .from('products')
+            .select('id')
+            .eq('id', data.product_id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!ownedProduct) {
+            result = { error: 'Product not found or not owned by caller' };
+            break;
+          }
+
           await supabase
             .from('products')
             .update({
               status: 'error',
               error_message: result.message || JSON.stringify(result.cause),
             })
-            .eq('id', data.product_id);
+            .eq('id', data.product_id)
+            .eq('user_id', userId);
 
           await supabase.from('publication_history').insert({
             user_id: userId,
@@ -338,6 +364,7 @@ serve(async (req) => {
             status: 'error',
             error_details: result.message || JSON.stringify(result),
           });
+
 
           // Trigger webhook for publish error
           try {
