@@ -485,6 +485,44 @@ serve(async (req) => {
               .eq('ml_item_id', orderItem.item?.id)
               .maybeSingle();
 
+            // Encrypt PII fields at rest (matches cron-sync-orders behavior)
+            const encBuyerFirstName = await encryptValue(buyer.first_name);
+            const encBuyerLastName = await encryptValue(buyer.last_name);
+            const encBuyerEmail = await encryptValue(buyer.email);
+            const encBuyerPhone = await encryptValue(buyer.phone?.number);
+            const encBuyerDocNumber = await encryptValue(buyer.billing_info?.doc_number);
+            const encReceiverName = await encryptValue(shipping.receiver_name);
+            const addressLine = shipping.street_name
+              ? `${shipping.street_name}, ${shipping.street_number || ''}`
+              : null;
+            const encAddressLine = await encryptValue(addressLine);
+            const encAddressCity = await encryptValue(shipping.city?.name);
+            const encAddressState = await encryptValue(shipping.state?.name);
+            const encAddressZip = await encryptValue(shipping.zip_code);
+
+            // Sanitize raw payloads to strip PII before storing
+            const sanitizeRaw = (d: any): any => {
+              if (!d) return null;
+              const c = JSON.parse(JSON.stringify(d));
+              if (c.buyer) {
+                delete c.buyer.email;
+                delete c.buyer.phone;
+                delete c.buyer.first_name;
+                delete c.buyer.last_name;
+                delete c.buyer.billing_info;
+                delete c.buyer.alternative_phone;
+              }
+              if (c.receiver_address) {
+                delete c.receiver_address.receiver_name;
+                delete c.receiver_address.receiver_phone;
+              }
+              if (c.shipping?.receiver_address) {
+                delete c.shipping.receiver_address.receiver_name;
+                delete c.shipping.receiver_address.receiver_phone;
+              }
+              return c;
+            };
+
             // Upsert order in database
             const { error: upsertError } = await supabase
               .from('ml_orders')
@@ -498,19 +536,18 @@ serve(async (req) => {
                 date_closed: order.date_closed || null,
                 buyer_id: buyer.id?.toString() || '',
                 buyer_nickname: buyer.nickname || 'Unknown',
-                buyer_first_name: buyer.first_name || null,
-                buyer_last_name: buyer.last_name || null,
-                buyer_email: buyer.email || null,
-                buyer_phone: buyer.phone?.number || null,
+                buyer_first_name: encBuyerFirstName,
+                buyer_last_name: encBuyerLastName,
+                buyer_email: encBuyerEmail,
+                buyer_phone: encBuyerPhone,
+                buyer_document_number: encBuyerDocNumber,
                 shipping_id: order.shipping?.id?.toString() || null,
                 shipping_status: shippingData?.status || null,
-                shipping_receiver_name: shipping.receiver_name || null,
-                shipping_address_line: shipping.street_name 
-                  ? `${shipping.street_name}, ${shipping.street_number || ''}` 
-                  : null,
-                shipping_address_city: shipping.city?.name || null,
-                shipping_address_state: shipping.state?.name || null,
-                shipping_address_zip_code: shipping.zip_code || null,
+                shipping_receiver_name: encReceiverName,
+                shipping_address_line: encAddressLine,
+                shipping_address_city: encAddressCity,
+                shipping_address_state: encAddressState,
+                shipping_address_zip_code: encAddressZip,
                 shipping_address_country: shipping.country?.name || null,
                 ml_item_id: orderItem.item?.id || '',
                 item_title: orderItem.item?.title || 'Unknown Item',
@@ -521,9 +558,10 @@ serve(async (req) => {
                 total_amount: order.total_amount || null,
                 tracking_number: shippingData?.tracking_number || null,
                 tracking_url: shippingData?.tracking_url || null,
-                raw_order_data: orderDetail,
-                raw_shipping_data: shippingData,
+                raw_order_data: sanitizeRaw(orderDetail),
+                raw_shipping_data: sanitizeRaw(shippingData),
               }, { onConflict: 'ml_order_id' });
+
 
             if (!upsertError) {
               syncedCount++;
