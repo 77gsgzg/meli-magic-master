@@ -65,6 +65,12 @@ serve(async (req) => {
       return `enc:${b64}`;
     };
 
+    const encryptValue = async (plain: string | null | undefined): Promise<string | null> => {
+      if (plain === null || plain === undefined || plain === '') return null;
+      return await encryptToken(String(plain));
+    };
+
+
     const decryptToken = async (value: string): Promise<string> => {
       if (!value.startsWith('enc:')) return value;
       const key = await getCryptoKey();
