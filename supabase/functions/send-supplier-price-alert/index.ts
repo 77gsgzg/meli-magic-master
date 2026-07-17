@@ -17,8 +17,6 @@ interface PriceChange {
 }
 
 interface AlertPayload {
-  userId: string;
-  email: string;
   priceChanges: PriceChange[];
   threshold: number;
 }
@@ -33,9 +31,44 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // Require authenticated caller
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    const { userId, email, priceChanges, threshold }: AlertPayload = await req.json();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    // Only send to the authenticated caller's own registered email
+    const email = (claimsData.claims.email as string | undefined) || '';
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: 'No email associated with account' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { priceChanges, threshold }: AlertPayload = body || {};
+
+    if (!Array.isArray(priceChanges) || typeof threshold !== 'number') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid payload' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log(`Sending price alert to ${email} for ${priceChanges.length} changes (threshold: ${threshold}%)`);
 
@@ -51,8 +84,18 @@ serve(async (req) => {
       );
     }
 
-    // Log price changes to history
-    for (const change of significantChanges) {
+    // Only log price changes for supplier_products actually owned by the caller
+    const productIds = significantChanges.map(c => c.productId).filter(Boolean);
+    const { data: ownedRows } = await supabase
+      .from('supplier_products')
+      .select('id')
+      .eq('user_id', userId)
+      .in('id', productIds);
+    const ownedIds = new Set((ownedRows || []).map((r: any) => r.id));
+
+    const ownedChanges = significantChanges.filter(c => ownedIds.has(c.productId));
+
+    for (const change of ownedChanges) {
       await supabase.from('supplier_price_history').insert({
         supplier_product_id: change.productId,
         user_id: userId,
@@ -67,11 +110,20 @@ serve(async (req) => {
     if (RESEND_API_KEY) {
       const resend = new Resend(RESEND_API_KEY);
 
-      const increasedPrices = significantChanges.filter(c => c.percentageChange > 0);
-      const decreasedPrices = significantChanges.filter(c => c.percentageChange < 0);
+      const increasedPrices = ownedChanges.filter(c => c.percentageChange > 0);
+      const decreasedPrices = ownedChanges.filter(c => c.percentageChange < 0);
 
-      const formatCurrency = (value: number) => 
+      const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+      // Escape user-influenced text to prevent HTML injection into the template
+      const escapeHtml = (v: unknown): string =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
 
       const emailHtml = `
         <!DOCTYPE html>
@@ -99,13 +151,12 @@ serve(async (req) => {
               <p style="margin:8px 0 0;">Detectamos mudanças significativas nos preços do fornecedor</p>
             </div>
             <div class="content">
-              <p>Foram detectadas <strong>${significantChanges.length}</strong> mudança(s) de preço que excedem o limite de <strong>${threshold}%</strong>:</p>
-              
+              <p>Foram detectadas <strong>${ownedChanges.length}</strong> mudança(s) de preço que excedem o limite de <strong>${threshold}%</strong>:</p>
               ${increasedPrices.length > 0 ? `
                 <h3 style="color:#dc2626;">📈 Preços Aumentaram (${increasedPrices.length})</h3>
                 ${increasedPrices.map(change => `
                   <div class="alert-card price-increase">
-                    <p style="margin:0 0 8px; font-weight:bold;">${change.title}</p>
+                    <p style="margin:0 0 8px; font-weight:bold;">${escapeHtml(change.title)}</p>
                     <p style="margin:0;">
                       <span class="old-price">${formatCurrency(change.oldPrice)}</span>
                       → <span class="new-price">${formatCurrency(change.newPrice)}</span>
@@ -114,12 +165,11 @@ serve(async (req) => {
                   </div>
                 `).join('')}
               ` : ''}
-              
               ${decreasedPrices.length > 0 ? `
                 <h3 style="color:#16a34a;">📉 Preços Diminuíram (${decreasedPrices.length})</h3>
                 ${decreasedPrices.map(change => `
                   <div class="alert-card price-decrease">
-                    <p style="margin:0 0 8px; font-weight:bold;">${change.title}</p>
+                    <p style="margin:0 0 8px; font-weight:bold;">${escapeHtml(change.title)}</p>
                     <p style="margin:0;">
                       <span class="old-price">${formatCurrency(change.oldPrice)}</span>
                       → <span class="new-price">${formatCurrency(change.newPrice)}</span>
@@ -128,7 +178,6 @@ serve(async (req) => {
                   </div>
                 `).join('')}
               ` : ''}
-              
               <p style="margin-top:24px; padding:16px; background:#e0e7ff; border-radius:8px;">
                 💡 <strong>Recomendação:</strong> Acesse o painel de Sincronização de Preços para atualizar seus anúncios no Mercado Livre.
               </p>
@@ -138,21 +187,22 @@ serve(async (req) => {
         </html>
       `;
 
-      await resend.emails.send({
-        from: "Alertas <onboarding@resend.dev>",
-        to: [email],
-        subject: `⚠️ ${significantChanges.length} mudança(s) de preço detectada(s)`,
-        html: emailHtml,
-      });
-
-      console.log(`Email sent successfully to ${email}`);
+      if (ownedChanges.length > 0) {
+        await resend.emails.send({
+          from: "Alertas <onboarding@resend.dev>",
+          to: [email],
+          subject: `⚠️ ${ownedChanges.length} mudança(s) de preço detectada(s)`,
+          html: emailHtml,
+        });
+        console.log(`Email sent successfully to ${email}`);
+      }
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        sent: true, 
-        changesAlerted: significantChanges.length 
+      JSON.stringify({
+        success: true,
+        sent: ownedChanges.length > 0,
+        changesAlerted: ownedChanges.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
