@@ -10,38 +10,29 @@ interface DelayReminderRequest {
   orderId: string;
 }
 
-// Basic per-user rate limit using rate_limit_tracking.
+// Atomic per-user rate limit using the check_and_increment_rate_limit RPC.
+// Fail-closed on RPC errors — this endpoint triggers outbound email (cost + abuse risk).
 async function checkRateLimit(
   supabase: any,
   userId: string,
   endpoint: string,
   maxPerHour: number
-): Promise<{ ok: boolean; remaining: number }> {
-  const windowStart = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { data: row } = await supabase
-    .from("rate_limit_tracking")
-    .select("id, request_count, window_start")
-    .eq("user_id", userId)
-    .eq("endpoint", endpoint)
-    .maybeSingle();
-
-  if (!row || new Date(row.window_start).toISOString() < windowStart) {
-    await supabase
-      .from("rate_limit_tracking")
-      .upsert(
-        { user_id: userId, endpoint, request_count: 1, window_start: new Date().toISOString() },
-        { onConflict: "user_id,endpoint" }
-      );
-    return { ok: true, remaining: maxPerHour - 1 };
+): Promise<{ ok: boolean; remaining: number; retryAfter?: number; failed?: boolean }> {
+  const { data, error } = await supabase.rpc("check_and_increment_rate_limit", {
+    p_user_id: userId,
+    p_endpoint: endpoint,
+    p_max: maxPerHour,
+    p_window_seconds: 3600,
+  });
+  if (error) {
+    console.error(`[rate-limit] RPC error on ${endpoint} (fail-closed):`, error);
+    return { ok: false, remaining: 0, failed: true };
   }
-
-  if (row.request_count >= maxPerHour) return { ok: false, remaining: 0 };
-
-  await supabase
-    .from("rate_limit_tracking")
-    .update({ request_count: row.request_count + 1 })
-    .eq("id", row.id);
-  return { ok: true, remaining: maxPerHour - row.request_count - 1 };
+  return {
+    ok: !!data?.allowed,
+    remaining: Number(data?.remaining ?? 0),
+    retryAfter: data?.retry_after_seconds,
+  };
 }
 
 const escapeHtml = (s: string) =>
@@ -85,8 +76,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Rate limit: max 10 delay reminders per hour per user.
     const rl = await checkRateLimit(supabase, user.id, "send-delay-reminder", 10);
     if (!rl.ok) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-        status: 429, headers: { "Content-Type": "application/json", ...corsHeaders },
+      const status = rl.failed ? 503 : 429;
+      return new Response(JSON.stringify({ error: rl.failed ? "Rate limit service unavailable" : "Rate limit exceeded", retry_after_seconds: rl.retryAfter }), {
+        status, headers: { "Content-Type": "application/json", ...corsHeaders, ...(rl.retryAfter ? { "Retry-After": String(rl.retryAfter) } : {}) },
       });
     }
 

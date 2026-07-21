@@ -63,34 +63,26 @@ serve(async (req) => {
 
     const userId = claimsData.claims.sub;
 
-    // Rate limiting: 10 batch imports per minute per user
-    const RATE_LIMIT_WINDOW = 60000; // 1 minute
-    const RATE_LIMIT_MAX = 10;
-    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW);
-    
-    const { data: rateData } = await supabase
-      .from('rate_limit_tracking')
-      .select('request_count')
-      .eq('user_id', userId)
-      .eq('endpoint', 'batch-import')
-      .gte('window_start', windowStart.toISOString())
-      .single();
-
-    if (rateData && rateData.request_count >= RATE_LIMIT_MAX) {
-      console.warn(`Rate limit exceeded for user ${userId} on batch-import`);
+    // Atomic rate limit: 10 batch imports/min. Fail-closed.
+    const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: 'batch-import',
+      p_max: 10,
+      p_window_seconds: 60,
+    });
+    if (rlErr) {
+      console.error('[rate-limit] RPC error on batch-import (fail-closed):', rlErr);
       return new Response(
-        JSON.stringify({ success: false, error: 'Rate limit exceeded. Please wait before trying again.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Rate limit service unavailable. Please retry shortly.' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Update rate limit counter
-    await supabase.from('rate_limit_tracking').upsert({
-      user_id: userId,
-      endpoint: 'batch-import',
-      request_count: (rateData?.request_count || 0) + 1,
-      window_start: rateData ? undefined : new Date().toISOString(),
-    }, { onConflict: 'user_id,endpoint' });
+    if (!rl?.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: rl?.retry_after_seconds ?? 60 }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl?.retry_after_seconds ?? 60) } }
+      );
+    }
 
     const body = await req.json();
     const { urls, resume_log_id, save_progress = true } = body;
