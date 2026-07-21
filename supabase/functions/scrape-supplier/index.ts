@@ -60,34 +60,26 @@ serve(async (req) => {
 
     const userId = claimsData.claims.sub;
 
-    // Rate limiting: 20 requests per minute per user
-    const RATE_LIMIT_WINDOW = 60000; // 1 minute
-    const RATE_LIMIT_MAX = 20;
-    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW);
-    
-    const { data: rateData } = await supabase
-      .from('rate_limit_tracking')
-      .select('request_count')
-      .eq('user_id', userId)
-      .eq('endpoint', 'scrape-supplier')
-      .gte('window_start', windowStart.toISOString())
-      .single();
-
-    if (rateData && rateData.request_count >= RATE_LIMIT_MAX) {
-      console.warn(`Rate limit exceeded for user ${userId} on scrape-supplier`);
+    // Atomic rate limit: 20 req/min. Fail-closed (external scraping cost).
+    const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: 'scrape-supplier',
+      p_max: 20,
+      p_window_seconds: 60,
+    });
+    if (rlErr) {
+      console.error('[rate-limit] RPC error on scrape-supplier (fail-closed):', rlErr);
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Update rate limit counter
-    await supabase.from('rate_limit_tracking').upsert({
-      user_id: userId,
-      endpoint: 'scrape-supplier',
-      request_count: (rateData?.request_count || 0) + 1,
-      window_start: rateData ? undefined : new Date().toISOString(),
-    }, { onConflict: 'user_id,endpoint' });
+    if (!rl?.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: rl?.retry_after_seconds ?? 60 }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl?.retry_after_seconds ?? 60) } }
+      );
+    }
 
     const { supplierUrl, searchQuery } = await req.json();
 

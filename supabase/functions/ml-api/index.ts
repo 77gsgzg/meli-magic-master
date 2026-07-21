@@ -199,30 +199,26 @@ serve(async (req) => {
       }
     }
 
-    // Rate limiting check
-    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW);
-    const { data: rateData } = await supabase
-      .from('rate_limit_tracking')
-      .select('request_count')
-      .eq('user_id', userId)
-      .eq('endpoint', 'ml-api')
-      .gte('window_start', windowStart.toISOString())
-      .single();
-
-    if (rateData && rateData.request_count >= RATE_LIMIT_MAX) {
+    // Atomic rate limit. Fail-closed to protect against ML API abuse.
+    const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: 'ml-api',
+      p_max: RATE_LIMIT_MAX,
+      p_window_seconds: Math.round(RATE_LIMIT_WINDOW / 1000),
+    });
+    if (rlErr) {
+      console.error('[rate-limit] RPC error on ml-api (fail-closed):', rlErr);
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Update rate limit counter
-    await supabase.from('rate_limit_tracking').upsert({
-      user_id: userId,
-      endpoint: 'ml-api',
-      request_count: (rateData?.request_count || 0) + 1,
-      window_start: rateData ? undefined : new Date().toISOString(),
-    }, { onConflict: 'user_id,endpoint' }).select();
+    if (!rl?.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment.', retry_after_seconds: rl?.retry_after_seconds ?? 60 }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rl?.retry_after_seconds ?? 60) } }
+      );
+    }
 
     // Handle different actions
     let result;
