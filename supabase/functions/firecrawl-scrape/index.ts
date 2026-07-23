@@ -5,6 +5,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const RATE_LIMIT_ENDPOINT = 'firecrawl-scrape';
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
+
+// SSRF guard: block private/loopback/link-local hosts
+function isBlockedHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h === '0.0.0.0' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  if (/^169\.254\./.test(h)) return true;
+  if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,6 +36,7 @@ Deno.serve(async (req) => {
     }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAuth = createClient(supabaseUrl, supabaseAnon);
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
       authHeader.replace('Bearer ', '')
@@ -31,12 +47,35 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const userId = claimsData.claims.sub as string;
 
     const { url, options } = await req.json();
 
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return new Response(
         JSON.stringify({ success: false, error: 'URL is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    // SSRF guard BEFORE any external call / rate-limit spend
+    let parsed: URL;
+    try {
+      parsed = new URL(formattedUrl);
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid URL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol) || isBlockedHost(parsed.hostname)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'URL not allowed' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -50,9 +89,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-      formattedUrl = `https://${formattedUrl}`;
+    // Atomic rate limit (fail-closed). Use service role — RPC is granted only to service_role.
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    const { data: rl, error: rlErr } = await supabaseAdmin.rpc('check_and_increment_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: RATE_LIMIT_ENDPOINT,
+      p_max: RATE_LIMIT_MAX,
+      p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+    });
+    if (rlErr) {
+      console.error('[rate-limit] RPC error on firecrawl-scrape (fail-closed):', rlErr);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit service unavailable. Please retry shortly.' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!rl?.allowed) {
+      const retry = rl?.retry_after_seconds ?? RATE_LIMIT_WINDOW_SECONDS;
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) } }
+      );
     }
 
     console.log('Scraping URL with Firecrawl:', formattedUrl);

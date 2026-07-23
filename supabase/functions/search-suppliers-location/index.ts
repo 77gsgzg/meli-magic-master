@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY')!
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -119,10 +120,46 @@ Deno.serve(async (req) => {
 
     const userId = claims.claims.sub as string
     const body = await req.json()
-    
+
     const params: SearchParams = body
-    
+
     console.log('Search params:', params)
+
+    // Validate location BEFORE any external / paid call
+    if (!params.latitude && !params.longitude && !params.city) {
+      return new Response(
+        JSON.stringify({
+          error: 'Localização ou cidade necessária',
+          suppliers: [],
+          searchLocation: null
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Atomic rate limit (fail-closed). One user operation can spawn many Google Places calls
+    // (geocode + text search across radiuses + place details), so limit is conservative.
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey)
+    const { data: rl, error: rlErr } = await supabaseAdmin.rpc('check_and_increment_rate_limit', {
+      p_user_id: userId,
+      p_endpoint: 'search-suppliers-location',
+      p_max: 15,
+      p_window_seconds: 60,
+    })
+    if (rlErr) {
+      console.error('[rate-limit] RPC error on search-suppliers-location (fail-closed):', rlErr)
+      return new Response(
+        JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.', suppliers: [] }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    if (!rl?.allowed) {
+      const retry = rl?.retry_after_seconds ?? 60
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry, suppliers: [] }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) } }
+      )
+    }
 
     const results: any[] = []
     let searchLocation = { lat: 0, lng: 0 }
@@ -135,28 +172,19 @@ Deno.serve(async (req) => {
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(params.city + (params.state ? ', ' + params.state : '') + ', Brasil')}&key=${googleApiKey}`
       const geocodeRes = await fetch(geocodeUrl)
       const geocodeData = await geocodeRes.json()
-      
+
       if (geocodeData.results && geocodeData.results.length > 0) {
         searchLocation = geocodeData.results[0].geometry.location
       } else {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Cidade não encontrada',
             suppliers: [],
-            searchLocation: null 
+            searchLocation: null
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-    } else {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Localização ou cidade necessária',
-          suppliers: [],
-          searchLocation: null 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
     }
 
     // Step 2: Build search queries
