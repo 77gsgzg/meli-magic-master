@@ -53,6 +53,28 @@ serve(async (req) => {
       });
     }
 
+    // Atomic rate limit: 10 generations per minute per user (each call produces 3 variations = heavier cost).
+    {
+      const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+        p_user_id: user.id,
+        p_endpoint: 'ai-generate-image',
+        p_max: 10,
+        p_window_seconds: 60,
+      });
+      if (rlErr) {
+        console.error('[rate-limit] RPC error on ai-generate-image (fail-closed):', rlErr);
+        return new Response(JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }), {
+          status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (!rl?.allowed) {
+        const retry = rl?.retry_after_seconds ?? 60;
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) },
+        });
+      }
+    }
+
     const { style, image_url, record_id } = await req.json();
 
     if (!style) {
