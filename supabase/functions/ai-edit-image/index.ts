@@ -53,6 +53,28 @@ serve(async (req) => {
       });
     }
 
+    // Atomic rate limit: 20 image edits per minute per user. Fail-closed on RPC error.
+    {
+      const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+        p_user_id: user.id,
+        p_endpoint: 'ai-edit-image',
+        p_max: 20,
+        p_window_seconds: 60,
+      });
+      if (rlErr) {
+        console.error('[rate-limit] RPC error on ai-edit-image (fail-closed):', rlErr);
+        return new Response(JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }), {
+          status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (!rl?.allowed) {
+        const retry = rl?.retry_after_seconds ?? 60;
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) },
+        });
+      }
+    }
+
     const { image_data, prompt, edit_type, record_id } = await req.json();
 
     if (!image_data || !prompt) {
