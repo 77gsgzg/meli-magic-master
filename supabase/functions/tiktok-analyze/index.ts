@@ -33,6 +33,41 @@ async function getAdminClient(req: Request) {
   return { supabase, user };
 }
 
+// Service-role client for calling the atomic rate-limit RPC (granted only to service_role).
+function getServiceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+// Atomic rate limit before any paid external call (Apify + Lovable AI Gateway).
+// One user operation = one increment even if it fans out to multiple external APIs.
+async function enforceRateLimit(userId: string, max: number): Promise<Response | null> {
+  const admin = getServiceClient();
+  const { data: rl, error: rlErr } = await admin.rpc('check_and_increment_rate_limit', {
+    p_user_id: userId,
+    p_endpoint: 'tiktok-analyze',
+    p_max: max,
+    p_window_seconds: 60,
+  });
+  if (rlErr) {
+    console.error('[rate-limit] RPC error on tiktok-analyze (fail-closed):', rlErr);
+    return new Response(
+      JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }),
+      { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+  if (!rl?.allowed) {
+    const retry = rl?.retry_after_seconds ?? 60;
+    return new Response(
+      JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) } },
+    );
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
