@@ -54,6 +54,28 @@ serve(async (req) => {
       );
     }
 
+    // Atomic rate limit: 15 forecasts per minute per user. Fail-closed on RPC error.
+    {
+      const { data: rl, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+        p_user_id: user.id,
+        p_endpoint: 'demand-forecast',
+        p_max: 15,
+        p_window_seconds: 60,
+      });
+      if (rlErr) {
+        console.error('[rate-limit] RPC error on demand-forecast (fail-closed):', rlErr);
+        return new Response(JSON.stringify({ error: 'Rate limit service unavailable. Please retry shortly.' }), {
+          status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (!rl?.allowed) {
+        const retry = rl?.retry_after_seconds ?? 60;
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before trying again.', retry_after_seconds: retry }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) },
+        });
+      }
+    }
+
     const { products }: { products: ProductData[] } = await req.json();
 
     if (!products || products.length === 0) {
