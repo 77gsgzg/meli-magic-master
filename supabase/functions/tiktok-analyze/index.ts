@@ -372,9 +372,12 @@ Extraia:
       });
     }
 
-    // === AUTO COLLECT (simulated — ready for Apify) ===
+    // === AUTO COLLECT (Apify) ===
     if (action === "auto_collect") {
       const { hashtags: searchHashtags, limit = 20 } = body;
+      // Rate limit BEFORE Apify spend (one operation regardless of items returned)
+      const rlResp = await enforceRateLimit(user.id, 10);
+      if (rlResp) return rlResp;
 
       // Check for APIFY_API_KEY
       const APIFY_API_KEY = Deno.env.get("APIFY_API_KEY");
