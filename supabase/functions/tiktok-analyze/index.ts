@@ -107,6 +107,14 @@ serve(async (req) => {
     // === ANALYZE ===
     if (action === "analyze") {
       const { videoId } = body;
+      if (!videoId) {
+        return new Response(JSON.stringify({ error: "videoId required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Rate limit BEFORE Apify / Lovable AI Gateway spend
+      const rlResp = await enforceRateLimit(user.id, 10);
+      if (rlResp) return rlResp;
       const { data: video, error: fetchError } = await supabase
         .from("tiktok_videos")
         .select("*")
