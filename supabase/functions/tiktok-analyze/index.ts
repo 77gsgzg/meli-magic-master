@@ -246,6 +246,14 @@ Forneça:
     // === MARK AS MODEL — extract creative pattern ===
     if (action === "mark_as_model") {
       const { videoId } = body;
+      if (!videoId) {
+        return new Response(JSON.stringify({ error: "videoId required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Rate limit BEFORE Lovable AI Gateway call
+      const rlResp = await enforceRateLimit(user.id, 10);
+      if (rlResp) return rlResp;
 
       // Check if already a model
       const { data: existingModel } = await supabase
